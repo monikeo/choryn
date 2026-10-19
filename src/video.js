@@ -1,3 +1,4 @@
+import {lastMatch,createAudioContext} from './compat.js';
 import {samplePerformance,timecode,beatAt,clamp} from './engine.js';
 import {contrastText} from './colors.js';
 
@@ -14,7 +15,7 @@ export function videoSettings(duration,input={}){
 }
 export function supportedVideoFormats(Recorder=globalThis.MediaRecorder){
   if(!Recorder?.isTypeSupported)return [];
-  return [['video/webm;codecs=vp9,opus','WebM · VP9','webm'],['video/webm;codecs=vp8,opus','WebM · VP8','webm'],['video/mp4;codecs=avc1.42E01E,mp4a.40.2','MP4 · H.264','mp4'],['video/mp4','MP4','mp4']].filter(([mime])=>Recorder.isTypeSupported(mime));
+  return [['video/webm;codecs=vp9,opus','WebM · VP9','webm'],['video/webm;codecs=vp8,opus','WebM · VP8','webm'],['video/mp4;codecs=avc1.42E01E,mp4a.40.2','MP4 · H.264','mp4'],['video/mp4','MP4','mp4']].filter(([mime])=>(()=>{try{return Recorder.isTypeSupported(mime);}catch{return false;}})());
 }
 export function drawVideoFrame(ctx,project,time,settings){
   const {width:w,height:h}=settings,s=h/720;
@@ -37,7 +38,7 @@ export function drawVideoFrame(ctx,project,time,settings){
     ctx.fillStyle=contrastText(person.color);ctx.font=`bold ${Math.max(9,radius)}px system-ui`;ctx.textAlign='center';ctx.fillText(String(person.number),p.x,p.y+radius*.35);
     if(settings.labels){ctx.font='12px system-ui';ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.strokeText(person.name.slice(0,30),p.x,p.y-radius-7);ctx.fillStyle='#332b46';ctx.fillText(person.name.slice(0,30),p.x,p.y-radius-7);}
   }ctx.restore();ctx.textAlign='center';ctx.fillStyle='#776a87';ctx.font='11px system-ui';ctx.fillText('AUDIENCE / DOWNSTAGE',W/2,y+sh+28);
-  const formation=project.formations.findLast(f=>f.time<=time)||project.formations[0],beat=beatAt(project,time);
+  const formation=lastMatch(project.formations,f=>f.time<=time)||project.formations[0],beat=beatAt(project,time);
   ctx.textAlign='left';ctx.fillStyle='#332b46';ctx.font='bold 16px system-ui';ctx.fillText(formation.name.slice(0,70),margin,H-43,W-margin*2-180);ctx.textAlign='right';ctx.fillText(`${timecode(time)}  ·  ${beat.phrase}.${beat.beat} / 8`,W-margin,H-43);
   ctx.fillStyle='#ded8e8';ctx.fillRect(margin,H-22,W-margin*2,3);ctx.fillStyle='#8465d6';ctx.fillRect(margin,H-22,(W-margin*2)*time/project.duration,3);ctx.restore();
 }
@@ -55,7 +56,7 @@ export async function recordVideo(project,settings,{mime,audioBuffer,signal,onPr
   try{
     if(signal?.aborted)throw Error('Video export cancelled.');
     drawVideoFrame(ctx,project,settings.start,settings);stream=canvas.captureStream(settings.fps);
-    if(audioBuffer){audioContext=new AudioContext();await audioContext.resume();const destination=audioContext.createMediaStreamDestination(),gain=audioContext.createGain();gain.gain.value=.65;gain.connect(destination);source=audioContext.createBufferSource();source.buffer=audioBuffer;source.connect(gain);destination.stream.getAudioTracks().forEach(track=>stream.addTrack(track));}
+    if(audioBuffer){audioContext=createAudioContext();await audioContext.resume();const destination=audioContext.createMediaStreamDestination(),gain=audioContext.createGain();gain.gain.value=.65;gain.connect(destination);source=audioContext.createBufferSource();source.buffer=audioBuffer;source.connect(gain);destination.stream.getAudioTracks().forEach(track=>stream.addTrack(track));}
     if(signal?.aborted)throw Error('Video export cancelled.');
     recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:settings.bitrate,audioBitsPerSecond:192000});
     const result=new Promise((resolve,reject)=>{recorder.ondataavailable=e=>{if(e.data.size){chunks.push(e.data);bytes+=e.data.size;if(bytes>450*1024*1024)stop('The recording exceeded the device memory limit. Export a shorter clip.');}};recorder.onerror=e=>reject(e.error||Error('The video encoder failed. Try a lower quality.'));recorder.onstop=()=>aborted?reject(Error(stopReason)):resolve(new Blob(chunks,{type:recorder.mimeType}));});

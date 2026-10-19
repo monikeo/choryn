@@ -1,4 +1,4 @@
-const id = () => crypto.randomUUID();
+import {localId as id} from './compat.js';
 const finite = (n, min, max) => typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max;
 const text = (v, length = 200) => typeof v === 'string' && v.length <= length;
 const safeId = v => typeof v === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(v);

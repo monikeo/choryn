@@ -1,3 +1,4 @@
+import {observeSize} from './compat.js';
 import {clone,clamp,timecode} from './engine.js';
 
 import {editTimeline,snappedTime,timelineItem,copyTimelineItem,pasteTimelineItem,duplicateTimelineItem,splitTimelineItem,removeTimelineItem,packMovementRows} from './timeline-model.js';
@@ -166,7 +167,7 @@ export function bindEditorTimeline(){
 
   scroll.addEventListener('scroll',()=>{const labels=$('.track-labels');if(labels)labels.style.transform=`translateY(${-scroll.scrollTop}px)`;});
 
-  observer?.disconnect();const ruler=()=>{const width=area.clientWidth,p=api.project(),desired=p.duration/Math.max(1,width/65),step=[1,2,4,8,16,30,60,120,240,300,600,1200,3600].find(s=>s>=desired)||3600;$('#time-ruler').innerHTML=Array.from({length:Math.floor(p.duration/step)+1},(_,i)=>`<span style="left:${i*step/p.duration*100}%">${timecode(i*step)}</span>`).join('');$('#time-ruler').style.backgroundImage=width*60/p.bpm/p.duration<6?'none':'';};ruler();observer=new ResizeObserver(ruler);observer.observe(area);markSelection();
+  observer?.disconnect();const ruler=()=>{const width=area.clientWidth,p=api.project(),desired=p.duration/Math.max(1,width/65),step=[1,2,4,8,16,30,60,120,240,300,600,1200,3600].find(s=>s>=desired)||3600;$('#time-ruler').innerHTML=Array.from({length:Math.floor(p.duration/step)+1},(_,i)=>`<span style="left:${i*step/p.duration*100}%">${timecode(i*step)}</span>`).join('');$('#time-ruler').style.backgroundImage=width*60/p.bpm/p.duration<6?'none':'';};ruler();observer=observeSize(area,ruler);markSelection();
 
   let gesture=null,suppressUntil=0,autoFrame=0;
 

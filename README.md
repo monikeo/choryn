@@ -1,4 +1,4 @@
-# CHORYN Studio · 0.4
+# CHORYN Studio · 0.4.1
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
@@ -55,3 +55,11 @@ Canonical coordinates: X increases audience-right, Z increases upstage, facing 0
 61 automated tests cover canonical sampling, imports, geometry, route timing, backups, production references, timeline constraints/reordering, custom cast metadata, quality settings, encoder detection, rendering, calendar/CSV escaping, text contrast, and offline cache boundaries. Browser checks cover actual recordings at all four resolutions, drag timing/undo, sequence edits, cast/tag workflow, fullscreen, responsive viewports, and offline reopening. See the workspace `docs/verification.md` for evidence and limits.
 
 This release deliberately remains local-first. Accounts, cloud collaboration, billing, AI generation, full translation, native app binaries, and motion-capture/biomechanics remain outside the implemented release. The original complete specification is retained in the workspace documentation.
+
+## Device and browser compatibility (0.4.1)
+
+Desktop uses persistent navigation and inspectors; tablet uses a formation strip and drawer inspectors; phones use bottom navigation, compact transport and scrollable clip tools. Touch/pen pointer gestures, mouse controls, keyboard alternatives, portrait/landscape layouts, safe-area spacing, and installable PWA metadata are included. Fullscreen falls back to a full-window stage when the native API is absent or denied. WebGL falls back to the 2D editor.
+
+Dialogs follow the visual viewport so browser chrome and on-screen keyboards can reduce available height without hiding the form. Older viewport implementations use a 100vh/resize fallback. Cloning, stable IDs, backward formation lookup, resize observation and prefixed Web Audio have explicit compatibility paths. If audio cannot initialize, playback continues as a silent visual rehearsal. Export checks both canvas capture and supported encoders; a missing codec does not disable the editor. Device recording availability appears in Studio preferences. High contrast mode retains control outlines.
+
+Targets are current Chrome, Edge, Firefox and Safari, including Android, iOS and iPadOS browsers and compatible installed PWAs. This is an adaptive web application, not separate Windows/macOS/iOS/Android binaries. No claim is made that every historical browser, embedded webview or physical device has been tested. JavaScript, SVG and Pointer Events are required for editing; advanced media, installation and fullscreen depend on actual browser capabilities. Private browsing or device storage policies can restrict persistence; export backups before clearing data or changing devices.

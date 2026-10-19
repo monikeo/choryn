@@ -1,8 +1,8 @@
-# CHORYN 0.4 verification — 20 October 2026
+# CHORYN 0.4.1 verification — 20 October 2026
 
 ## Automated checks
 
-61 tests pass with `node --test` from studio/. The static production build succeeds with `node scripts/build.mjs`. The current machine's npm launcher points to a missing global npm installation, so direct Node commands were used; no packages or machine-wide settings were changed.
+67 tests pass with `node --test` from studio/. The static production build succeeds with `node scripts/build.mjs`. The current machine's npm launcher points to a missing global npm installation, so direct Node commands were used; no packages or machine-wide settings were changed.
 
 New regression coverage includes formation/movement/cue duplication, sampled-pose splits, boundary/approval protections, clip limits, project-local clipboard, cast reconciliation on paste, removal/reference cleanup, shared formation trims, final duration constraints, overlap row packing, waveform scaling, box selection (including reversed/add/subtract), shape-preserving group movement and offstage recovery, and all 24 templates at 1/2/5/12/50/100 performers on 2×2 m, 16×10 m, and 100×5 m stages. The prior import, portable media backup, rendering, contrast, calendar/CSV, and offline cache tests remain green.
 
@@ -31,3 +31,13 @@ This is a local-first, installable web/PWA studio. Native OS binaries, cloud acc
 Formation splits preserve the sampled pose, not an exact reconstruction of the former route on both sides. Affected route overrides are removed and subsequent transitions are rebuilt; review the result before rehearsal. The UI states this during the operation. Geometric checks remain planning aids rather than safety certification.
 
 Device checks used browser viewport sizes, not physical iOS/Android hardware. Video encoder availability and sustained frame rate depend on the browser/device. Save portable .choryn backups before changing origins/devices or clearing browser data.
+
+## Additional compatibility pass
+
+Six additional tests exercise independent project copies without structuredClone, UUID generation without randomUUID, backward formation lookup without findLast, prefixed/missing audio constructors, resize fallback cleanup, canvas recording availability and per-codec exceptions.
+
+The local Chromium browser was checked at 1440×900 desktop, 834×1194 tablet portrait, 1194×834 tablet landscape, 390×844 phone, 320×568 small phone and 844×390 landscape. None showed horizontal document overflow. Sequence dialogs fitted the 390×844 and 844×390 viewports with internal scrolling. At 320×568 the stage fullscreen fallback occupied 568 px and exited correctly. Expanded phone timeline retained the stage and navigation. Tablet WebGL preview rendered all 12 labeled performers. A new video export with music decoded at 1280×720, 1.025 seconds for a 1 second range, readyState 4 and no media error. No JavaScript errors were reported.
+
+Screenshots are in the workspace docs/phone-v041.png and docs/tablet-v041.png. Automated fallback tests supplement Chromium checks; physical iOS/iPadOS/Android devices, Safari/WebKit and Firefox/Gecko were not available in this session. On-screen keyboard resizing is implemented through VisualViewport and requires physical-device verification. Installation prompts, native fullscreen, encoder/quality performance and storage retention remain platform dependent.
+
+API references checked: https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport, https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/captureStream and https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/isTypeSupported_static.

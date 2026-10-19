@@ -1,0 +1,31 @@
+/* Keep the workspace usable in older viewport implementations and webviews. */
+#app{height:100vh;height:100dvh}
+.stage-fullscreen .canvas-panel{height:100vh;height:100dvh}
+.timeline-handle{background:rgba(132,101,214,.25)}
+.timeline-formation{padding-left:17px}
+button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
+button{touch-action:manipulation}
+dialog[open]{position:fixed;top:calc(var(--visible-top,0px) + var(--visible-height,100vh)/2);bottom:auto;transform:translateY(-50%);margin:0 auto;max-height:calc(var(--visible-height,100vh) - 24px)}
+@supports not (height:100dvh){#app,.stage-fullscreen .canvas-panel{height:var(--visible-height,100vh)}}
+@media(any-pointer:coarse){
+  .sequence-list button{min-height:44px}
+  .sequence-grip{padding:12px 6px;touch-action:none}
+  .timeline-handle{width:20px}
+  .timeline-formation{padding-left:23px}
+}
+@media(max-width:1199px){
+  .app-header,.canvas-toolbar,.canvas-bottom{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+}
+@media(max-width:767px),(any-pointer:coarse) and (max-height:600px){
+  dialog[open]{inset:calc(var(--visible-top,0px) + 8px) 0 auto;transform:none;max-height:calc(var(--visible-height,100vh) - 16px);margin:0 auto;width:calc(100% - 16px);max-width:700px;border-radius:16px;overflow:auto}
+  dialog.wide{width:calc(100% - 16px);max-width:900px}
+  dialog input,dialog select,dialog textarea{font-size:16px}
+  dialog .modal-header{padding:14px 18px}
+  dialog .modal-body{padding:16px 18px 22px}
+  dialog .field-row{flex-wrap:wrap}
+  .native-nav{padding-left:max(5px,env(safe-area-inset-left,0px));padding-right:max(5px,env(safe-area-inset-right,0px))}
+}
+@media(forced-colors:active){
+  button,input,select,textarea,.timeline-formation,.movement-lane>button{border:1px solid ButtonText}
+  .selected,.active{outline:2px solid Highlight;outline-offset:-2px}
+}

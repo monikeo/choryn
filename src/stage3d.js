@@ -1,3 +1,4 @@
+import {observeSize} from './compat.js';
 const sub=(a,b)=>a.map((v,i)=>v-b[i]);
 const dot=(a,b)=>a.reduce((v,n,i)=>v+n*b[i],0);
 const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
@@ -95,6 +96,6 @@ export function mountStage3D(host,project,positions,options={}){
   const end=event=>{pointers.delete(event.pointerId);start=null;pinch=null;};canvas.addEventListener('pointerup',end,{signal});canvas.addEventListener('pointercancel',end,{signal});
   canvas.addEventListener('keydown',event=>{let handled=true;if(event.key==='ArrowLeft')yaw-=.1;else if(event.key==='ArrowRight')yaw+=.1;else if(event.key==='ArrowUp')pitch=Math.min(1.45,pitch+.08);else if(event.key==='ArrowDown')pitch=Math.max(.12,pitch-.08);else if(event.key==='+'||event.key==='=')camera.zoom=Math.min(3,camera.zoom*1.1);else if(event.key==='-')camera.zoom=Math.max(.5,camera.zoom/1.1);else handled=false;if(handled){event.preventDefault();event.stopPropagation();camera.yaw=yaw;camera.pitch=pitch;options.onCameraChange?.();draw();}},{signal});
   canvas.addEventListener('webglcontextlost',event=>{if(!disposed){event.preventDefault();fallback();}},{signal});
-  const resize=new ResizeObserver(draw);resize.observe(host);draw();
+  const resize=observeSize(host,draw);draw();
   return {update(project,positions){current=project;currentPositions=positions;draw();},dispose(){disposed=true;controller.abort();resize.disconnect();gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
 }

@@ -1,11 +1,12 @@
+import {localId,cloneData,lastIndex} from './compat.js';
 import {validateExtras,getRoute,routePosition} from './production-model.js';
 import {extraLayout} from './templates.js';
 // Canonical coordinates are meters: x increases to audience-right, z upstage.
 // Every renderer and export samples this model, never screen coordinates.
 export const COLORS = ['#8465d6', '#3c9c96', '#d98970', '#c69d43'];
-export const uid = () => crypto.randomUUID();
+export const uid = localId;
 export const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-export const clone = (v) => structuredClone(v);
+export const clone = cloneData;
 export const timecode = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 export function generateLayout(type, performers, stage) {
   const n = performers.length;
@@ -45,7 +46,7 @@ export function interpolatePosition(project,p,next,t,route){
 }
 export function samplePerformance(project, time) {
   const forms = [...project.formations].sort((a,b)=>a.time-b.time);
-  let index = forms.findLastIndex(f => f.time <= time);
+  let index = lastIndex(forms,f => f.time <= time);
   if (index < 0) index = 0;
   const from = forms[index], to = forms[index+1];
   if (!to) return clone(from.positions);
