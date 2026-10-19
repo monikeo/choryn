@@ -1,3 +1,4 @@
+import {validateExtras,getRoute,routePosition} from './production-model.js';
 // Canonical coordinates are meters: x increases to audience-right, z upstage.
 // Every renderer and export samples this model, never screen coordinates.
 export const COLORS = ['#8465d6', '#3c9c96', '#d98970', '#c69d43'];
@@ -31,12 +32,13 @@ export function createProject(name = 'Between the lines', count = 12, mode = 'Co
   const performers = Array.from({length: count}, (_,i) => ({ id: uid(), name: names[i] || `Performer ${i+1}`, number: i+1, group: i < count/3 ? 'A' : i < count*2/3 ? 'B' : 'C', color: COLORS[Math.min(2,Math.floor(i/(count/3)))], role: i === 0 ? 'Lead' : 'Ensemble' }));
   const layouts = ['staggered','diamond','v','circle','columns','arc'];
   const labels = ['Opening breath','Open diamond','Find the light','Full circle','In unison','Final exhale'];
-  return { schemaVersion: 1, id: uid(), name, discipline: mode, description: 'Spring showcase · Main stage', updatedAt: Date.now(), stage, bpm:120, duration:96, transitionDuration:4, easing:'smooth', pathType:'direct', notes:'Let the opening breathe. Hold the diamond for eight counts before the next transition.\n\nFocus: soft entrances, clear lines, connected movement.', performers, formations: layouts.map((type,i) => ({id:uid(),name:labels[i],time:i*16,status:'draft',notes:i===1?'Open from the center. Keep your focus downstage.':'',positions:generateLayout(type,performers,stage)})), cues:[{id:uid(),time:0,label:'LX 01 · Warm wash'},{id:uid(),time:32,label:'LX 02 · Build'},{id:uid(),time:80,label:'LX 03 · Fade out'}], audioName:null };
+  return validateProject({ schemaVersion: 1, id: uid(), name, discipline: mode, description: 'Spring showcase · Main stage', updatedAt: Date.now(), stage, bpm:120, duration:96, transitionDuration:4, easing:'smooth', pathType:'direct', notes:'Let the opening breathe. Hold the diamond for eight counts before the next transition.\n\nFocus: soft entrances, clear lines, connected movement.', performers, formations: layouts.map((type,i) => ({id:uid(),name:labels[i],time:i*16,status:'draft',notes:i===1?'Open from the center. Keep your focus downstage.':'',positions:generateLayout(type,performers,stage)})), cues:[{id:uid(),time:0,label:'LX 01 · Warm wash'},{id:uid(),time:32,label:'LX 02 · Build'},{id:uid(),time:80,label:'LX 03 · Fade out'}], audioName:null });
 }
-export function interpolatePosition(project,p,next,t){
+export function interpolatePosition(project,p,next,t,route){
   const bend=project.pathType==='curved'?Math.sin(Math.PI*t)*.65:0;
   const angle=((next.facing-p.facing+540)%360)-180;
-  return {...p,x:p.x+(next.x-p.x)*t+bend,z:p.z+(next.z-p.z)*t,facing:p.facing+angle*t};
+  const position=route?.waypoints?.length?routePosition(p,next,t,route.waypoints):{x:p.x+(next.x-p.x)*t+bend,z:p.z+(next.z-p.z)*t};
+  return {...p,...position,facing:p.facing+angle*t};
 }
 export function samplePerformance(project, time) {
   const forms = [...project.formations].sort((a,b)=>a.time-b.time);
@@ -47,9 +49,17 @@ export function samplePerformance(project, time) {
   const length = Math.min(project.transitionDuration, to.time-from.time);
   const raw = clamp((time - (to.time-length))/length,0,1);
   const t = project.easing === 'smooth' ? raw * raw * (3-2*raw) : raw;
+  const destinations=new Map(to.positions.map(p=>[p.performerId,p]));
+  const routes=new Map((project.routes||[]).filter(r=>r.fromId===from.id&&r.toId===to.id).map(r=>[r.performerId,r]));
   return from.positions.map(p => {
-    const next = to.positions.find(q=>q.performerId===p.performerId) || p;
-    return interpolatePosition(project,p,next,t);
+    const next = destinations.get(p.performerId) || p;
+    const route=routes.get(p.performerId);
+    if(!route)return interpolatePosition(project,p,next,t);
+    const window=Math.min(to.time-from.time,route.duration);
+    const delay=Math.min(route.delay,Math.max(0,window-.001));
+    const progress=clamp((time-(to.time-window+delay))/Math.max(.001,window-delay),0,1);
+    const amount=route.easing==='linear'?progress:progress*progress*(3-2*progress);
+    return interpolatePosition(project,p,next,amount,route);
   });
 }
 export function beatAt(project,time) {
@@ -63,8 +73,9 @@ export function warnings(project,positions) {
     if(Math.abs(p.x)>project.stage.width/2 || Math.abs(p.z)>project.stage.depth/2) issues.push(`${performer?.name}: outside stage`);
   }
   for(let i=0;i<positions.length;i++) for(let j=i+1;j<positions.length;j++) {
-    if(Math.hypot(positions[i].x-positions[j].x,positions[i].z-positions[j].z)<.55) issues.push(`Performers ${project.performers.find(p=>p.id===positions[i].performerId)?.number} & ${project.performers.find(p=>p.id===positions[j].performerId)?.number}: less than 0.55 m apart`);
+    if(positions[i].visible!==false&&positions[j].visible!==false&&Math.hypot(positions[i].x-positions[j].x,positions[i].z-positions[j].z)<(project.safetyDistance||.55)) issues.push(`Performers ${project.performers.find(p=>p.id===positions[i].performerId)?.number} & ${project.performers.find(p=>p.id===positions[j].performerId)?.number}: less than ${project.safetyDistance||.55} m apart`);
   }
+  for(const p of positions) for(const prop of project.props||[]){if(p.visible!==false&&prop.kind!=='platform'&&Math.abs(p.x-prop.x)<prop.width/2+.25&&Math.abs(p.z-prop.z)<prop.depth/2+.25)issues.push(`${project.performers.find(q=>q.id===p.performerId)?.name}: near ${prop.name}`);}
   return issues;
 }
 // Imports are untrusted; allowlist fields and bound geometry, counts and text.
@@ -76,7 +87,7 @@ export function validateProject(input) {
   if(!input || input.schemaVersion!==1 || !str(input.id) || !str(input.name) || !input.name.trim() || !input.stage || !finite(input.stage.width,2,100) || !finite(input.stage.depth,2,100) || !finite(input.bpm,30,300) || !finite(input.duration,1,3600) || !finite(input.transitionDuration,.1,60) || !Array.isArray(input.performers) || input.performers.length<1 || input.performers.length>100 || !Array.isArray(input.formations) || input.formations.length<1 || input.formations.length>100) fail();
   if(!safeId(input.id))fail();
   const ids = new Set();
-  const performers=input.performers.map((p,i)=>{if(!p || !safeId(p.id) || ids.has(p.id) || !str(p.name) || !/^#[\da-f]{6}$/i.test(p.color)) fail(); ids.add(p.id);return {id:p.id,name:p.name,number:i+1,group:['A','B','C'].includes(p.group)?p.group:'A',color:p.color,role:str(p.role)?p.role:'Ensemble'};});
+  const performers=input.performers.map((p,i)=>{if(!p || !safeId(p.id) || ids.has(p.id) || !str(p.name) || !/^#[\da-f]{6}$/i.test(p.color)) fail(); ids.add(p.id);return {id:p.id,name:p.name,number:i+1,group:str(p.group,40)&&p.group.trim()?p.group:'A',tags:Array.isArray(p.tags)?[...new Set(p.tags.filter(t=>str(t,30)&&t.trim()))].slice(0,12):[],color:p.color,role:str(p.role)?p.role:'Ensemble'};});
   const formIds=new Set();
   const formations=input.formations.map(f=>{
     if(!f || !safeId(f.id) || formIds.has(f.id) || !str(f.name) || !finite(f.time,0,input.duration-.1) || !Array.isArray(f.positions) || f.positions.length!==performers.length) fail();
@@ -85,6 +96,8 @@ export function validateProject(input) {
     return {id:f.id,name:f.name,time:f.time,status:f.status==='approved'?'approved':'draft',notes:str(f.notes,5000)?f.notes:'',positions};
   }).sort((a,b)=>a.time-b.time);
   if(formations[0].time!==0 || new Set(formations.map(f=>f.time)).size!==formations.length) fail();
-  const cues=(Array.isArray(input.cues)?input.cues:[]).slice(0,100).filter(c=>c && str(c.label) && finite(c.time,0,input.duration)).map(c=>({id:uid(),label:c.label,time:c.time}));
-  return {schemaVersion:1,id:input.id,name:input.name,discipline:str(input.discipline)?input.discipline:'Dance',description:str(input.description)?input.description:'',updatedAt:Date.now(),stage:{width:input.stage.width,depth:input.stage.depth,grid:1},bpm:input.bpm,duration:input.duration,transitionDuration:input.transitionDuration,easing:input.easing==='linear'?'linear':'smooth',pathType:input.pathType==='curved'?'curved':'direct',notes:str(input.notes,10000)?input.notes:'',performers,formations,cues,audioName:str(input.audioName)?input.audioName:null};
+  const cueIds=new Set();
+  const cues=(Array.isArray(input.cues)?input.cues:[]).slice(0,100).filter(c=>c && str(c.label) && finite(c.time,0,input.duration)).map(c=>{const id=safeId(c.id)&&!cueIds.has(c.id)?c.id:uid();cueIds.add(id);return {id,label:c.label,time:c.time};});
+  const base={schemaVersion:1,id:input.id,name:input.name,discipline:str(input.discipline)?input.discipline:'Dance',description:str(input.description)?input.description:'',updatedAt:finite(input.updatedAt,0,1e14)?input.updatedAt:Date.now(),stage:{width:input.stage.width,depth:input.stage.depth,grid:1},bpm:input.bpm,duration:input.duration,transitionDuration:input.transitionDuration,easing:input.easing==='linear'?'linear':'smooth',pathType:input.pathType==='curved'?'curved':'direct',notes:str(input.notes,10000)?input.notes:'',performers,formations,cues,audioName:str(input.audioName)?input.audioName:null};
+  return {...base,...validateExtras(input,base)};
 }
