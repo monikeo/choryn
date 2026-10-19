@@ -19,14 +19,15 @@
   <link rel="stylesheet" href="/src/power.css" />
   <link rel="stylesheet" href="/src/compat.css" />
   <link rel="stylesheet" href="/src/workspace.css" />
+  <link rel="stylesheet" href="/src/score.css" />
 </head>
 <body>
   <noscript>CHORYN needs JavaScript enabled to edit and save formations. Enable JavaScript in a current browser, then reload this page.</noscript>
-  <div id="app"></div>
+  <div id="app"><div class="startup-recovery" role="status">Opening CHORYN Studio…</div></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <dialog id="dialog"></dialog>
   <input type="file" id="audio-input" accept="audio/*" hidden />
   <input type="file" id="backup-input" accept="application/json,.json,.choryn,application/x-choryn" hidden />
-  <script type="module" src="/src/app.js"></script>
+  <script type="module" src="/src/boot.js"></script>
 </body>
 </html>

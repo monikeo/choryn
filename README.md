@@ -1,4 +1,4 @@
-# CHORYN Studio · 0.5
+# CHORYN Studio · 0.6
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
@@ -25,7 +25,7 @@ Drag formation blocks or their left grips to retime within neighboring boundarie
 
 The stage supports 25–600% 2D zoom, numeric zoom entry, cursor-anchored mouse wheel zoom, pan, fit, mirrored view, grid/snap, measurement, multi-select, keyboard nudging, 2D pinch zoom/pan, and 3D orbit/pinch. Drag an empty part of the 2D stage to box-select performers; Shift/Ctrl/Command adds and Alt subtracts. Middle-button drag or Space+drag pans; a short Space tap still toggles playback. Double-click empty stage to reset the view, double-click a performer for properties, and right-click for stage/selection tools. Focus selected fits the view to the chosen cast. Group drags and nudges preserve relative spacing at boundaries. Fullscreen stage focus includes previous/play/next controls. Desktop browsers can enter browser fullscreen; smaller devices use a full-window stage view. Press F or the fullscreen button; Escape exits.
 
-The template library now offers 24 shapes in Lines, Curves, Wedges, and Geometric categories: search/filter, preview, compact/balanced/wide spacing, facing direction, and optional application only to selected cast. More → Template library opens it on phone/tablet. It is distinct from the formation navigator for the current project.
+The template library offers 36 shapes in Lines, Curves, Wedges, Geometric, and Dance categories: search/filter, preview, compact/balanced/wide spacing, facing direction, and optional application only to selected cast. More → Template library opens it on phone/tablet. It is distinct from the formation navigator for the current project.
 
 ## Cast and production
 
@@ -52,7 +52,7 @@ The production build includes a manifest, install icons, and a versioned offline
 
 Canonical coordinates: X increases audience-right, Z increases upstage, facing 0° points downstage. `engine.js` validates the versioned model and samples movement. `timeline-model.js` handles immutable timing, clip operations, overlap packing, and waveform scaling. `timeline-ui.js` owns clip gestures, selection, clipboard, confirmations, and resizing. `mouse-model.js` supplies box selection and bounded group translation; `templates.js` defines the shape catalog. Renderers are `stage2d.js`, `stage3d.js`, `exports.js`, and `video.js`. `studio-power.js` integrates timeline gestures, sequence/cast dialogs, fullscreen, and recording. `features.js` implements rehearsal/production/review/report modules. `backups.js`, `revisions.js`, and `pwa.js` handle local durability and installation.
 
-61 automated tests cover canonical sampling, imports, geometry, route timing, backups, production references, timeline constraints/reordering, custom cast metadata, quality settings, encoder detection, rendering, calendar/CSV escaping, text contrast, and offline cache boundaries. Browser checks cover actual recordings at all four resolutions, drag timing/undo, sequence edits, cast/tag workflow, fullscreen, responsive viewports, and offline reopening. See the workspace `docs/verification.md` for evidence and limits.
+96 automated tests cover canonical sampling, imports, geometry, route timing, backups, production references, timeline constraints/reordering, custom cast metadata, quality settings, encoder detection, rendering, calendar/CSV escaping, text contrast, and offline cache boundaries. Browser checks cover actual recordings at all four resolutions, drag timing/undo, sequence edits, cast/tag workflow, fullscreen, responsive viewports, and offline reopening. See `VERIFICATION.md` in the app and the workspace `docs/verification-v06.md` for current evidence and limits.
 
 This release deliberately remains local-first. Accounts, cloud collaboration, billing, AI generation, full translation, native app binaries, and motion-capture/biomechanics remain outside the implemented release. The original complete specification is retained in the workspace documentation.
 
@@ -75,3 +75,16 @@ Each outgoing formation can have an independent movement duration, easing and pa
 Fullscreen now has Show/Hide timeline. With the timeline visible, the stage resizes above it while clip editing, sequence controls, custom movement timing, playback, zoom, scrolling and timeline height adjustment remain available. Desktop native fullscreen and the mobile full-window fallback share these controls. Escape dismisses a dialog before leaving fullscreen.
 
 The 36-shape library adds 12 Dance templates: Spotlight fan, Infinity flow, Butterfly wings, Four-petal bloom, Starburst, Serpentine, Ripple lines, Layered chevrons, Three dance pods, Orbit rings, Soloist & halo, and Runway reveal. Rotate or mirror a template independently of performer facing; shapes fit the stage automatically. Selected-cast-only application and compact/balanced/wide spacing remain available.
+
+
+## Motion, music and recovery in 0.6
+
+Props support rectangle, ellipse and triangle shapes, rotation, size, height and colour. Enable animation in the prop editor to set poses at exact times; later poses automatically retain a starting pose. Drag props on the stage at the current playhead to author a pose, or seek/edit poses from the timeline. Position, size, height, rotation and colour interpolate; shape changes at the arrival pose. Animated props render consistently in 2D, 3D, video and sampled formation exports. Locks and Undo protect edits; a project supports up to 100 poses per prop.
+
+Select a performer and choose the Path tool. Drag the route to add a control, drag round handles to bend it, use arrow keys for fine adjustments, or Delete to remove a saved control. The route dialog provides exact coordinates and a choice of smooth curves or straight waypoint segments. Curve timing, distance analysis and all renderers use the same sampled route. Approved formations and locked routes reject edits.
+
+Music tools chooses Silent, Studio sketch, or an uploaded file. New projects start silent. Uploaded music retains its original source in browser storage and portable backups; source trims and a timeline offset are non-destructive project settings. Drag the music clip to move it, drag its edges to trim, or enter exact seconds in Music tools. The waveform and video soundtrack follow the same source window. Set BPM and first-downbeat position manually for beat snapping. Silent rehearsal needs no audio file, and playback can continue after a trimmed soundtrack ends.
+
+Counts & timing accepts phrase.count notation such as 8.1 and 8.2+0.5, fractional interval lengths and individual movement counts. A fine scrubber previews performers and prop animation continuously. Fullscreen keeps these controls with Show timeline. Exact clip seconds remain available for count-in material before the first downbeat.
+
+Startup recovery offers Reload and a raw project-data copy if the editor cannot load. Runtime error handling pauses playback, cancels active edit gestures and recording, and shows a recovery notice. Preferences → Error recovery lists the latest 20 unexpected diagnostic entries in memory on this device; no telemetry is sent. Invalid form edits preserve the previous validated project. Audio storage has timeout/blocked handling; failed saves, imports and unsupported exports provide actionable messages. The emergency startup copy excludes stored audio; a normal portable backup includes it. These safeguards cannot prevent every browser, storage or hardware failure.

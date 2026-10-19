@@ -1,3 +1,5 @@
+import {sampleProps} from './prop-motion.js';
+import {audioSlice} from './music-model.js';
 import {lastMatch,createAudioContext} from './compat.js';
 import {samplePerformance,timecode,beatAt,clamp} from './engine.js';
 import {contrastText} from './colors.js';
@@ -29,7 +31,7 @@ export function drawVideoFrame(ctx,project,time,settings){
   for(let z=-Math.floor(project.stage.depth/2);z<=project.stage.depth/2;z++){const py=y+sh/2-z*unit;ctx.beginPath();ctx.moveTo(left,py);ctx.lineTo(left+sw,py);ctx.stroke();}
   ctx.strokeStyle='#8e829f';ctx.strokeRect(left,y,sw,sh);
   const point=p=>({x:left+sw/2+p.x*unit,y:y+sh/2-p.z*unit});
-  for(const prop of project.props||[]){const p=point(prop);ctx.globalAlpha=.35;ctx.fillStyle=prop.color;ctx.fillRect(p.x-prop.width*unit/2,p.y-prop.depth*unit/2,prop.width*unit,prop.depth*unit);ctx.globalAlpha=1;}
+  for(const prop of sampleProps(project,time)){const p=point(prop),w=prop.width*unit,d=prop.depth*unit;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.globalAlpha=.35;ctx.fillStyle=prop.color;ctx.beginPath();if(prop.shape==='ellipse')ctx.ellipse(0,0,w/2,d/2,0,0,Math.PI*2);else if(prop.shape==='triangle'){ctx.moveTo(0,-d/2);ctx.lineTo(w/2,d/2);ctx.lineTo(-w/2,d/2);ctx.closePath();}else ctx.rect(-w/2,-d/2,w,d);ctx.fill();ctx.restore();}
   ctx.save();ctx.beginPath();ctx.rect(left-26,y-26,sw+52,sh+52);ctx.clip();
   for(const position of samplePerformance(project,time)){
     if(position.visible===false)continue;const person=project.performers.find(p=>p.id===position.performerId),p=point(position),radius=clamp(unit*.29,6,18);
@@ -62,7 +64,7 @@ export async function recordVideo(project,settings,{mime,audioBuffer,signal,onPr
     const result=new Promise((resolve,reject)=>{recorder.ondataavailable=e=>{if(e.data.size){chunks.push(e.data);bytes+=e.data.size;if(bytes>450*1024*1024)stop('The recording exceeded the device memory limit. Export a shorter clip.');}};recorder.onerror=e=>reject(e.error||Error('The video encoder failed. Try a lower quality.'));recorder.onstop=()=>aborted?reject(Error(stopReason)):resolve(new Blob(chunks,{type:recorder.mimeType}));});
     visibilityHandler=()=>{if(document.hidden)stop('Export stopped because the studio was hidden. Keep this tab visible while recording.');};document.addEventListener('visibilitychange',visibilityHandler);signal?.addEventListener('abort',abort,{once:true});
     const duration=settings.end-settings.start,clock=()=>audioContext?audioContext.currentTime:performance.now()/1000;
-    recorder.start(500);const started=clock();if(source&&settings.start<audioBuffer.duration)source.start(0,settings.start,Math.min(duration,audioBuffer.duration-settings.start));
+    recorder.start(500);const started=clock();if(source){const slice=audioSlice(project,audioBuffer.duration,settings.start,settings.end);if(slice)source.start(audioContext.currentTime+slice.delay,slice.offset,slice.duration);}
     const draw=()=>{const elapsed=Math.max(0,clock()-started);drawVideoFrame(ctx,project,Math.min(settings.end,settings.start+elapsed),settings);onProgress(Math.min(1,elapsed/duration),canvas);if(elapsed>=duration){stop('');return;}frame=requestAnimationFrame(draw);};
     draw();timer=setTimeout(()=>{if(recorder.state==='recording')stop('Recording stalled. Keep this tab active and try a lower resolution.');},(duration+15)*1000);
     const blob=await result;if(!blob.size)throw Error('The video encoder returned an empty file.');return blob;

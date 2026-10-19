@@ -182,7 +182,7 @@ export function bindEditorTimeline(){
 
     if(!g.kind){api.seek(position(event),false);return;}if(!g.moved)return;if(!g.editable){controls.dataset.status=api.readOnly()?'Read-only snapshot':g.start===0?'Opening stays at zero; drag its right edge to trim.':'Unlock this approved formation before retiming.';return;}
 
-    const value=snappedTime(g.edge==='move'?g.start+position(event)-g.at:position(event),g.project.bpm,snap);
+    const value=snappedTime(g.edge==='move'?g.start+position(event)-g.at:position(event),g.project.bpm,snap,g.project.music?.beatOffset||0);
 
     try{const target=g.edge==='reorder'?Math.max(0,Math.min(g.project.formations.length-1,g.project.formations.filter(f=>f.time<=position(event)).length-1)):null;g.candidate=g.edge==='reorder'?reorderFormation(g.project,g.id,target):editTimeline(g.project,{kind:g.kind,id:g.id,edge:g.edge,value});
 

@@ -5,9 +5,9 @@ export function waveformWindow(audioDuration,performanceDuration){
   if(!Number.isFinite(audioDuration)||!Number.isFinite(performanceDuration)||audioDuration<=0||performanceDuration<=0)throw Error('Audio and performance lengths must be positive.');
   return {width:Math.min(1,audioDuration/performanceDuration)*100,viewBoxWidth:1360*Math.min(1,performanceDuration/audioDuration)};
 }
-export function snappedTime(value,bpm,snap='beat'){
+export function snappedTime(value,bpm,snap='beat',offset=0){
   const step=snap==='beat'?60/bpm:snap==='half-beat'?30/bpm:snap==='second'?1:.001;
-  return roundTime(Math.round(value/step)*step);
+  const origin=snap==='beat'||snap==='half-beat'?offset:0;return roundTime(Math.round((value-origin)/step)*step+origin);
 }
 // Return a complete candidate so a rejected gesture cannot partially mutate the score.
 export function editTimeline(project,{kind,id,edge='move',value}){
@@ -22,7 +22,7 @@ export function editTimeline(project,{kind,id,edge='move',value}){
         const min=f.time+.1,max=(forms[index+2]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to trim.');
         target.time=roundTime(clamp(value,min,max));
       }else{
-        const minimum=Math.max(1,f.time+.1,...next.actions.map(a=>a.end),...next.cues.map(c=>c.time),...next.comments.map(c=>c.time));
+        const minimum=Math.max(1,f.time+.1,...next.actions.map(a=>a.end),...next.cues.map(c=>c.time),...next.comments.map(c=>c.time),...next.props.flatMap(p=>(p.keyframes||[]).map(f=>f.time)));
         next.duration=roundTime(clamp(value,minimum,3600));
       }
     }else{

@@ -1,3 +1,5 @@
+import {validatePropAnimation} from './prop-motion.js';
+import {validateMusic} from './music-model.js';
 import {localId as id} from './compat.js';
 const finite = (n, min, max) => typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max;
 const text = (v, length = 200) => typeof v === 'string' && v.length <= length;
@@ -19,12 +21,12 @@ export function validateExtras(source, base) {
   const formationIds = new Set(base.formations.map(f => f.id));
   const props = collection(source, 'props', 100, p => {
     requireValue(text(p.name) && finite(p.x,-100,100) && finite(p.z,-100,100) && finite(p.width,.1,50) && finite(p.depth,.1,50) && finite(p.height,0,20), 'stage object');
-    return {id:p.id,name:p.name,x:p.x,z:p.z,width:p.width,depth:p.depth,height:p.height,kind:['prop','platform','restricted'].includes(p.kind)?p.kind:'prop',color:/^#[\da-f]{6}$/i.test(p.color)?p.color:'#9c8fb4',locked:!!p.locked};
+    return {id:p.id,name:p.name,...validatePropAnimation(p,base.duration),kind:['prop','platform','restricted'].includes(p.kind)?p.kind:'prop',color:/^#[\da-f]{6}$/i.test(p.color)?p.color:'#9c8fb4',locked:!!p.locked};
   });
   const routes = collection(source, 'routes', 10000, r => {
     const from=base.formations.find(f=>f.id===r.fromId),to=base.formations.find(f=>f.id===r.toId);
     requireValue(from && to && from.time<to.time && performerIds.has(r.performerId) && finite(r.delay,0,59) && finite(r.duration,.1,60) && r.delay<r.duration && Array.isArray(r.waypoints) && r.waypoints.length<=12 && r.waypoints.every(p=>finite(p.x,-100,100)&&finite(p.z,-100,100)), 'movement route');
-    return {id:r.id,fromId:r.fromId,toId:r.toId,performerId:r.performerId,delay:r.delay,duration:r.duration,easing:r.easing==='linear'?'linear':'smooth',locked:!!r.locked,waypoints:r.waypoints.map(p=>({x:p.x,z:p.z}))};
+    return {id:r.id,fromId:r.fromId,toId:r.toId,performerId:r.performerId,delay:r.delay,duration:r.duration,easing:r.easing==='linear'?'linear':'smooth',...(r.curve==='smooth'||r.curve==='linear'?{curve:r.curve}:{}),locked:!!r.locked,waypoints:r.waypoints.map(p=>({x:p.x,z:p.z}))};
   });
   requireValue(new Set(routes.map(r=>`${r.fromId}:${r.toId}:${r.performerId}`)).size===routes.length,'duplicate route');
   const actions = collection(source,'actions',300,a=>{
@@ -41,15 +43,22 @@ export function validateExtras(source, base) {
   });
   const cueIds=new Set(base.cues.map(c=>c.id));
   const cueLog=collection(source,'cueLog',1000,c=>{requireValue(cueIds.has(c.cueId)&&finite(c.at,0,1e14)&&finite(c.time,0,base.duration),'cue confirmation');return {id:c.id,cueId:c.cueId,at:c.at,time:c.time};});
-  return {extensionVersion:2,props,routes,actions,rehearsals,comments,cueLog,safetyDistance:finite(source.safetyDistance,.2,5)?source.safetyDistance:.55,favorite:!!source.favorite,archived:!!source.archived,eventDate:text(source.eventDate,30)?source.eventDate:'',venue:text(source.venue)?source.venue:''};
+  return {extensionVersion:3,music:validateMusic(source.music,base.audioName),props,routes,actions,rehearsals,comments,cueLog,safetyDistance:finite(source.safetyDistance,.2,5)?source.safetyDistance:.55,favorite:!!source.favorite,archived:!!source.archived,eventDate:text(source.eventDate,30)?source.eventDate:'',venue:text(source.venue)?source.venue:''};
 }
 export function safeReference(value) {
   if (!value) return '';
   try { const u=new URL(value); return u.protocol==='https:' && !u.username && !u.password ? u.href.slice(0,2000) : ''; } catch { return ''; }
 }
 export function getRoute(project,fromId,toId,performerId){return (project.routes||[]).find(r=>r.fromId===fromId&&r.toId===toId&&r.performerId===performerId);}
-export function routePosition(from,to,t,waypoints){
-  const points=[from,...waypoints,to];
+const curveCache=new WeakMap();
+export function routePoints(from,to,waypoints=[],curve='linear'){
+ const raw=[from,...waypoints,to];if(curve!=='smooth'||!waypoints.length)return raw;
+ const key=raw.map(p=>`${p.x},${p.z}`).join('/'),cached=curveCache.get(waypoints);if(cached?.key===key)return cached.points;
+ const points=[{x:from.x,z:from.z}];for(let i=0;i<raw.length-1;i++){const a=raw[Math.max(0,i-1)],b=raw[i],c=raw[i+1],d=raw[Math.min(raw.length-1,i+2)];for(let j=1;j<=24;j++){const u=j/24,point={};for(const axis of ['x','z'])point[axis]=.5*((2*b[axis])+(-a[axis]+c[axis])*u+(2*a[axis]-5*b[axis]+4*c[axis]-d[axis])*u*u+(-a[axis]+3*b[axis]-3*c[axis]+d[axis])*u*u*u);points.push(point);}}
+ curveCache.set(waypoints,{key,points});return points;
+}
+export function routePosition(from,to,t,waypoints,curve='linear'){
+  const points=routePoints(from,to,waypoints,curve);
   const lengths=points.slice(1).map((p,i)=>Math.hypot(p.x-points[i].x,p.z-points[i].z));
   const total=lengths.reduce((a,b)=>a+b,0);
   if(total<1e-9)return {x:from.x,z:from.z};
@@ -60,10 +69,10 @@ export function routePosition(from,to,t,waypoints){
   }
 }
 export function routeDistance(from,to,route){
-  const points=[from,...(route?.waypoints||[]),to];
+  const points=routePoints(from,to,route?.waypoints||[],route?.curve);
   return points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-points[i].x,p.z-points[i].z),0);
 }
-export function newStageObject(kind='prop'){return {id:id(),name:kind==='platform'?'Center riser':kind==='restricted'?'Keep clear':'Stage prop',kind,x:0,z:0,width:2,depth:1.2,height:kind==='platform'?.4:kind==='restricted'?0:1,color:kind==='restricted'?'#c86c79':'#9c8fb4',locked:false};}
+export function newStageObject(kind='prop'){return {id:id(),name:kind==='platform'?'Center riser':kind==='restricted'?'Keep clear':'Stage prop',kind,x:0,z:0,width:2,depth:1.2,height:kind==='platform'?.4:kind==='restricted'?0:1,color:kind==='restricted'?'#c86c79':'#9c8fb4',shape:'rectangle',rotation:0,keyframes:[],locked:false};}
 export function csvCell(value){let s=String(value??'');if(/^[=+\-@\t\r\n]/.test(s)||/^\s+[=+\-@]/.test(s))s=`'${s}`;return `"${s.replaceAll('"','""')}"`;}
 export function cueCSV(project){return [['Time (s)','Cue','Status'],...project.cues.map(c=>[c.time,c.label,'Planned'])].map(row=>row.map(csvCell).join(',')).join('\r\n');}
 export function rehearsalICS(project,rehearsal){

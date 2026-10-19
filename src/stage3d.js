@@ -16,8 +16,8 @@ const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
 function geometry(project,positions,selected){
   const data=[];
   const tri=(a,b,c,color)=>{const normal=norm(cross(sub(b,a),sub(c,a)));for(const v of [a,b,c])data.push(...v,...normal,...color);};
-  const box=(x,y,z,w,h,d,color)=>{
-    const points=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(p=>[x+p[0]*w/2,y+p[1]*h/2,z+p[2]*d/2]);
+  const box=(x,y,z,w,h,d,color,rotation=0)=>{
+    const points=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(p=>{const a=rotation*Math.PI/180,dx=p[0]*w/2,dz=p[2]*d/2;return [x+dx*Math.cos(a)-dz*Math.sin(a),y+p[1]*h/2,z+dx*Math.sin(a)+dz*Math.cos(a)];});
     for(const [a,b,c,e] of [[0,3,2,1],[4,5,6,7],[0,4,7,3],[1,2,6,5],[3,7,6,2],[0,1,5,4]]){tri(points[a],points[b],points[c],color);tri(points[a],points[c],points[e],color);}
   };
   const cylinder=(x,y,z,r,h,color,segments=12)=>{
@@ -33,7 +33,7 @@ function geometry(project,positions,selected){
   for(let i=0;i<=d;i++)box(0,.005,i-d/2,w,.012,.012,[.66,.62,.72]);
   box(0,.015,0,.025,.015,d,[.51,.43,.63]);box(0,.015,0,w,.015,.025,[.51,.43,.63]);
   box(0,-.1,d/2+.6,w*.6,.08,.12,[.49,.38,.78]);
-  for(const prop of project.props||[])box(prop.x,Math.max(.025,prop.height/2),-prop.z,prop.width,Math.max(.05,prop.height),prop.depth,rgb(prop.color));
+  for(const prop of project.props||[]){const h=Math.max(.05,prop.height),color=rgb(prop.color);if(prop.shape==='rectangle'||!prop.shape){box(prop.x,h/2,-prop.z,prop.width,h,prop.depth,color,prop.rotation||0);continue;}const n=prop.shape==='triangle'?3:24,a=(prop.rotation||0)*Math.PI/180,points=Array.from({length:n},(_,i)=>{const angle=i/n*Math.PI*2-Math.PI/2,vertex=prop.shape==='triangle'?[[0,-prop.depth/2],[prop.width/2,prop.depth/2],[-prop.width/2,prop.depth/2]][i]:[Math.cos(angle)*prop.width/2,Math.sin(angle)*prop.depth/2],dx=vertex[0],dz=vertex[1];return [prop.x+dx*Math.cos(a)-dz*Math.sin(a),-prop.z+dx*Math.sin(a)+dz*Math.cos(a)];});for(let i=0;i<n;i++){const p=points[i],q=points[(i+1)%n],b=[p[0],0,p[1]],c=[q[0],0,q[1]],t=[p[0],h,p[1]],u=[q[0],h,q[1]];tri(b,t,u,color);tri(b,u,c,color);tri([prop.x,h,-prop.z],u,t,color);tri([prop.x,0,-prop.z],b,c,color);}}
   for(const p of positions){
     if(p.visible===false)continue;
     const performer=project.performers.find(v=>v.id===p.performerId);if(!performer)continue;

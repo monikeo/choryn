@@ -1,3 +1,4 @@
+import {sampleProps} from './prop-motion.js';
 import {localId,cloneData,lastIndex} from './compat.js';
 import {validateExtras,getRoute,routePosition} from './production-model.js';
 import {extraLayout} from './templates.js';
@@ -36,12 +37,12 @@ export function createProject(name = 'Between the lines', count = 12, mode = 'Co
   const performers = Array.from({length: count}, (_,i) => ({ id: uid(), name: names[i] || `Performer ${i+1}`, number: i+1, group: i < count/3 ? 'A' : i < count*2/3 ? 'B' : 'C', color: COLORS[Math.min(2,Math.floor(i/(count/3)))], role: i === 0 ? 'Lead' : 'Ensemble' }));
   const layouts = ['staggered','diamond','v','circle','columns','arc'];
   const labels = ['Opening breath','Open diamond','Find the light','Full circle','In unison','Final exhale'];
-  return validateProject({ schemaVersion: 1, id: uid(), name, discipline: mode, description: 'Spring showcase · Main stage', updatedAt: Date.now(), stage, bpm:120, duration:96, transitionDuration:4, easing:'smooth', pathType:'direct', notes:'Let the opening breathe. Hold the diamond for eight counts before the next transition.\n\nFocus: soft entrances, clear lines, connected movement.', performers, formations: layouts.map((type,i) => ({id:uid(),name:labels[i],time:i*16,status:'draft',notes:i===1?'Open from the center. Keep your focus downstage.':'',positions:generateLayout(type,performers,stage)})), cues:[{id:uid(),time:0,label:'LX 01 · Warm wash'},{id:uid(),time:32,label:'LX 02 · Build'},{id:uid(),time:80,label:'LX 03 · Fade out'}], audioName:null });
+  return validateProject({ schemaVersion: 1, id: uid(), name, discipline: mode, description: 'Spring showcase · Main stage', updatedAt: Date.now(), stage, bpm:120, duration:96, transitionDuration:4, easing:'smooth', pathType:'direct', notes:'Let the opening breathe. Hold the diamond for eight counts before the next transition.\n\nFocus: soft entrances, clear lines, connected movement.', performers, formations: layouts.map((type,i) => ({id:uid(),name:labels[i],time:i*16,status:'draft',notes:i===1?'Open from the center. Keep your focus downstage.':'',positions:generateLayout(type,performers,stage)})), cues:[{id:uid(),time:0,label:'LX 01 · Warm wash'},{id:uid(),time:32,label:'LX 02 · Build'},{id:uid(),time:80,label:'LX 03 · Fade out'}], audioName:null,music:{mode:'silent'} });
 }
 export function interpolatePosition(project,p,next,t,route){
   const bend=project.pathType==='curved'?Math.sin(Math.PI*t)*.65:0;
   const angle=((next.facing-p.facing+540)%360)-180;
-  const position=route?.waypoints?.length?routePosition(p,next,t,route.waypoints):{x:p.x+(next.x-p.x)*t+bend,z:p.z+(next.z-p.z)*t};
+  const position=route?.waypoints?.length?routePosition(p,next,t,route.waypoints,route.curve):{x:p.x+(next.x-p.x)*t+bend,z:p.z+(next.z-p.z)*t};
   return {...p,...position,facing:p.facing+angle*t};
 }
 export function transitionSettings(project,formation){return {duration:formation?.transition?.duration??project.transitionDuration,easing:formation?.transition?.easing??project.easing,pathType:formation?.transition?.pathType??project.pathType};}
@@ -69,10 +70,10 @@ export function samplePerformance(project, time) {
   });
 }
 export function beatAt(project,time) {
-  const beat = Math.floor(time * project.bpm/60);
-  return { beat:beat%8+1, phrase:Math.floor(beat/8)+1, total:beat+1 };
+  const beat = Math.floor((time-(project.music?.beatOffset||0)) * project.bpm/60+1e-7);
+  return { beat:((beat%8)+8)%8+1, phrase:Math.floor(beat/8)+1, total:beat+1 };
 }
-export function warnings(project,positions) {
+export function warnings(project,positions,time=0) {
   const issues=[];
   for(const p of positions){
     const performer=project.performers.find(q=>q.id===p.performerId);
@@ -81,7 +82,7 @@ export function warnings(project,positions) {
   for(let i=0;i<positions.length;i++) for(let j=i+1;j<positions.length;j++) {
     if(positions[i].visible!==false&&positions[j].visible!==false&&Math.hypot(positions[i].x-positions[j].x,positions[i].z-positions[j].z)<(project.safetyDistance||.55)) issues.push(`Performers ${project.performers.find(p=>p.id===positions[i].performerId)?.number} & ${project.performers.find(p=>p.id===positions[j].performerId)?.number}: less than ${project.safetyDistance||.55} m apart`);
   }
-  for(const p of positions) for(const prop of project.props||[]){if(p.visible!==false&&prop.kind!=='platform'&&Math.abs(p.x-prop.x)<prop.width/2+.25&&Math.abs(p.z-prop.z)<prop.depth/2+.25)issues.push(`${project.performers.find(q=>q.id===p.performerId)?.name}: near ${prop.name}`);}
+  for(const p of positions) for(const prop of sampleProps(project,time)){if(p.visible!==false&&prop.kind!=='platform'&&Math.abs(p.x-prop.x)<prop.width/2+.25&&Math.abs(p.z-prop.z)<prop.depth/2+.25)issues.push(`${project.performers.find(q=>q.id===p.performerId)?.name}: near ${prop.name}`);}
   return issues;
 }
 // Imports are untrusted; allowlist fields and bound geometry, counts and text.
