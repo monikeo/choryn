@@ -1,4 +1,5 @@
 import {validateExtras,getRoute,routePosition} from './production-model.js';
+import {extraLayout} from './templates.js';
 // Canonical coordinates are meters: x increases to audience-right, z upstage.
 // Every renderer and export samples this model, never screen coordinates.
 export const COLORS = ['#8465d6', '#3c9c96', '#d98970', '#c69d43'];
@@ -9,10 +10,12 @@ export const timecode = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:$
 export function generateLayout(type, performers, stage) {
   const n = performers.length;
   const w = stage.width * .68, d = stage.depth * .64;
+  const extra=extraLayout(type,n);
   return performers.map((p, i) => {
     const t = n === 1 ? .5 : i / (n - 1);
     let x = 0, z = 0;
     if(n===1) return { performerId:p.id, x:0, z:0, facing:0, visible:true };
+    if(extra)return {performerId:p.id,x:+(extra[i].x*w/2).toFixed(2),z:+(extra[i].z*d/2).toFixed(2),facing:0,visible:true};
     switch (type) {
       case 'circle': { const a = i / n * Math.PI * 2 - Math.PI / 2; x = Math.cos(a) * w / 2; z = Math.sin(a) * d / 2; break; }
       case 'diamond': { const a = i / n * 4; const segment = Math.floor(a); const u = a % 1; const v = [[0,d/2],[w/2,0],[0,-d/2],[-w/2,0],[0,d/2]]; x = v[segment][0] * (1-u) + v[segment+1][0] * u; z = v[segment][1] * (1-u) + v[segment+1][1] * u; break; }
@@ -21,7 +24,7 @@ export function generateLayout(type, performers, stage) {
       case 'arc': { const a = Math.PI * (.12 + t * .76); x = Math.cos(a) * w/2; z = Math.sin(a) * d - d*.65; break; }
       case 'diagonal': x = (t - .5) * w; z = (t - .5) * d; break;
       case 'columns': { const cols = Math.ceil(Math.sqrt(n)); const rows = Math.ceil(n / cols); x = ((i % cols) / Math.max(1,cols-1) - .5) * w; z = (Math.floor(i/cols) / Math.max(1,rows-1) - .5) * d; break; }
-      default: { const cols = Math.ceil(n/3); x = ((i % cols) / Math.max(1,cols-1) - .5) * w + (Math.floor(i/cols)%2 ? .35 : -.35); z = (Math.floor(i/cols)-1)*d/2; }
+      default: { const cols = Math.ceil(n/3); x = ((i % cols) / Math.max(1,cols-1) - .5) * w + (Math.floor(i/cols)%2 ? 1 : -1)*Math.min(.35,stage.width*.04); z = (Math.floor(i/cols)-1)*d/2; }
     }
     return { performerId: p.id, x: +x.toFixed(2), z: +z.toFixed(2), facing: 0, visible: true };
   });

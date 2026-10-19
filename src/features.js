@@ -115,3 +115,5 @@ function onSubmit(e){
   }
   if(item&&key){if(p[key].length>=({props:100,actions:300,rehearsals:200,comments:300,routes:10000}[key])&&!p[key].some(v=>v.id===item.id))return api.toast('This project has reached the supported item limit.');change(p=>{const index=p[key].findIndex(v=>v.id===item.id);if(index>=0)p[key][index]=item;else p[key].push(item);},'Saved in this project.');api.close();}
 }
+
+export function editMovement(id){const item=api.project().actions.find(a=>a.id===id);if(item)actionDialog(item);}

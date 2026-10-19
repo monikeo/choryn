@@ -1,6 +1,10 @@
-import {clone,clamp} from './engine.js';
+import {clone,clamp,uid,samplePerformance} from './engine.js';
 
 export const roundTime=value=>Math.round(value*1000)/1000;
+export function waveformWindow(audioDuration,performanceDuration){
+  if(!Number.isFinite(audioDuration)||!Number.isFinite(performanceDuration)||audioDuration<=0||performanceDuration<=0)throw Error('Audio and performance lengths must be positive.');
+  return {width:Math.min(1,audioDuration/performanceDuration)*100,viewBoxWidth:1360*Math.min(1,performanceDuration/audioDuration)};
+}
 export function snappedTime(value,bpm,snap='beat'){
   const step=snap==='beat'?60/bpm:snap==='half-beat'?30/bpm:snap==='second'?1:.001;
   return roundTime(Math.round(value/step)*step);
@@ -11,8 +15,21 @@ export function editTimeline(project,{kind,id,edge='move',value}){
   const next=clone(project),forms=next.formations;
   if(kind==='formation'){
     const index=forms.findIndex(f=>f.id===id),f=forms[index];
-    if(!f||index===0||f.status==='approved')throw Error('The opening time is fixed. Unlock approved formations before retiming.');
-    f.time=roundTime(clamp(value,forms[index-1].time+.1,(forms[index+1]?.time??next.duration)-.1));
+    if(!f||f.status==='approved')throw Error('Unlock the formation before retiming.');
+    if(edge==='end'){
+      if(forms[index+1]){
+        const target=forms[index+1];if(target.status==='approved')throw Error('Unlock the next formation before moving this shared boundary.');
+        const min=f.time+.1,max=(forms[index+2]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to trim.');
+        target.time=roundTime(clamp(value,min,max));
+      }else{
+        const minimum=Math.max(1,f.time+.1,...next.actions.map(a=>a.end),...next.cues.map(c=>c.time),...next.comments.map(c=>c.time));
+        next.duration=roundTime(clamp(value,minimum,3600));
+      }
+    }else{
+      if(index===0)throw Error('The opening time stays at zero. Trim its right edge instead.');
+      const min=forms[index-1].time+.1,max=(forms[index+1]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to retime.');
+      f.time=roundTime(clamp(value,min,max));
+    }
   }else if(kind==='cue'){
     const cue=next.cues.find(c=>c.id===id);if(!cue)throw Error('Cue no longer exists.');
     cue.time=roundTime(clamp(value,0,next.duration));next.cues.sort((a,b)=>a.time-b.time);
@@ -23,6 +40,60 @@ export function editTimeline(project,{kind,id,edge='move',value}){
     else {const length=action.end-action.start;action.start=roundTime(clamp(value,0,next.duration-length));action.end=roundTime(action.start+length);}
   }else throw Error('Unknown timeline track.');
   return next;
+}
+
+const keyFor=kind=>({formation:'formations',movement:'actions',cue:'cues'})[kind];
+export function timelineItem(project,kind,id){const key=keyFor(kind);const item=key&&project[key].find(item=>item.id===id);if(!item)throw Error('Select an existing timeline item.');return item;}
+function pruneRoutes(project){const pairs=new Set(project.formations.slice(0,-1).map((f,i)=>`${f.id}/${project.formations[i+1].id}`));project.routes=project.routes.filter(r=>pairs.has(`${r.fromId}/${r.toId}`));}
+function freeFormationTime(project,time){
+  if(!Number.isFinite(time)||time<.1||time>project.duration-.1||project.formations.some(f=>Math.abs(f.time-time)<.0999))throw Error('Place the playhead at a free time, at least 0.1 seconds from another formation and the end.');
+}
+export function copyTimelineItem(project,kind,id){return {projectId:project.id,kind,item:clone(timelineItem(project,kind,id))};}
+export function pasteTimelineItem(project,clipboard,time){
+  if(!Number.isFinite(time))throw Error('Choose a valid paste time.');
+  if(!clipboard||clipboard.projectId!==project.id)throw Error('Copy a clip from this project first.');
+  const next=clone(project),kind=clipboard.kind,key=keyFor(kind),limit={formation:100,movement:300,cue:100}[kind];
+  if(!key||next[key].length>=limit)throw Error(`This track supports up to ${limit||0} items.`);
+  time=roundTime(time);const item=clone(clipboard.item);item.id=uid();
+  if(kind==='formation'){freeFormationTime(next,time);const base=samplePerformance(project,time);item.positions=next.performers.map(person=>clone(item.positions.find(p=>p.performerId===person.id)||base.find(p=>p.performerId===person.id)));item.time=time;item.status='draft';item.name=`${item.name} — copy`.slice(0,200);}
+  if(kind==='movement'){const length=item.end-item.start;if(time<0||time+length>next.duration+.0001)throw Error('The copied movement does not fit here. Move the playhead earlier or extend the performance.');item.performerIds=item.performerIds.filter(id=>next.performers.some(p=>p.id===id));item.start=time;item.end=roundTime(time+length);item.name=`${item.name} — copy`.slice(0,200);}
+  if(kind==='cue'){if(time<0||time>next.duration)throw Error('Place this cue inside the performance.');item.time=time;item.label=`${item.label} — copy`.slice(0,200);}
+  next[key].push(item);if(kind!=='movement')next[key].sort((a,b)=>a.time-b.time);if(kind==='formation')pruneRoutes(next);
+  return {project:next,item,kind};
+}
+export function duplicateTimelineItem(project,kind,id){
+  const item=timelineItem(project,kind,id);let time;
+  if(kind==='formation'){const index=project.formations.indexOf(item),end=project.formations[index+1]?.time??project.duration;time=roundTime((item.time+end)/2);}
+  if(kind==='movement'){const length=item.end-item.start;time=item.end+length<=project.duration?item.end:item.start-length;}
+  if(kind==='cue')time=Math.min(project.duration,item.time+60/project.bpm);
+  return pasteTimelineItem(project,copyTimelineItem(project,kind,id),time);
+}
+export function splitTimelineItem(project,kind,id,time){
+  if(!Number.isFinite(time))throw Error('Choose a valid split time.');
+  const original=timelineItem(project,kind,id),next=clone(project),key=keyFor(kind),source=next[key].find(item=>item.id===id);time=roundTime(time);
+  if(kind==='cue')throw Error('A cue is a point in time and cannot be split.');
+  if(next[key].length>=(kind==='formation'?100:300))throw Error('This track has reached its item limit.');
+  const end=kind==='formation'?(project.formations[project.formations.indexOf(original)+1]?.time??project.duration):original.end,start=kind==='formation'?original.time:original.start;
+  if(time<start+.1||time>end-.1)throw Error('Place the playhead inside the selected clip, at least 0.1 seconds from either edge.');
+  const item=clone(source);item.id=uid();item.name=`${item.name} · part 2`.slice(0,200);
+  if(kind==='formation'){if(source.status==='approved')throw Error('Unlock this formation before splitting.');item.time=time;item.status='draft';item.positions=samplePerformance(project,time);next.formations.push(item);next.formations.sort((a,b)=>a.time-b.time);pruneRoutes(next);}
+  else{source.end=time;item.start=time;next.actions.push(item);}
+  return {project:next,item,kind};
+}
+export function removeTimelineItem(project,kind,id){
+  const item=timelineItem(project,kind,id),next=clone(project),key=keyFor(kind);
+  if(kind==='formation'){
+    if(item.time===0)throw Error('Keep the opening formation at zero.');
+    if(item.status==='approved')throw Error('Unlock this formation before deleting or cutting it.');
+    next.routes=next.routes.filter(r=>r.fromId!==id&&r.toId!==id);
+  }
+  next[key]=next[key].filter(item=>item.id!==id);if(kind==='cue')next.cueLog=next.cueLog.filter(c=>c.cueId!==id);
+  return next;
+}
+export function packMovementRows(actions){
+  const ends=[],rows=new Map();for(const action of [...actions].sort((a,b)=>a.start-b.start||a.end-b.end)){
+    let row=ends.findIndex(end=>end<=action.start);if(row<0)row=ends.length;ends[row]=action.end;rows.set(action.id,row);
+  }return {rows,count:Math.max(1,ends.length)};
 }
 export function reorderFormation(project,id,targetIndex){
   const next=clone(project),source=next.formations.findIndex(f=>f.id===id);

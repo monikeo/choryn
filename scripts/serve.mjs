@@ -1,8 +1,9 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
+import {fileURLToPath} from 'node:url';
 const built=process.argv.includes('--built');
-const root = resolve(process.cwd(),built?'dist':'.');
+const root = resolve(fileURLToPath(new URL('../',import.meta.url)),built?'dist':'.');
 const port = Number(process.env.PORT || 4173);
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.png':'image/png' };
 http.createServer(async (req, res) => {
