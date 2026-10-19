@@ -1,4 +1,4 @@
-# CHORYN Studio · 0.4.1
+# CHORYN Studio · 0.5
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
@@ -9,7 +9,7 @@ Node.js 20+; no npm dependencies. Direct Node commands also work if a system npm
 ## Formation workflow
 
 1. Create or open a project, set the stage size, tempo, duration, and cast.
-2. Choose one of 24 shapes, drag performers, enter exact coordinates/facing, or transform a selected group. Presets can apply only to selected performers. Copy/paste positions, rotate, scale, mirror, align, and distribute. Per-formation visibility supports entrances and exits.
+2. Choose one of 36 shapes, drag performers, enter exact coordinates/facing, or transform a selected group. Presets can apply only to selected performers. Copy/paste positions, rotate, scale, mirror, align, and distribute. Per-formation visibility supports entrances and exits.
 3. Add, insert, duplicate, rename, retime, approve, or delete formations. Sequence supports desktop drag/drop and touch/keyboard arrow buttons. Reordering preserves timing slots and removes routes between separated formations. Approved formations must be unlocked before affected edits.
 4. Edit the outgoing route for each performer, including waypoints, delay, movement window, easing, and route lock. The 2D stage, real WebGL 3D view, playback, and video all sample the same meter-based performance model.
 5. Rehearse with audio, waveform, BPM/counts, speed, loop range, and performer-specific instructions. Check geometric spacing and obstacle notes, add review comments, and export.
@@ -63,3 +63,15 @@ Desktop uses persistent navigation and inspectors; tablet uses a formation strip
 Dialogs follow the visual viewport so browser chrome and on-screen keyboards can reduce available height without hiding the form. Older viewport implementations use a 100vh/resize fallback. Cloning, stable IDs, backward formation lookup, resize observation and prefixed Web Audio have explicit compatibility paths. If audio cannot initialize, playback continues as a silent visual rehearsal. Export checks both canvas capture and supported encoders; a missing codec does not disable the editor. Device recording availability appears in Studio preferences. High contrast mode retains control outlines.
 
 Targets are current Chrome, Edge, Firefox and Safari, including Android, iOS and iPadOS browsers and compatible installed PWAs. This is an adaptive web application, not separate Windows/macOS/iOS/Android binaries. No claim is made that every historical browser, embedded webview or physical device has been tested. JavaScript, SVG and Pointer Events are required for editing; advanced media, installation and fullscreen depend on actual browser capabilities. Private browsing or device storage policies can restrict persistence; export backups before clearing data or changing devices.
+
+## Workspace editing in 0.5
+
+Stage rotation is a camera setting: quick ±90° turns, exact angles, left/right reflection and audience up/down reflection. Labels stay upright; pointer zoom, performer dragging, group selection and screen-direction keyboard nudges follow the transformed view. The 3D view rotates its orbit camera. View changes do not rewrite performer coordinates or the canonical orientation used in exports.
+
+The timeline's Drag selector defaults to Reorder: dragging a formation body drops it into another sequence slot. Its identity, positions and custom movement settings travel together; time slots stay fixed and disconnected route overrides are removed. Retime moves the start inside neighboring boundaries. Edge handles always trim boundaries. Reorder rejects any affected approved formation. Sequence arrows provide a keyboard/touch alternative, and the timeline retains copy/cut/paste, duplicate, split, trim, snapping, zoom, exact timing and Undo/Redo. Every formation deletion or cut still confirms first.
+
+Each outgoing formation can have an independent movement duration, easing and path style. The movement finishes at the next formation; the remaining interval is a hold. A timing dialog shows seconds, counts and the hold/move breakdown. Existing individual performer routes retain their own overrides. Shortened intervals clamp playback to fit without discarding the saved duration. Reset returns only that formation to project defaults. Settings survive local save, backups and snapshots and drive 2D, 3D, video and analysis consistently. The final formation holds to performance end.
+
+Fullscreen now has Show/Hide timeline. With the timeline visible, the stage resizes above it while clip editing, sequence controls, custom movement timing, playback, zoom, scrolling and timeline height adjustment remain available. Desktop native fullscreen and the mobile full-window fallback share these controls. Escape dismisses a dialog before leaving fullscreen.
+
+The 36-shape library adds 12 Dance templates: Spotlight fan, Infinity flow, Butterfly wings, Four-petal bloom, Starburst, Serpentine, Ripple lines, Layered chevrons, Three dance pods, Orbit rings, Soloist & halo, and Runway reveal. Rotate or mirror a template independently of performer facing; shapes fit the stage automatically. Selected-cast-only application and compact/balanced/wide spacing remain available.

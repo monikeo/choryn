@@ -1,0 +1,45 @@
+/* Orientation, sequence timing and a fullscreen workspace share the violet chrome. */
+.orientation-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.orientation-actions .button{min-height:44px;white-space:normal}
+.timeline-formation{touch-action:none;cursor:grab}
+.sequence-move-window{position:absolute;right:0;bottom:0;height:4px;background:var(--accent);opacity:.5;pointer-events:none}
+.timeline-editbar>div:first-child{min-width:0;overflow-x:auto;scrollbar-width:thin}
+.timeline-editbar>div:last-child{flex-shrink:0}
+.sequence-list .sequence-timing{flex:0 0 auto!important;font-size:11px;color:var(--accent);border:1px solid var(--accent-line);border-radius:6px;background:var(--accent-soft);white-space:nowrap}
+.fullscreen-timeline-controls{display:none}
+.stage-fullscreen .fullscreen-timeline-controls{display:flex;margin-left:auto}
+.fullscreen-timeline-controls button{font:inherit;font-size:11px;color:var(--accent);border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:6px;padding:8px 11px;min-height:36px;white-space:nowrap}
+.fullscreen-with-timeline .canvas-panel{bottom:var(--fullscreen-timeline-height,280px)!important;height:calc(100vh - var(--fullscreen-timeline-height,280px));height:calc(100dvh - var(--fullscreen-timeline-height,280px))!important}
+.fullscreen-with-timeline .timeline{position:fixed!important;inset:auto 0 0!important;width:100%!important;z-index:65;height:clamp(180px,35vh,320px);min-height:180px;background:var(--surface);box-shadow:0 -5px 24px #22183212}
+.fullscreen-with-timeline .timeline-body{display:flex!important;flex:1;min-height:0}
+.fullscreen-with-timeline .audio-lane,.fullscreen-with-timeline .movement-lane,.fullscreen-with-timeline .cue-lane{display:block!important}
+.fullscreen-with-timeline .track-name{display:flex!important}
+.fullscreen-with-timeline .track-name.music-track{height:54px!important}
+.fullscreen-with-timeline .audio-lane{height:46px!important;margin:4px 0!important}
+.fullscreen-with-timeline .track-name.cue-track{height:28px!important}
+.fullscreen-with-timeline .cue-lane{height:28px!important}
+.fullscreen-with-timeline .timeline-editbar{display:flex!important}
+.fullscreen-with-timeline .timeline{padding-bottom:var(--safe-bottom,0px)}
+.stage-fullscreen .canvas-toolbar{gap:8px}
+@media(max-width:767px){
+ .view-controls{gap:3px}.view-controls>[data-action=stage-view]{width:32px;min-width:28px}
+ .toolbar-tools>.icon-button[data-action=multi-select]{display:none}
+ .stage-fullscreen .canvas-toolbar .toolbar-tools{display:none}
+ .stage-fullscreen .fullscreen-timeline-controls{margin-left:0}
+ .stage-fullscreen .fullscreen-transport{gap:0}
+ .stage-fullscreen .canvas-toolbar{justify-content:space-between;padding-left:6px;padding-right:6px;gap:2px}
+ .fullscreen-timeline-controls button{font-size:10px;padding:7px}
+ .fullscreen-with-timeline .canvas-heading{margin-top:6px}
+ .fullscreen-with-timeline .canvas-heading h1{font-size:20px}
+ .fullscreen-with-timeline .canvas-heading .eyebrow,.fullscreen-with-timeline .canvas-subtitle{display:none}
+ .fullscreen-with-timeline .stage-viewport{padding-top:10px;padding-bottom:8px}
+ .sequence-list>div{gap:3px;padding:7px 4px}.sequence-list button{padding:6px}.sequence-list .sequence-timing{font-size:9px}
+}
+@media(max-width:374px){.stage-fullscreen .fullscreen-transport>.icon-button{width:27px;min-width:27px}.fullscreen-timeline-controls button{padding:6px 5px;font-size:9px}}
+@media(max-height:500px){
+ .fullscreen-with-timeline .canvas-heading{display:none}
+ .fullscreen-with-timeline .stage-viewport{padding:4px 12px}
+ .fullscreen-with-timeline .stage-dimension,.fullscreen-with-timeline .audience-label,.fullscreen-with-timeline .canvas-hint{display:none}
+ .fullscreen-with-timeline .timeline{height:180px;min-height:150px}
+ .fullscreen-with-timeline .canvas-bottom{position:static!important;min-height:32px}
+}

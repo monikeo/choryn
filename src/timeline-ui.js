@@ -1,11 +1,11 @@
 import {observeSize} from './compat.js';
 import {clone,clamp,timecode} from './engine.js';
 
-import {editTimeline,snappedTime,timelineItem,copyTimelineItem,pasteTimelineItem,duplicateTimelineItem,splitTimelineItem,removeTimelineItem,packMovementRows} from './timeline-model.js';
+import {editTimeline,reorderFormation,snappedTime,timelineItem,copyTimelineItem,pasteTimelineItem,duplicateTimelineItem,splitTimelineItem,removeTimelineItem,packMovementRows} from './timeline-model.js';
 
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let api,selection,clipboard,pendingRemoval,zoom=1,snap='beat',height=null,observer,dragging=false,lastTap=null;
+let api,selection,clipboard,pendingRemoval,zoom=1,snap='beat',dragMode='reorder',height=null,observer,dragging=false,lastTap=null;
 
 const keyFor=kind=>({formation:'formations',movement:'actions',cue:'cues'})[kind];
 
@@ -38,6 +38,7 @@ export function setupTimeline(adapter){
   document.addEventListener('change',event=>{
 
     if(event.target.id==='timeline-snap')snap=event.target.value;
+    if(event.target.id==='timeline-drag-mode'){dragMode=event.target.value;api.render();}
 
     if(event.target.id==='clip-select'){const [kind,id]=event.target.value.split('/');rememberClipSelection(kind,id);clipTools();markSelection();}
 
@@ -93,6 +94,7 @@ export function runTimelineCommand(command,override){
   if(command==='tools'){clipTools();return;}
 
   if(command==='timing'){api.timingDialog(s);return;}
+  if(command==='transition'){api.transitionDialog(s.kind==='formation'?s.id:undefined);return;}
 
   if(command==='details'){api.details(s.kind,s.id);return;}
 
@@ -130,7 +132,7 @@ function clipTools(){
 
   const p=api.project(),s=current(),item=selectedItem(),point=s.kind==='cue',locked=s.kind==='formation'&&item.status==='approved';
 
-  api.dialog('Edit the performance, one moment at a time.',`<label class="field">Selected clip<select id="clip-select">${[['formation','formations'],['movement','actions'],['cue','cues']].flatMap(([kind,key])=>p[key].map(item=>`<option value="${kind}/${item.id}" ${kind===s.kind&&item.id===s.id?'selected':''}>${kind} · ${esc(item.name||item.label)}</option>`)).join('')}</select></label><div class="clip-summary"><strong>${esc(item.name||item.label)}</strong><span>${s.kind} · ${point?item.time+'s':s.kind==='movement'?`${item.start}–${item.end}s`:`${item.time}–${p.formations[p.formations.indexOf(item)+1]?.time??p.duration}s`} ${locked?'· approved':''}</span></div><label class="field">Playhead / split / paste time (seconds)<input id="clip-playhead" type="number" min="0" max="${p.duration}" step=".001" value="${api.time().toFixed(3)}"></label><div class="clip-command-grid">${actionButton('duplicate','Duplicate',api.readOnly())}${actionButton('split','Split at playhead',point||locked||api.readOnly())}${actionButton('trim-start','Trim start',point||locked||api.readOnly()||s.kind==='formation'&&item.time===0)}${actionButton('trim-end','Trim end',point||locked||api.readOnly())}${actionButton('copy','Copy')}${actionButton('paste','Paste at playhead',api.readOnly()||!clipboard||clipboard.projectId!==p.id)}${actionButton('cut','Cut to clipboard',locked||api.readOnly()||s.kind==='formation'&&item.time===0)}${actionButton('delete','Delete…',locked||api.readOnly()||s.kind==='formation'&&item.time===0)}${actionButton('details','Edit details')}${actionButton('timing','Exact timing')}</div><p class="field-help">Select a clip with one click; double-click for details. Right-click opens these tools. Timeline focus: Ctrl/⌘ D duplicates, Ctrl/⌘ C/X/V copies/cuts/pastes, S splits, Delete asks before removal. Split formations use the pose at the playhead and rebuild transitions.</p>`,true);
+  api.dialog('Edit the performance, one moment at a time.',`<label class="field">Selected clip<select id="clip-select">${[['formation','formations'],['movement','actions'],['cue','cues']].flatMap(([kind,key])=>p[key].map(item=>`<option value="${kind}/${item.id}" ${kind===s.kind&&item.id===s.id?'selected':''}>${kind} · ${esc(item.name||item.label)}</option>`)).join('')}</select></label><div class="clip-summary"><strong>${esc(item.name||item.label)}</strong><span>${s.kind} · ${point?item.time+'s':s.kind==='movement'?`${item.start}–${item.end}s`:`${item.time}–${p.formations[p.formations.indexOf(item)+1]?.time??p.duration}s`} ${locked?'· approved':''}</span></div><label class="field">Playhead / split / paste time (seconds)<input id="clip-playhead" type="number" min="0" max="${p.duration}" step=".001" value="${api.time().toFixed(3)}"></label><div class="clip-command-grid">${actionButton('duplicate','Duplicate',api.readOnly())}${actionButton('split','Split at playhead',point||locked||api.readOnly())}${actionButton('trim-start','Trim start',point||locked||api.readOnly()||s.kind==='formation'&&item.time===0)}${actionButton('trim-end','Trim end',point||locked||api.readOnly())}${actionButton('copy','Copy')}${actionButton('paste','Paste at playhead',api.readOnly()||!clipboard||clipboard.projectId!==p.id)}${actionButton('cut','Cut to clipboard',locked||api.readOnly()||s.kind==='formation'&&item.time===0)}${actionButton('delete','Delete…',locked||api.readOnly()||s.kind==='formation'&&item.time===0)}${s.kind==='formation'?actionButton('transition','Movement timing'):''}${actionButton('details','Edit details')}${actionButton('timing','Exact timing')}</div><p class="field-help">Use Drag → Reorder to move whole formation sequences across the timeline; Retime adjusts starts within neighboring boundaries. Handles trim either edge. Select a clip with one click; double-click for details. Right-click opens these tools. Timeline focus: Ctrl/⌘ D duplicates, Ctrl/⌘ C/X/V copies/cuts/pastes, S splits, Delete asks before removal. Split formations use the pose at the playhead and rebuild transitions.</p>`,true);
 
 }
 
@@ -153,11 +155,12 @@ export function bindEditorTimeline(){
   resize.setAttribute('aria-valuemin','140');resize.setAttribute('aria-valuemax',String(Math.round(Math.max(140,innerHeight*.7))));resize.setAttribute('aria-valuenow',String(timeline.clientHeight));
   let resizing;resize.onpointerdown=event=>{if(event.button!==0)return;event.preventDefault();resize.setPointerCapture(event.pointerId);resizing={y:event.clientY,height:timeline.clientHeight};};resize.onpointermove=event=>{if(!resizing)return;height=clamp(resizing.height+resizing.y-event.clientY,140,Math.max(140,innerHeight*.7));timeline.style.setProperty('height',height+'px','important');timeline.style.setProperty('min-height',height+'px','important');timeline.classList.add('manually-sized');resize.setAttribute('aria-valuenow',String(Math.round(height)));};resize.onpointerup=()=>{if(resizing){resizing=null;api.setTimelineExpanded(true);api.render();}};resize.onpointercancel=()=>resizing=null;resize.ondblclick=()=>{height=null;api.setTimelineExpanded(false);api.render();};resize.onkeydown=event=>{if(['ArrowUp','ArrowDown','Home'].includes(event.key)){event.preventDefault();height=event.key==='Home'?null:clamp((height||timeline.clientHeight)+(event.key==='ArrowUp'?30:-30),140,Math.max(140,innerHeight*.7));api.setTimelineExpanded(event.key!=='Home');api.render();}};
 
-  const controls=document.createElement('div');controls.className='timeline-editbar';controls.innerHTML=`<div><button data-power="sequence">Sequence</button><button data-timeline-action="tools">Clip tools</button><button class="timeline-quick" data-timeline-action="duplicate">Duplicate</button><button class="timeline-quick" data-timeline-action="split">Split</button><button class="timeline-quick" data-timeline-action="delete">Delete…</button><button data-power="loop-range">Loop range</button><label>Snap <select id="timeline-snap" aria-label="Timeline snapping">${[['beat','Beat'],['half-beat','½ beat'],['second','Second'],['off','Off']].map(([v,l])=>`<option value="${v}" ${v===snap?'selected':''}>${l}</option>`).join('')}</select></label><span id="timeline-selection"></span></div><div><button data-timeline-action="zoom-out" aria-label="Zoom timeline out">−</button><button data-timeline-action="zoom-fit" title="Fit entire performance">${Math.round(zoom*100)}%</button><button data-timeline-action="zoom-in" aria-label="Zoom timeline in">+</button></div>`;timeline.insertBefore(controls,$('.timeline-body'));
+  const controls=document.createElement('div');controls.className='timeline-editbar';controls.innerHTML=`<div><button data-power="sequence">Sequence</button><button data-timeline-action="tools">Clip tools</button><button class="timeline-quick" data-timeline-action="duplicate">Duplicate</button><button class="timeline-quick" data-timeline-action="split">Split</button><button class="timeline-quick" data-timeline-action="delete">Delete…</button><button data-power="loop-range">Loop range</button><label>Drag <select id="timeline-drag-mode" aria-label="Formation drag mode"><option value="reorder" ${dragMode==='reorder'?'selected':''}>Reorder</option><option value="retime" ${dragMode==='retime'?'selected':''}>Retime</option></select></label><label>Snap <select id="timeline-snap" aria-label="Timeline snapping">${[['beat','Beat'],['half-beat','½ beat'],['second','Second'],['off','Off']].map(([v,l])=>`<option value="${v}" ${v===snap?'selected':''}>${l}</option>`).join('')}</select></label><span id="timeline-selection"></span></div><div><button data-timeline-action="zoom-out" aria-label="Zoom timeline out">−</button><button data-timeline-action="zoom-fit" title="Fit entire performance">${Math.round(zoom*100)}%</button><button data-timeline-action="zoom-in" aria-label="Zoom timeline in">+</button></div>`;timeline.insertBefore(controls,$('.timeline-body'));
 
   area.style.width=`${zoom*100}%`;area.style.minWidth='100%';area.style.setProperty('--beat-width',`${60/api.project().bpm/api.project().duration*100}%`);
 
-  area.querySelectorAll('.timeline-formation').forEach((el,index)=>{const f=api.project().formations[index];el.dataset.timelineKind='formation';el.dataset.timelineId=f.id;el.title=`${f.name} · ${f.time}s. Drag to retime; right-click for clip tools.`;if(f.status!=='approved'&&!api.readOnly()){if(index)el.insertAdjacentHTML('beforeend','<b class="timeline-handle start" data-drag-time="start" aria-hidden="true">⋮</b>');el.insertAdjacentHTML('beforeend','<b class="timeline-handle end" data-drag-time="end" aria-hidden="true"></b>');}});
+  area.querySelectorAll('.timeline-formation').forEach((el,index)=>{const f=api.project().formations[index];el.dataset.timelineKind='formation';el.dataset.timelineId=f.id;el.title=`${f.name} · ${f.time}s. Drag body to ${dragMode}; handles trim. Right-click for clip tools.`;const to=api.project().formations[index+1];if(to){const move=Math.min(f.transition?.duration??api.project().transitionDuration,to.time-f.time);el.insertAdjacentHTML('beforeend',`<i class="sequence-move-window" style="width:${move/(to.time-f.time)*100}%" title="${move}s movement to next formation"></i>`);}
+    if(f.status!=='approved'&&!api.readOnly()){if(index)el.insertAdjacentHTML('beforeend','<b class="timeline-handle start" data-drag-time="start" aria-hidden="true">⋮</b>');el.insertAdjacentHTML('beforeend','<b class="timeline-handle end" data-drag-time="end" aria-hidden="true"></b>');}});
 
   const packed=packMovementRows(api.project().actions),lane=$('.movement-lane'),label=$('.track-name.movement-track');if(lane){lane.style.setProperty('height',packed.count*34+'px','important');label?.style.setProperty('height',packed.count*34+'px','important');}
 
@@ -181,7 +184,7 @@ export function bindEditorTimeline(){
 
     const value=snappedTime(g.edge==='move'?g.start+position(event)-g.at:position(event),g.project.bpm,snap);
 
-    try{g.candidate=editTimeline(g.project,{kind:g.kind,id:g.id,edge:g.edge,value});
+    try{const target=g.edge==='reorder'?Math.max(0,Math.min(g.project.formations.length-1,g.project.formations.filter(f=>f.time<=position(event)).length-1)):null;g.candidate=g.edge==='reorder'?reorderFormation(g.project,g.id,target):editTimeline(g.project,{kind:g.kind,id:g.id,edge:g.edge,value});
 
       const el=area.querySelector(`[data-timeline-id="${g.id}"]`);let at,length;
 
@@ -193,7 +196,7 @@ export function bindEditorTimeline(){
 
       else{at=g.candidate.cues.find(c=>c.id===g.id).time;el.style.left=`${at/g.project.duration*100}%`;}
 
-      el.classList.add('timeline-dragging');controls.dataset.status=`${g.kind} ${g.edge} · ${at.toFixed(3)}s`;
+      el.classList.add('timeline-dragging');controls.dataset.status=g.edge==='reorder'?`Drop into sequence ${g.candidate.formations.findIndex(f=>f.id===g.id)+1} · time slots stay fixed`:`${g.kind} ${g.edge} · ${at.toFixed(3)}s`;
 
     }catch(error){g.candidate=null;controls.dataset.status=error.message;}
 
@@ -203,13 +206,13 @@ export function bindEditorTimeline(){
 
   area.addEventListener('pointerdown',event=>{
 
-    if(event.button!==0)return;const item=event.target.closest('[data-timeline-kind]'),kind=item?.dataset.timelineKind,id=item?.dataset.timelineId,edge=event.target.closest('[data-drag-time]')?.dataset.dragTime||'move';
+    if(event.button!==0)return;const item=event.target.closest('[data-timeline-kind]'),kind=item?.dataset.timelineKind,id=item?.dataset.timelineId,edge=event.target.closest('[data-drag-time]')?.dataset.dragTime||(kind==='formation'&&dragMode==='reorder'?'reorder':'move');
 
     api.pause();const p=api.project();if(item){rememberClipSelection(kind,id);markSelection();}
 
     const value=item?timelineItem(p,kind,id):null,start=kind==='movement'?value.start:value?.time||0;
 
-    const editable=!api.readOnly()&&!(kind==='formation'&&(value.status==='approved'||value.time===0&&edge!=='end'));
+    const editable=!api.readOnly()&&!(kind==='formation'&&(value.status==='approved'||value.time===0&&edge!=='end'&&edge!=='reorder'));
 
     gesture={item,kind,id,edge,x:event.clientX,clientX:event.clientX,at:position(event),start,project:clone(p),candidate:null,moved:false,editable};dragging=true;
 
@@ -223,7 +226,7 @@ export function bindEditorTimeline(){
 
     if(g.moved)suppressUntil=performance.now()+350;if(g.moved||cancel)lastTap=null;
 
-    if(!cancel&&g.moved&&g.candidate){const f=g.kind==='formation'?g.candidate.formations.find(f=>f.id===g.id):null;api.replace(g.candidate,'Timeline edit saved. Undo is available.',{formationId:f?.id,time:f?.time});}
+    if(!cancel&&g.moved&&g.candidate){const f=g.kind==='formation'?g.candidate.formations.find(f=>f.id===g.id):null;api.replace(g.candidate,g.edge==='reorder'?'Sequence reordered. Time slots stay fixed; disconnected routes removed. Undo is available.':'Timeline edit saved. Undo is available.',{formationId:f?.id,time:f?.time});}
 
     else if(!cancel&&!g.moved&&g.kind){
       const double=lastTap?.id===g.id&&performance.now()-lastTap.at<400;lastTap=double?null:{id:g.id,at:performance.now()};

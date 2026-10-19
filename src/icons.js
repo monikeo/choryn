@@ -1,4 +1,5 @@
 const paths = {
+ rotate:'<path d="M20 7v5h-5M20 12a8 8 0 1 0-2 6"/>',
  logo:'<path d="M17 3a9 9 0 1 0 0 18M17 8a4 4 0 1 0 0 8"/>',
  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
  folder:'<path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>',

@@ -44,26 +44,28 @@ export function interpolatePosition(project,p,next,t,route){
   const position=route?.waypoints?.length?routePosition(p,next,t,route.waypoints):{x:p.x+(next.x-p.x)*t+bend,z:p.z+(next.z-p.z)*t};
   return {...p,...position,facing:p.facing+angle*t};
 }
+export function transitionSettings(project,formation){return {duration:formation?.transition?.duration??project.transitionDuration,easing:formation?.transition?.easing??project.easing,pathType:formation?.transition?.pathType??project.pathType};}
 export function samplePerformance(project, time) {
   const forms = [...project.formations].sort((a,b)=>a.time-b.time);
   let index = lastIndex(forms,f => f.time <= time);
   if (index < 0) index = 0;
   const from = forms[index], to = forms[index+1];
   if (!to) return clone(from.positions);
-  const length = Math.min(project.transitionDuration, to.time-from.time);
+  const settings=transitionSettings(project,from),pathProject={...project,pathType:settings.pathType};
+  const length = Math.min(settings.duration, to.time-from.time);
   const raw = clamp((time - (to.time-length))/length,0,1);
-  const t = project.easing === 'smooth' ? raw * raw * (3-2*raw) : raw;
+  const t = settings.easing === 'smooth' ? raw * raw * (3-2*raw) : raw;
   const destinations=new Map(to.positions.map(p=>[p.performerId,p]));
   const routes=new Map((project.routes||[]).filter(r=>r.fromId===from.id&&r.toId===to.id).map(r=>[r.performerId,r]));
   return from.positions.map(p => {
     const next = destinations.get(p.performerId) || p;
     const route=routes.get(p.performerId);
-    if(!route)return interpolatePosition(project,p,next,t);
+    if(!route)return interpolatePosition(pathProject,p,next,t);
     const window=Math.min(to.time-from.time,route.duration);
     const delay=Math.min(route.delay,Math.max(0,window-.001));
     const progress=clamp((time-(to.time-window+delay))/Math.max(.001,window-delay),0,1);
     const amount=route.easing==='linear'?progress:progress*progress*(3-2*progress);
-    return interpolatePosition(project,p,next,amount,route);
+    return interpolatePosition(pathProject,p,next,amount,route);
   });
 }
 export function beatAt(project,time) {
@@ -95,9 +97,10 @@ export function validateProject(input) {
   const formIds=new Set();
   const formations=input.formations.map(f=>{
     if(!f || !safeId(f.id) || formIds.has(f.id) || !str(f.name) || !finite(f.time,0,input.duration-.1) || !Array.isArray(f.positions) || f.positions.length!==performers.length) fail();
+    if(f.transition!=null&&(!finite(f.transition.duration,.1,60)||!['smooth','linear'].includes(f.transition.easing)||!['direct','curved'].includes(f.transition.pathType)))fail();
     formIds.add(f.id); const seen=new Set();
     const positions=f.positions.map(p=>{if(!p || !ids.has(p.performerId) || seen.has(p.performerId) || !finite(p.x,-100,100) || !finite(p.z,-100,100) || !finite(p.facing,-360,360)) fail();seen.add(p.performerId); return {performerId:p.performerId,x:p.x,z:p.z,facing:p.facing,visible:p.visible!==false};});
-    return {id:f.id,name:f.name,time:f.time,status:f.status==='approved'?'approved':'draft',notes:str(f.notes,5000)?f.notes:'',positions};
+    return {id:f.id,name:f.name,time:f.time,status:f.status==='approved'?'approved':'draft',notes:str(f.notes,5000)?f.notes:'',positions,...(f.transition?{transition:{duration:f.transition.duration,easing:f.transition.easing,pathType:f.transition.pathType}}:{})};
   }).sort((a,b)=>a.time-b.time);
   if(formations[0].time!==0 || new Set(formations.map(f=>f.time)).size!==formations.length) fail();
   const cueIds=new Set();

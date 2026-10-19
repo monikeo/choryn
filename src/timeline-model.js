@@ -106,3 +106,12 @@ export function reorderFormation(project,id,targetIndex){
   next.routes=next.routes.filter(r=>adjacent.has(`${r.fromId}/${r.toId}`));
   return next;
 }
+
+export function setFormationTransition(project,id,settings){
+  const next=clone(project),index=next.formations.findIndex(f=>f.id===id),f=next.formations[index],to=next.formations[index+1];
+  if(!f||!to)throw Error('Select a formation with a following sequence. The final formation holds to the end.');
+  if(f.status==='approved')throw Error('Unlock this formation before editing its movement.');
+  if(settings===null){delete f.transition;return next;}
+  if(!Number.isFinite(settings.duration)||settings.duration<.1||settings.duration>Math.min(60,to.time-f.time)||!['smooth','linear'].includes(settings.easing)||!['direct','curved'].includes(settings.pathType))throw Error('Choose a movement duration from 0.1 seconds up to the sequence interval (maximum 60 seconds).');
+  f.transition={duration:roundTime(settings.duration),easing:settings.easing,pathType:settings.pathType};return next;
+}
