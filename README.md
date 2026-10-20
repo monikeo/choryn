@@ -1,4 +1,4 @@
-# CHORYN Studio · 0.6
+# CHORYN Studio · 0.7
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
@@ -52,7 +52,7 @@ The production build includes a manifest, install icons, and a versioned offline
 
 Canonical coordinates: X increases audience-right, Z increases upstage, facing 0° points downstage. `engine.js` validates the versioned model and samples movement. `timeline-model.js` handles immutable timing, clip operations, overlap packing, and waveform scaling. `timeline-ui.js` owns clip gestures, selection, clipboard, confirmations, and resizing. `mouse-model.js` supplies box selection and bounded group translation; `templates.js` defines the shape catalog. Renderers are `stage2d.js`, `stage3d.js`, `exports.js`, and `video.js`. `studio-power.js` integrates timeline gestures, sequence/cast dialogs, fullscreen, and recording. `features.js` implements rehearsal/production/review/report modules. `backups.js`, `revisions.js`, and `pwa.js` handle local durability and installation.
 
-96 automated tests cover canonical sampling, imports, geometry, route timing, backups, production references, timeline constraints/reordering, custom cast metadata, quality settings, encoder detection, rendering, calendar/CSV escaping, text contrast, and offline cache boundaries. Browser checks cover actual recordings at all four resolutions, drag timing/undo, sequence edits, cast/tag workflow, fullscreen, responsive viewports, and offline reopening. See `VERIFICATION.md` in the app and the workspace `docs/verification-v06.md` for current evidence and limits.
+103 automated tests cover canonical sampling, imports, geometry, route timing, backups, production references, timeline constraints/reordering, custom cast metadata, quality settings, encoder detection, rendering, calendar/CSV escaping, text contrast, and offline cache boundaries. Browser checks cover actual recordings at all four resolutions, drag timing/undo, sequence edits, cast/tag workflow, fullscreen, responsive viewports, and offline reopening. See `VERIFICATION.md` in the app and the workspace `docs/verification-v07.md` for current evidence and limits.
 
 This release deliberately remains local-first. Accounts, cloud collaboration, billing, AI generation, full translation, native app binaries, and motion-capture/biomechanics remain outside the implemented release. The original complete specification is retained in the workspace documentation.
 
@@ -88,3 +88,14 @@ Music tools chooses Silent, Studio sketch, or an uploaded file. New projects sta
 Counts & timing accepts phrase.count notation such as 8.1 and 8.2+0.5, fractional interval lengths and individual movement counts. A fine scrubber previews performers and prop animation continuously. Fullscreen keeps these controls with Show timeline. Exact clip seconds remain available for count-in material before the first downbeat.
 
 Startup recovery offers Reload and a raw project-data copy if the editor cannot load. Runtime error handling pauses playback, cancels active edit gestures and recording, and shows a recovery notice. Preferences → Error recovery lists the latest 20 unexpected diagnostic entries in memory on this device; no telemetry is sent. Invalid form edits preserve the previous validated project. Audio storage has timeout/blocked handling; failed saves, imports and unsupported exports provide actionable messages. The emergency startup copy excludes stored audio; a normal portable backup includes it. These safeguards cannot prevent every browser, storage or hardware failure.
+
+
+## Performance and adaptive workspace in 0.7
+
+Playback patches existing performer and animated-prop nodes rather than recreating the SVG layers every frame. Holds skip unchanged transform writes. Formation boundaries update the active formation and inspector without rebuilding the whole workspace or recreating the WebGL context. Transport text updates preserve its DOM containers. Playback targets 30 visual updates per second, pauses when the page is hidden, and samples the performance once per update. Audio and export retain their independent timing.
+
+The 3D module loads on demand with a guarded 2D recovery action. Camera gestures coalesce to one animation frame, reuse uploaded geometry and cache stage fitting; performer labels retain their nodes. Spacing reports sample props once for the entire cast and reuse cast lookups. A Node benchmark with 100 performers, 12 animated props and 20 poses per prop produced identical reports, with median report time decreasing from 2.05 ms to 0.51 ms on this machine. This measures the report routine, not whole-app frame rate.
+
+Desktop adds independent formations/inspector panel toggles, readable form controls and a shorter timeline on laptop-height screens. Phone mode prioritizes the stage with larger controls, an explicit Edit/Done timeline button, quick count/music access, and a compact formation track. Expanded editing retains the audio, props, cues and full clip tools; its toolbar scrolls horizontally. Small phones and landscape layouts keep stage and editor space available. Safe-area, keyboard viewport, PWA and fullscreen fallbacks remain in place.
+
+The last selected local project is reopened on the next launch. Web fonts load without blocking the core workspace stylesheet; system fonts remain available offline. Mobile fullscreen Stage controls provides Select, Pan, Edit curved paths and Measure with touch-friendly actions.

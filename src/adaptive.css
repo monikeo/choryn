@@ -1,0 +1,105 @@
+/* The stage keeps the same visual language, with controls sized for the input device. */
+.transport-time>[data-clock-main],.beat-counter>b{font:inherit}
+.timeline-expand>span,.desktop-panel-controls,.fullscreen-stage-tools{display:none}
+.assets-collapsed .assets-panel,.inspector-collapsed .inspector{display:none}
+.assets-panel,.inspector,.asset-content,.formation-strip,.timeline-scroll{overscroll-behavior:contain}
+.stage3d-labels>[hidden]{display:none!important}
+.formation-card{content-visibility:auto;contain-intrinsic-size:auto 112px}
+.timeline.expanded>.timeline-body{display:flex!important}
+@media(max-width:1199px){
+ dialog .field input,dialog .field select,dialog .field textarea{font-size:16px;min-height:44px}
+ dialog .button{min-height:44px}
+}
+@media(min-width:1200px){
+ .desktop-panel-controls{display:flex;gap:3px;padding-right:6px;border-right:1px solid var(--border)}
+ .desktop-panel-controls>.icon-button{width:32px;height:34px}
+ .stage-fullscreen .desktop-panel-controls{display:none}
+ .assets-panel{width:clamp(220px,18vw,270px);min-width:220px}
+ .inspector{width:clamp(260px,20vw,310px);min-width:260px}
+ .asset-tabs button{font-size:12px}.formation-card-info>span{font-size:11px}
+ .canvas-heading{margin:16px 25px 0}.canvas-heading h1{font-size:25px}
+ .inspector .field{font-size:12px}.inspector .field input,.inspector .field select,.inspector .field textarea{font-size:13px;min-height:36px}
+ .canvas-options>.icon-button{width:34px;height:34px}.zoom-label{font-size:12px;width:43px}
+ .timeline-editbar{font-size:11px;min-height:36px}.timeline-editbar button,.timeline-editbar select{min-height:32px}
+ .score-bar{min-height:38px}.score-bar button{font-size:11px;min-height:30px}
+ .track-name{font-size:11px}.timeline-formation{font-size:11px}
+}
+@media(min-width:768px) and (max-height:800px){
+ .canvas-heading{display:flex;align-items:center;justify-content:space-between;margin:7px 18px 0;min-height:37px}
+ .canvas-heading h1{font-size:21px;margin:0}.canvas-heading .eyebrow,.canvas-subtitle{display:none}
+ .canvas-status{margin:0;font-size:10px}.stage-viewport{min-height:0;padding:18px 22px 28px}
+ .canvas-hint{display:none}.audience-label{bottom:8px}.canvas-bottom{min-height:42px;padding:4px 12px}
+ .timeline:not(.expanded):not(.manually-sized),.timeline.has-prop-frames:not(.expanded):not(.manually-sized),.timeline.has-movement:not(.expanded):not(.manually-sized){height:240px;min-height:240px}
+ .timeline .transport{height:48px;min-height:48px}
+}
+@media(max-width:767px){
+ .app-header{height:56px;min-height:56px;padding:0 14px;gap:12px}
+ .project-title{font-size:12px;line-height:1.4;max-width:none;flex:1}
+ .wordmark{font-size:18px}.header-actions>.button.primary{width:44px;height:44px}
+ .canvas-toolbar{min-height:48px;height:48px;padding:0 9px}
+ .toolbar-tools>.icon-button{width:40px;height:44px}.toolbar-tools .icon{width:19px;height:19px}
+ .toolbar-tools>[data-action=tool-ruler],.toolbar-tools>[data-action=add-performer]{display:none}
+ .view-controls>[data-action=stage-view],.mobile-properties{width:40px;min-width:40px;height:44px}
+ .view-switch button{min-height:36px;min-width:33px;font-size:11px}
+ .formation-strip{padding:5px 12px;min-height:46px;scroll-padding:12px}
+ .formation-strip>button{min-height:36px;font-size:11px}
+ .canvas-heading{margin:10px 17px 0}.canvas-heading .eyebrow,.canvas-subtitle{display:none}
+ .canvas-heading h1{font-size:23px;margin:2px 0 3px;line-height:1.3}
+ .stage-viewport{min-height:0;padding:20px 16px 25px}.audience-label{bottom:7px}
+ .canvas-bottom{min-height:46px;padding:2px 9px;justify-content:center}
+ .canvas-bottom>.stage-chip{display:none}
+ .canvas-options{box-shadow:none;border:0;padding:0;gap:2px}
+ .canvas-options>.icon-button{width:40px;min-width:40px;height:44px}.canvas-options .icon{width:19px;height:19px}
+ .canvas-options .zoom-label{font-size:12px;min-width:43px;min-height:44px}
+ .timeline:not(.expanded):not(.manually-sized){height:162px;min-height:162px}
+ .timeline .transport{height:54px;min-height:54px;padding:0 10px;gap:4px}
+ .timeline .play-button{width:42px;height:42px}.playback-controls{gap:2px}
+ .playback-controls>[data-action=start]{width:30px;height:44px}.playback-controls>[data-action=loop]{display:none}
+ .transport-time{font-size:16px;min-width:112px;margin-left:3px}
+ .transport-right .tempo-control{display:none}.transport-right{gap:4px}
+ .transport-right>.timeline-expand{display:flex;width:auto;min-width:54px;height:44px;gap:4px;border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--accent);padding:0 7px;border-radius:8px}
+ .timeline-expand>span{display:inline;font-size:11px;font-weight:600}.timeline-expand>.icon{width:15px;height:15px}
+ .beat-counter{font-size:14px;padding-left:7px;min-width:50px}
+ .score-bar{min-height:44px;gap:5px;padding:0 8px}.score-bar button{font-size:11px;min-height:40px;padding:5px 7px}
+ .score-bar>span{display:none}.score-bar input{height:32px}
+ .timeline:not(.expanded):not(.manually-sized) .timeline-editbar{display:none}
+ .timeline:not(.expanded):not(.manually-sized) .timeline-body{display:flex!important}
+ .timeline:not(.expanded):not(.manually-sized) .audio-lane,.timeline:not(.expanded):not(.manually-sized) .music-track,.timeline:not(.expanded):not(.manually-sized) .movement-lane,.timeline:not(.expanded):not(.manually-sized) .movement-track,.timeline:not(.expanded):not(.manually-sized) .prop-lane,.timeline:not(.expanded):not(.manually-sized) .prop-track,.timeline:not(.expanded):not(.manually-sized) .cue-lane,.timeline:not(.expanded):not(.manually-sized) .cue-track{display:none!important}
+ .track-labels{width:72px;min-width:72px}.track-name{font-size:10px;padding:0 8px}
+ .timeline .time-ruler,.timeline .ruler-label{height:20px}.timeline .formation-lane,.timeline .track-name{height:42px}
+ .timeline .timeline-formation{top:2px;height:38px;font-size:11px}
+ .timeline.expanded:not(.manually-sized){height:clamp(260px,44vh,370px);min-height:260px}
+ .timeline.expanded .timeline-editbar{overflow-x:auto;justify-content:flex-start;min-height:44px;padding:0 8px;gap:10px}
+ .timeline.expanded .timeline-editbar>div{flex-shrink:0;gap:3px}
+ .timeline-editbar button,.timeline-editbar select{font-size:12px;min-height:42px;padding:4px 8px}
+ .timeline.expanded .audio-lane{height:46px}.timeline.expanded .music-track{height:53px}
+ .timeline-open .formation-strip{display:none}.timeline-open .canvas-heading h1{font-size:20px}
+ .native-nav{min-height:calc(60px + var(--safe-bottom));padding-top:3px;padding-bottom:calc(3px + var(--safe-bottom))}
+ .native-nav>button{font-size:10px;min-height:54px}.native-nav>button>.icon{width:22px;height:22px}
+ .stage-fullscreen.fullscreen-with-timeline .timeline:not(.manually-sized){height:clamp(260px,40vh,340px);min-height:260px}
+ .stage-fullscreen .canvas-toolbar .view-controls{margin-left:0}
+ .stage-fullscreen .fullscreen-stage-tools{display:inline-flex;width:36px;min-width:36px;height:40px}
+ .stage-fullscreen .mobile-properties{display:none}
+ .music-trim{width:18px}.music-window>span{font-size:10px}.prop-lane>button{min-width:36px;min-height:28px}
+}
+@media(max-width:374px){
+ .toolbar-tools>.icon-button{width:36px}.mobile-properties,.view-controls>[data-action=stage-view]{width:36px;min-width:36px}
+ .canvas-options>.icon-button{width:37px;min-width:37px}.canvas-options{gap:0}
+ .transport-time{min-width:100px;font-size:14px}.beat-counter{font-size:12px;min-width:43px;padding-left:4px}
+ .timeline .transport{padding:0 6px}.score-bar{padding:0 5px}.score-bar button{font-size:10px;padding:4px}
+}
+@media(max-width:767px) and (max-height:650px){
+ .formation-strip{display:none}.canvas-heading{margin-top:4px;min-height:28px}.canvas-heading h1{font-size:20px}
+ .timeline:not(.expanded):not(.manually-sized){height:150px;min-height:150px}
+ .timeline.expanded:not(.manually-sized),.stage-fullscreen.fullscreen-with-timeline .timeline:not(.manually-sized){height:245px;min-height:245px}
+ .canvas-bottom{min-height:40px}.canvas-options>.icon-button{height:40px}.native-nav{min-height:54px}.native-nav>button{min-height:48px}
+}
+@media(max-width:1023px) and (orientation:landscape) and (max-height:500px){
+ .app-header{height:44px;min-height:44px}.project-nav,.formation-strip,.canvas-heading,.native-nav{display:none}
+ .canvas-toolbar{height:42px;min-height:42px}.stage-viewport{padding:4px 14px}
+ .timeline:not(.expanded):not(.manually-sized){height:98px;min-height:98px}
+ .timeline:not(.expanded):not(.manually-sized) .timeline-body,.timeline:not(.expanded) .timeline-editbar{display:none!important}
+ .timeline.expanded:not(.manually-sized),.stage-fullscreen.fullscreen-with-timeline .timeline:not(.manually-sized){height:210px;min-height:210px}
+ .stage-fullscreen .canvas-bottom{min-height:36px;padding:0 8px}
+ .canvas-toolbar .landscape-tools{display:inline-flex;min-width:40px;min-height:40px}
+}

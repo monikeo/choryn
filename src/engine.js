@@ -47,7 +47,7 @@ export function interpolatePosition(project,p,next,t,route){
 }
 export function transitionSettings(project,formation){return {duration:formation?.transition?.duration??project.transitionDuration,easing:formation?.transition?.easing??project.easing,pathType:formation?.transition?.pathType??project.pathType};}
 export function samplePerformance(project, time) {
-  const forms = [...project.formations].sort((a,b)=>a.time-b.time);
+  const forms = project.formations.every((f,i,all)=>!i||f.time>=all[i-1].time)?project.formations:[...project.formations].sort((a,b)=>a.time-b.time);
   let index = lastIndex(forms,f => f.time <= time);
   if (index < 0) index = 0;
   const from = forms[index], to = forms[index+1];
@@ -74,15 +74,15 @@ export function beatAt(project,time) {
   return { beat:((beat%8)+8)%8+1, phrase:Math.floor(beat/8)+1, total:beat+1 };
 }
 export function warnings(project,positions,time=0) {
-  const issues=[];
+  const issues=[],cast=new Map(project.performers.map(p=>[p.id,p])),props=sampleProps(project,time);
   for(const p of positions){
-    const performer=project.performers.find(q=>q.id===p.performerId);
+    const performer=cast.get(p.performerId);
     if(Math.abs(p.x)>project.stage.width/2 || Math.abs(p.z)>project.stage.depth/2) issues.push(`${performer?.name}: outside stage`);
   }
   for(let i=0;i<positions.length;i++) for(let j=i+1;j<positions.length;j++) {
-    if(positions[i].visible!==false&&positions[j].visible!==false&&Math.hypot(positions[i].x-positions[j].x,positions[i].z-positions[j].z)<(project.safetyDistance||.55)) issues.push(`Performers ${project.performers.find(p=>p.id===positions[i].performerId)?.number} & ${project.performers.find(p=>p.id===positions[j].performerId)?.number}: less than ${project.safetyDistance||.55} m apart`);
+    if(positions[i].visible!==false&&positions[j].visible!==false&&Math.hypot(positions[i].x-positions[j].x,positions[i].z-positions[j].z)<(project.safetyDistance||.55)) issues.push(`Performers ${cast.get(positions[i].performerId)?.number} & ${cast.get(positions[j].performerId)?.number}: less than ${project.safetyDistance||.55} m apart`);
   }
-  for(const p of positions) for(const prop of sampleProps(project,time)){if(p.visible!==false&&prop.kind!=='platform'&&Math.abs(p.x-prop.x)<prop.width/2+.25&&Math.abs(p.z-prop.z)<prop.depth/2+.25)issues.push(`${project.performers.find(q=>q.id===p.performerId)?.name}: near ${prop.name}`);}
+  for(const p of positions) for(const prop of props){if(p.visible!==false&&prop.kind!=='platform'&&Math.abs(p.x-prop.x)<prop.width/2+.25&&Math.abs(p.z-prop.z)<prop.depth/2+.25)issues.push(`${cast.get(p.performerId)?.name}: near ${prop.name}`);}
   return issues;
 }
 // Imports are untrusted; allowlist fields and bound geometry, counts and text.

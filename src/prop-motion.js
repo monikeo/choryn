@@ -12,6 +12,7 @@ export function validatePropAnimation(prop,duration){
 }
 const mixColor=(a,b,t)=>'#'+[1,3,5].map(i=>Math.round(parseInt(a.slice(i,i+2),16)*(1-t)+parseInt(b.slice(i,i+2),16)*t).toString(16).padStart(2,'0')).join('');
 export function sampleProp(prop,time){
+ if(!prop.keyframes?.length)return {...prop};
  const frames=[{...prop,time:0},...(prop.keyframes||[])].sort((a,b)=>a.time-b.time);let index=0;for(let i=0;i<frames.length;i++)if(frames[i].time<=time)index=i;const from=frames[index],to=frames[index+1];
  if(!to)return {...prop,...validatePropPose(from)};const raw=Math.max(0,Math.min(1,(time-from.time)/Math.max(.001,to.time-from.time))),t=to.easing==='linear'?raw:raw*raw*(3-2*raw),pose={...prop};
  for(const key of Object.keys(numbers))pose[key]=from[key]+(to[key]-from[key])*t;pose.rotation=from.rotation+(((to.rotation-from.rotation+540)%360)-180)*t;if(pose.rotation>360)pose.rotation-=360;if(pose.rotation<-360)pose.rotation+=360;pose.color=mixColor(from.color,to.color,t);pose.shape=from.shape;return pose;

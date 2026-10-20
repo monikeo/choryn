@@ -13,8 +13,9 @@ export function cameraMatrix(eye,target,aspect){
 }
 export function projectPoint(matrix,p){const v=[...p,1],out=[0,0,0,0];for(let r=0;r<4;r++)for(let i=0;i<4;i++)out[r]+=matrix[i*4+r]*v[i];return out[3]>.01?[out[0]/out[3],out[1]/out[3],out[2]/out[3]]:null;}
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
+export function stageSceneKey(project,positions,selected){return JSON.stringify([project.stage.width,project.stage.depth,project.performers.map(p=>[p.id,p.number,p.name,p.color]),(project.props||[]).map(p=>[p.id,p.x,p.z,p.width,p.depth,p.height,p.rotation,p.shape,p.color]),positions,[...selected].sort()]);}
 function geometry(project,positions,selected){
-  const data=[];
+  const data=[],cast=new Map(project.performers.map(p=>[p.id,p]));
   const tri=(a,b,c,color)=>{const normal=norm(cross(sub(b,a),sub(c,a)));for(const v of [a,b,c])data.push(...v,...normal,...color);};
   const box=(x,y,z,w,h,d,color,rotation=0)=>{
     const points=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(p=>{const a=rotation*Math.PI/180,dx=p[0]*w/2,dz=p[2]*d/2;return [x+dx*Math.cos(a)-dz*Math.sin(a),y+p[1]*h/2,z+dx*Math.sin(a)+dz*Math.cos(a)];});
@@ -36,7 +37,7 @@ function geometry(project,positions,selected){
   for(const prop of project.props||[]){const h=Math.max(.05,prop.height),color=rgb(prop.color);if(prop.shape==='rectangle'||!prop.shape){box(prop.x,h/2,-prop.z,prop.width,h,prop.depth,color,prop.rotation||0);continue;}const n=prop.shape==='triangle'?3:24,a=(prop.rotation||0)*Math.PI/180,points=Array.from({length:n},(_,i)=>{const angle=i/n*Math.PI*2-Math.PI/2,vertex=prop.shape==='triangle'?[[0,-prop.depth/2],[prop.width/2,prop.depth/2],[-prop.width/2,prop.depth/2]][i]:[Math.cos(angle)*prop.width/2,Math.sin(angle)*prop.depth/2],dx=vertex[0],dz=vertex[1];return [prop.x+dx*Math.cos(a)-dz*Math.sin(a),-prop.z+dx*Math.sin(a)+dz*Math.cos(a)];});for(let i=0;i<n;i++){const p=points[i],q=points[(i+1)%n],b=[p[0],0,p[1]],c=[q[0],0,q[1]],t=[p[0],h,p[1]],u=[q[0],h,q[1]];tri(b,t,u,color);tri(b,u,c,color);tri([prop.x,h,-prop.z],u,t,color);tri([prop.x,0,-prop.z],b,c,color);}}
   for(const p of positions){
     if(p.visible===false)continue;
-    const performer=project.performers.find(v=>v.id===p.performerId);if(!performer)continue;
+    const performer=cast.get(p.performerId);if(!performer)continue;
     const color=rgb(performer.color),x=p.x,z=-p.z;
     cylinder(x,.025,z,selected.has(p.performerId)?.42:.34,.025,selected.has(p.performerId)?[.48,.32,.79]:[.73,.68,.8],18);
     box(x-.11,.34,z,.15,.6,.18,[.32,.29,.38]);box(x+.11,.34,z,.15,.6,.18,[.32,.29,.38]);
@@ -61,9 +62,13 @@ export function mountStage3D(host,project,positions,options={}){
   try{vs=shader(gl.VERTEX_SHADER,vertex);fs=shader(gl.FRAGMENT_SHADER,fragment);program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error('3D program failed');buffer=gl.createBuffer();}catch{fallback();return {update(){},dispose(){}};}
   const controller=new AbortController(),signal=controller.signal;
   const camera=options.camera||{yaw:.15,pitch:.68,zoom:1};let yaw=camera.yaw,pitch=camera.pitch,disposed=false;
-  let current=project,currentPositions=positions;
+  let current=project,currentPositions=positions,vertices,dirty=true,frame=0,fitKey='',fitDistance=0,sceneKey=stageSceneKey(project,positions,options.selected?.()||new Set());
+  let cast=new Map(project.performers.map(p=>[p.id,p]));const labelNodes=new Map();
+  const matrixLocation=gl.getUniformLocation(program,'matrix');
+  gl.bindBuffer(gl.ARRAY_BUFFER,buffer);for(const [name,offset] of [['position',0],['normal',12],['color',24]]){const loc=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,3,gl.FLOAT,false,36,offset);}
   const labels=document.createElement('div');labels.className='stage3d-labels';host.append(labels);
   const caption=document.createElement('p');caption.className='stage3d-caption';caption.textContent='Drag to orbit · + / − to zoom · purple edge faces the audience';host.append(caption);
+  function requestDraw(){if(!disposed&&!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
   function draw(){
     if(disposed)return;
     const rect=host.getBoundingClientRect();if(rect.width<1||rect.height<1)return;
@@ -71,31 +76,33 @@ export function mountStage3D(host,project,positions,options={}){
     const width=Math.max(1,Math.floor(rect.width*dpr)),height=Math.max(1,Math.floor(rect.height*dpr));if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
     gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(.94,.925,.955,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.useProgram(program);
     const aspect=canvas.width/canvas.height;
+    const key=[current.stage.width,current.stage.depth,aspect,yaw,pitch].join('/');
+    if(key!==fitKey){
     const horizontal=current.stage.width*Math.abs(Math.cos(yaw))+current.stage.depth*Math.abs(Math.sin(yaw));
     const vertical=(current.stage.depth*Math.abs(Math.cos(yaw))+current.stage.width*Math.abs(Math.sin(yaw)))*Math.sin(pitch)+2.5;
     let fitted=Math.max(horizontal/(2*Math.tan(Math.PI/7)*aspect),vertical/(2*Math.tan(Math.PI/7)))*1.18;
     const corners=[];for(const x of [-current.stage.width/2,current.stage.width/2])for(const z of [-current.stage.depth/2,current.stage.depth/2])for(const y of [0,1.8])corners.push([x,y,z]);
     for(let step=0;step<16;step++){const eye=[Math.sin(yaw)*Math.cos(pitch)*fitted,Math.sin(pitch)*fitted,Math.cos(yaw)*Math.cos(pitch)*fitted],matrix=cameraMatrix(eye,[0,.2,0],aspect);if(corners.every(p=>{const q=projectPoint(matrix,p);return q&&Math.abs(q[0])<.91&&Math.abs(q[1])<.87;}))break;fitted*=1.08;}
-    const distance=fitted/camera.zoom;
+    fitKey=key;fitDistance=fitted;}
+    const distance=fitDistance/camera.zoom;
     const eye=[Math.sin(yaw)*Math.cos(pitch)*distance,Math.sin(pitch)*distance,Math.cos(yaw)*Math.cos(pitch)*distance];
     const matrix=cameraMatrix(eye,[0,.2,0],canvas.width/canvas.height);
-    gl.uniformMatrix4fv(gl.getUniformLocation(program,'matrix'),false,matrix);
-    const vertices=geometry(current,currentPositions,options.selected?.()||new Set());gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);
-    for(const [name,offset] of [['position',0],['normal',12],['color',24]]){const loc=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,3,gl.FLOAT,false,36,offset);}
+    gl.uniformMatrix4fv(matrixLocation,false,matrix);
+    if(dirty){vertices=geometry(current,currentPositions,options.selected?.()||new Set());gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);dirty=false;}
     gl.drawArrays(gl.TRIANGLES,0,vertices.length/9);
-    labels.replaceChildren();
+    for(const node of labelNodes.values())node.hidden=true;
     for(const p of currentPositions){
       if(p.visible===false)continue;const pos=projectPoint(matrix,[p.x,1.95,-p.z]);if(!pos||Math.abs(pos[0])>1||Math.abs(pos[1])>1)continue;
-      const person=current.performers.find(v=>v.id===p.performerId),label=document.createElement('button');label.textContent=String(person.number).padStart(2,'0');label.title=person.name;label.setAttribute('aria-label',`Select ${person.name} in 3D`);label.style.left=`${(pos[0]*.5+.5)*100}%`;label.style.top=`${(-pos[1]*.5+.5)*100}%`;label.style.color='var(--text)';label.style.borderColor=person.color;label.onclick=()=>options.onSelect?.(p.performerId);labels.append(label);
+      const person=cast.get(p.performerId);if(!person)continue;let label=labelNodes.get(p.performerId);if(!label){label=document.createElement('button');label.onclick=()=>options.onSelect?.(p.performerId);labels.append(label);labelNodes.set(p.performerId,label);}label.hidden=false;label.textContent=String(person.number).padStart(2,'0');label.title=person.name;label.setAttribute('aria-label',`Select ${person.name} in 3D`);label.style.left=`${(pos[0]*.5+.5)*100}%`;label.style.top=`${(-pos[1]*.5+.5)*100}%`;label.style.color='var(--text)';label.style.borderColor=person.color;
     }
   }
   const pointers=new Map();let start;
   let pinch=null;
   canvas.addEventListener('pointerdown',event=>{canvas.focus();canvas.setPointerCapture(event.pointerId);pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});start={x:event.clientX,y:event.clientY,yaw,pitch};if(pointers.size===2){const [a,b]=[...pointers.values()];pinch={distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),zoom:camera.zoom};}},{signal});
-  canvas.addEventListener('pointermove',event=>{if(!pointers.has(event.pointerId))return;pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size===2&&pinch){const [a,b]=[...pointers.values()];camera.zoom=Math.max(.5,Math.min(3,pinch.zoom*Math.hypot(a.x-b.x,a.y-b.y)/pinch.distance));options.onCameraChange?.();draw();}else if(pointers.size===1&&start){yaw=start.yaw-(event.clientX-start.x)*.008;pitch=Math.max(.12,Math.min(1.45,start.pitch+(event.clientY-start.y)*.006));camera.yaw=yaw;camera.pitch=pitch;draw();}},{signal});
+  canvas.addEventListener('pointermove',event=>{if(!pointers.has(event.pointerId))return;pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size===2&&pinch){const [a,b]=[...pointers.values()];camera.zoom=Math.max(.5,Math.min(3,pinch.zoom*Math.hypot(a.x-b.x,a.y-b.y)/pinch.distance));options.onCameraChange?.();requestDraw();}else if(pointers.size===1&&start){yaw=start.yaw-(event.clientX-start.x)*.008;pitch=Math.max(.12,Math.min(1.45,start.pitch+(event.clientY-start.y)*.006));camera.yaw=yaw;camera.pitch=pitch;requestDraw();}},{signal});
   const end=event=>{pointers.delete(event.pointerId);start=null;pinch=null;};canvas.addEventListener('pointerup',end,{signal});canvas.addEventListener('pointercancel',end,{signal});
-  canvas.addEventListener('keydown',event=>{let handled=true;if(event.key==='ArrowLeft')yaw-=.1;else if(event.key==='ArrowRight')yaw+=.1;else if(event.key==='ArrowUp')pitch=Math.min(1.45,pitch+.08);else if(event.key==='ArrowDown')pitch=Math.max(.12,pitch-.08);else if(event.key==='+'||event.key==='=')camera.zoom=Math.min(3,camera.zoom*1.1);else if(event.key==='-')camera.zoom=Math.max(.5,camera.zoom/1.1);else handled=false;if(handled){event.preventDefault();event.stopPropagation();camera.yaw=yaw;camera.pitch=pitch;options.onCameraChange?.();draw();}},{signal});
+  canvas.addEventListener('keydown',event=>{let handled=true;if(event.key==='ArrowLeft')yaw-=.1;else if(event.key==='ArrowRight')yaw+=.1;else if(event.key==='ArrowUp')pitch=Math.min(1.45,pitch+.08);else if(event.key==='ArrowDown')pitch=Math.max(.12,pitch-.08);else if(event.key==='+'||event.key==='=')camera.zoom=Math.min(3,camera.zoom*1.1);else if(event.key==='-')camera.zoom=Math.max(.5,camera.zoom/1.1);else handled=false;if(handled){event.preventDefault();event.stopPropagation();camera.yaw=yaw;camera.pitch=pitch;options.onCameraChange?.();requestDraw();}},{signal});
   canvas.addEventListener('webglcontextlost',event=>{if(!disposed){event.preventDefault();fallback();}},{signal});
-  const resize=observeSize(host,draw);draw();
-  return {update(project,positions){current=project;currentPositions=positions;draw();},dispose(){disposed=true;controller.abort();resize.disconnect();gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
+  const resize=observeSize(host,requestDraw);requestDraw();
+  return {update(project,positions){const key=stageSceneKey(project,positions,options.selected?.()||new Set());if(key===sceneKey)return;sceneKey=key;current=project;currentPositions=positions;cast=new Map(project.performers.map(p=>[p.id,p]));dirty=true;requestDraw();},dispose(){disposed=true;cancelAnimationFrame(frame);controller.abort();resize.disconnect();gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
 }
