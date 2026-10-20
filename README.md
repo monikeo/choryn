@@ -1,10 +1,14 @@
-# CHORYN Studio · 0.9.0
+# CHORYN Studio · 0.9.1
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
 ## Run
 
 Node.js 20+; no npm dependencies. Direct Node commands also work if a system npm installation is unavailable: from `studio/`, run `node scripts/serve.mjs`, `node --test`, or `node scripts/build.mjs`. From the workspace root, run `npm run dev`, `npm test`, or `npm run build`. The app lives in `studio/`; its package exposes the same scripts. Preview the production build by running `node scripts/serve.mjs --built` from `studio/`.
+
+## Recovery fix in 0.9.1
+
+Opening Properties, Preferences, workspace tools or other dialogs pauses playback. That transport-only update deliberately omits stage state. The updater now leaves the stage/analysis layers alone when state is absent, preventing the undefined `analysis` error that blocked dialogs in 0.9.0. Existing overlays remain intact and normal stage updates still work. No project reset or storage migration is required. Reload the site and accept Save and update to replace an installed offline shell.
 
 ## Workstation and analysis
 
@@ -74,4 +78,4 @@ The production build includes a manifest, install icons, and a versioned offline
 
 Canonical coordinates: X increases audience-right, Z increases upstage, facing 0° points downstage. `engine.js` validates the versioned model and samples movement. `timeline-model.js` handles immutable timing, clip operations, overlap packing, and waveform scaling. `timeline-ui.js` owns clip gestures, selection, clipboard, confirmations, and resizing. `mouse-model.js` supplies box selection and bounded group translation; `templates.js` defines the shape catalog. Renderers are `stage2d.js`, `stage3d.js`, `exports.js`, and `video.js`. `studio-power.js` integrates timeline gestures, sequence/cast dialogs, fullscreen, and recording. `features.js` implements rehearsal/production/review/report modules. `backups.js`, `revisions.js`, and `pwa.js` handle local durability and installation.
 
-142 automated tests cover canonical sampling, imports, geometry, routes, backups, timeline operations, cast metadata, offline boundaries, checkpoint ghosts, reference time mapping, carrier handoffs, camera transforms, viewport sizing, capture lifecycle and export error cleanup. Test doubles exercise media/WebGL orchestration; they are not evidence of actual browser codec output. Syntax checks, production build, source/build equality and complete static/dynamic module cache closure are verified before packaging. Live browser/decoder testing for v0.9 remains unavailable because browser access was denied by policy; no workaround was attempted. Prior releases' browser checks are historical evidence only. See `VERIFICATION.md` and workspace `docs/verification-v09.md` for the current evidence and limits.
+144 automated tests cover canonical sampling, imports, geometry, routes, backups, timeline operations, cast metadata, offline boundaries, checkpoint ghosts, reference time mapping, carrier handoffs, camera transforms, viewport sizing, capture lifecycle and export error cleanup. Test doubles exercise media/WebGL orchestration; they are not evidence of actual browser codec output. Syntax checks, production build, source/build equality and complete static/dynamic module cache closure are verified before packaging. Live browser/decoder testing for v0.9 remains unavailable because browser access was denied by policy; no workaround was attempted. Prior releases' browser checks are historical evidence only. See `VERIFICATION.md` and workspace `docs/verification-v091.md` for the current evidence and limits.

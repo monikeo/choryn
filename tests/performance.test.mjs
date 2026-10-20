@@ -1,4 +1,6 @@
 import test from 'node:test';
+import vm from 'node:vm';
+import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {createPlaybackView} from '../src/playback-view.js';
 import {createProject,samplePerformance,warnings} from '../src/engine.js';
@@ -19,7 +21,7 @@ function workspace(p){
  const root=new Node(),layer=new Node(),objects=new Node(),nodes=p.performers.map(person=>{const n=new Node();n.dataset.marker=person.id;n.selectors.set('.marker-facing',new Node());n.selectors.set('.selection-ring',new Node());return n;});
  layer.selectors.set('[data-marker]',nodes);objects.selectors.set('[data-stage-object]',[]);
  for(const id of ['[data-clock-main]','#transport-time small','#fine-scrub','#precise-count','#playhead','[data-beat-phrase]','[data-beat-number]'])root.selectors.set(id,new Node());
- root.selectors.set('#performer-markers',layer);root.selectors.set('#stage-objects',objects);root.selectors.set('.timeline-formation',p.formations.map(f=>{const n=new Node();n.dataset.formation=f.id;return n;}));
+ root.selectors.set('#stage-analysis',new Node());root.selectors.set('#rehearsal-ghosts',new Node());root.selectors.set('#performer-markers',layer);root.selectors.set('#stage-objects',objects);root.selectors.set('.timeline-formation',p.formations.map(f=>{const n=new Node();n.dataset.formation=f.id;return n;}));
  return {root,layer,objects,nodes,state:{selected:new Set(),rotation:0,mirror:false,flip:false,labels:true}};
 }
 test('playback reuses performer nodes and skips unchanged transform writes through holds',()=>{
@@ -65,4 +67,23 @@ test('fullscreen can leave hidden transport idle while performer animation conti
  p.formations[1].positions[0].x=4;view.update(p,1,{...options,positions:samplePerformance(p,1)});const transform=w.nodes[0].getAttribute('transform'),label=clock.textContent;scrub.value=1;
  view.update(p,15,{...options,positions:samplePerformance(p,15),hud:false});assert.equal(clock.textContent,label);assert.equal(scrub.value,1);assert.notEqual(w.nodes[0].getAttribute('transform'),transform);
  view.update(p,15,{...options,positions:samplePerformance(p,15),hud:true});assert.equal(clock.textContent,'00:15');assert.equal(scrub.value,15);
+});
+
+test('pausing or opening a dialog preserves analysis and ghost layers during a transport-only update',()=>{
+ const p=createProject('Pause regression',1),w=workspace(p),view=createPlaybackView(w.root),analysis={cells:[],paths:[],comparison:[],summary:'Comparison active'};
+ view.update(p,3,{positions:samplePerformance(p,3),state:{...w.state,analysis,ghosts:[]},playing:true,active:p.formations[0].id});
+ const layer=w.root.querySelector('#stage-analysis'),ghosts=w.root.querySelector('#rehearsal-ghosts'),markup=layer.markup,writes=layer.rebuilds,ghostWrites=ghosts.rebuilds;
+ assert.doesNotThrow(()=>view.update(p,3,{playing:false,active:p.formations[0].id}));
+ assert.equal(layer.markup,markup);assert.equal(layer.rebuilds,writes);assert.equal(ghosts.rebuilds,ghostWrites);
+ assert.doesNotThrow(()=>view.update(p,3,{playing:false,hud:false}));assert.doesNotThrow(()=>view.update(p,3));
+ assert.equal(w.root.querySelector('[data-clock-main]').textContent,'00:03');
+ view.update(p,4,{positions:samplePerformance(p,4),state:{...w.state,analysis:{...analysis,summary:'Still editable'}},playing:false});assert.match(layer.markup,/Still editable/);
+});
+
+test('actual Properties, Preferences and workspace dialog entry paths can pause the initialized analysis view',async()=>{
+ const source=await readFile(new URL('../src/app.js',import.meta.url),'utf8'),p=createProject('Dialog regression',1),w=workspace(p),view=createPlaybackView(w.root);
+ view.update(p,2,{positions:samplePerformance(p,2),state:{...w.state,analysis:{cells:[],paths:[],comparison:[],summary:'Enabled'}},playing:true});
+ let opened=0;const dialog={dataset:{},showModal(){opened++;this.open=true;}},context={project:p,time:2,playing:false,playbackToken:0,playbackFrame:0,rate:1,active:p.formations[0].id,audioSource:null,playbackView:view,cancelAnimationFrame(){},syncReference(){},updatePlayButton(){},clamp:(n,a,b)=>Math.max(a,Math.min(b,n)),document:{activeElement:null,body:{classList:{contains:()=>false}},documentElement:{dataset:{theme:'light'}}},$:()=>dialog,btn:()=>'',icon:()=>'',mode:'formation',selected:new Set(),renderInspector:()=>'<p>Properties accessible</p>',recordingAvailable:()=>false,FORMATION_TEMPLATES:[],esc:String};
+ const functions=['pause','openDialog','propertiesDialog','settingsDialog','workspaceMenu'].map(name=>{const text=source.split(/\r?\n/).find(line=>line.startsWith(`function ${name}(`));assert.ok(text,`Missing actual ${name} entry path`);return text;}).join('\n');
+ vm.runInNewContext(functions,context);assert.doesNotThrow(()=>context.propertiesDialog());assert.equal(dialog.dataset.kind,'inspector');assert.match(dialog.innerHTML,/Properties accessible/);assert.doesNotThrow(()=>context.settingsDialog());assert.match(dialog.innerHTML,/Error recovery/);assert.doesNotThrow(()=>context.workspaceMenu());assert.equal(opened,3);
 });

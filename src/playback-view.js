@@ -25,6 +25,9 @@ export function createPlaybackView(root){
   const nextId=playing?active:null;if(playingId!==nextId){clips.get(playingId)?.classList.remove('playing');clips.get(nextId)?.classList.add('playing');playingId=nextId;}
   if(activeId!==active){clips.get(activeId)?.classList.remove('active');clips.get(active)?.classList.add('active');activeId=active;}
   }
+  // Pause and dialog entry update transport without supplying stage state.
+  // Keep the current overlays intact until an explicit stage update arrives.
+  if(!state)return;
   if(analysisLayer&&state.analysis!==analysisRef){analysisLayer.innerHTML=renderAnalysis2D(project,state.analysis,state);analysisRef=state.analysis;}
   if(!positions)return;
   if(ghostLayer&&state.ghosts!==ghostsRef){ghostLayer.innerHTML=renderGhosts2D(project,state.ghosts||[],state);ghostsRef=state.ghosts;}

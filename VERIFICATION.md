@@ -1,31 +1,21 @@
-# CHORYN v0.9 workstation verification — 20 October 2026
+# CHORYN v0.9.1 dialog recovery verification — 21 October 2026
 
-142 automated tests pass, including 16 new workstation/model/interaction tests. All 43 application and script JavaScript syntax checks and the production build pass. The complete offline module graph has 111 relative static/dynamic import edges; every referenced module/stylesheet is present in the service-worker shell. Packaging checks source/build bytes and generated cache hash against the synchronized source commit.
+144 automated tests pass. All 43 application/script JavaScript syntax checks, the production build, and complete offline shell closure pass. This is a focused fix for the user-reported blocked controls and “Cannot read properties of undefined (reading analysis)” error.
 
-## Delivered scope
+## Root cause and fix
 
-Design direction: a functional violet rehearsal workstation. CHORYN's established typography, palette and stage remain; controls are grouped by task, unused decorative canvas dots are removed, headers are tighter and the stage stays central. Choreograph/Rehearse/Export arrangements remember local panel visibility, preset and timeline expansion. Desktop panel separators support drag, keyboard arrows and Home; widths stay within bounds. Container/media rules wrap narrow stage controls, preserve mobile/tablet drawers and timeline expansion, and expose fullscreen search/analysis.
+`openDialog()` calls `pause()` before showing Properties, Preferences, workspace tools and other dialogs. Pause passes only transport information to `createPlaybackView.update()`, deliberately omitting stage state. The v0.9 analysis-layer update read `state.analysis` without checking whether state was present. Because the analysis layer is always in the real 2D DOM, even when overlays are off, pausing threw before the dialog could open. The recovery callback also calls pause, so it encountered the same failure.
 
-Timeline editing now uses named SVG icon buttons, disabled-state help, keyboard toolbar navigation and existing context/precision dialogs. Dragging shows a floating preview, insertion/snap guide, neighboring clip movement and affected custom-route count. Touch users swipe a formation body to scroll, drag its dotted grip to reorder/retime, and drag edge handles to trim. Pointer cancel/Escape roll back; stale project changes cannot be overwritten. Time slots remain fixed on reorder. Reorders that remove disconnected route overrides require review in both the timeline and sequence list; autosave timestamp updates do not invalidate that review. Formation cut/delete always requires its existing confirmation.
+The updater now completes any requested transport changes and returns when no stage state was supplied. It preserves existing analysis/ghost layers and accepts the next explicit stage update normally. No project data/schema, storage, media, or choreography migration is involved.
 
-The three additional requested features are implemented:
+## Regression evidence
 
-- Formation comparison: reference/current endpoints by stable performer ID, displacement, shortest facing delta and visibility changes; overlays in 2D and 3D and a comparison table.
-- Travel/spacing heatmaps: canonical curved movement samples across the outgoing movement window; approximate path distance with a cast table, spacing cells/minimum under an adjustable threshold, selected-cast focus and bounded sampling/cells. Results are cached between formation boundaries and reset after score edits.
-- Command search: Ctrl/Command K and touch-accessible buttons, ranked title/group/tag search, keyboard selection, direct formation/cast navigation, editing/export commands and read-only/confirmation protections.
+The existing playback test fixture now contains the actual analysis and ghost layer containers. Before the fix, both the transport-state test and the new pause regression failed with the exact reported TypeError. The guard makes them pass.
 
-PNG/SVG no longer use the fixed formation-sheet layout. Current-view images share the stage/video renderer and exact playhead camera, props, ghosts, analysis and optional reference frame. 2D SVG retains vectors and may embed a reference raster layer; 3D SVG clearly identifies its embedded PNG snapshot. Viewport aspect is preserved with up to 2x capture and 4096 pixels per edge. Printable formation sheets remain separate. MP4/WebM video uses the same stage camera and receives cached analysis per sequence interval. Image decode/encoding/cancellation errors clean up resources and provide a recovery path.
+New coverage checks transport-only pause updates with visible/hidden HUD, omitted options, preserved overlay content/node writes, and successful later stage updates. A second test executes the actual pause/openDialog/Properties/Preferences/workspace function bodies from app.js against the initialized playback renderer and a minimal dialog DOM. All three dialog entry paths complete. This uses test doubles, not a browser session. The prior 142 tests remain green.
 
-## Evidence
+The generated service-worker shell hash changes with the fixed source. Source/build equality and relative static/dynamic module closure are checked before packaging. Installed clients retain coherent old assets until Save and update; the update action itself does not invoke the failing pause path. Reload once to discover the update, then accept it. Clearing browser data is not required.
 
-New tests cover stable comparison identities and facing wrap, curved sampled travel, intermediate spacing crossings, hidden cast/focus filters, heat-cell limits, nonmutation, escaped overlays and rotated labels, exact-view SVG analysis/camera state, ranked command search, magnetic grid/checkpoint/playhead snapping, reorder impact, icon accessible labels, bounded portrait/wide image sizing, hybrid SVG layers/raster disclosure, PNG capture/cancellation, cut/delete confirmation, reorder review with autosave/authored-change distinctions, saved panel bounds and keyboard toolbar focus.
+## Limits
 
-Existing 3D capture tests now also verify analysis geometry/legend capture and unchanged-scene reuse. Prior 126 tests for timing, props, reference video, backup, recovery, pacing, media lifecycle and offline boundaries remain green. Tests use DOM/media/WebGL doubles; they do not establish real browser rendering or codec output.
-
-## Verification limits
-
-Live browser access was denied by security policy in the earlier verification session. No alternate surface, raw browser control or workaround was attempted. This release has no new screenshot, live interaction, physical phone/iPad, screen-reader or actual encoder/decoder verification. Source responsiveness is implemented, but universal browser/device compatibility is not claimed. Historical checks in earlier releases are not presented as v0.9 evidence.
-
-Heatmaps use 33 samples and can miss rapid between-sample crossings; travel length is approximate and excludes invisible samples. Colour is supplemented with distances, threshold/minimum text and tables. These tools do not simulate bodies, obstacles or physical safety. Analysis overlays are session view settings. Local workspace arrangements persist on this browser/origin.
-
-Exports capture stage content, excluding editor chrome. Fonts, shadows and rasterization may differ slightly; 3D SVG is a raster container rather than a vectorized scene. Reference originals remain local and are excluded from portable backups. MP4 is offered only when the browser supports encoding it; supported WebM alternatives remain. Real-time video cadence depends on the device, clip decoding load and available memory. The site remains owner-private and local-first.
+Live browser access remains unavailable following the prior browser policy denial; no workaround was attempted. No live device or codec test is claimed. The fault was reproduced directly in the playback updater and actual dialog entry functions. Existing v0.9 responsive/capture limitations remain documented in docs/verification-v09.md. The site audience remains owner-private and the release stays local-first.
