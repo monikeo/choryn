@@ -60,3 +60,9 @@ test('3D scene invalidation includes animated prop shape, size, rotation and col
  const p=createProject(),positions=samplePerformance(p,1);p.props=[newStageObject()];const key=stageSceneKey(p,positions,new Set());
  for(const [field,value] of [['shape','ellipse'],['width',4],['height',3],['rotation',45],['color','#ff0000']]){const old=p.props[0][field];p.props[0][field]=value;assert.notEqual(stageSceneKey(p,positions,new Set()),key);p.props[0][field]=old;}
 });
+test('fullscreen can leave hidden transport idle while performer animation continues',()=>{
+ const p=createProject('Hidden timeline',1),w=workspace(p),view=createPlaybackView(w.root),clock=w.root.querySelector('[data-clock-main]'),scrub=w.root.querySelector('#fine-scrub'),options={state:w.state,playing:true,active:p.formations[0].id};
+ p.formations[1].positions[0].x=4;view.update(p,1,{...options,positions:samplePerformance(p,1)});const transform=w.nodes[0].getAttribute('transform'),label=clock.textContent;scrub.value=1;
+ view.update(p,15,{...options,positions:samplePerformance(p,15),hud:false});assert.equal(clock.textContent,label);assert.equal(scrub.value,1);assert.notEqual(w.nodes[0].getAttribute('transform'),transform);
+ view.update(p,15,{...options,positions:samplePerformance(p,15),hud:true});assert.equal(clock.textContent,'00:15');assert.equal(scrub.value,15);
+});

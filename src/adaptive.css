@@ -103,3 +103,10 @@
  .stage-fullscreen .canvas-bottom{min-height:36px;padding:0 8px}
  .canvas-toolbar .landscape-tools{display:inline-flex;min-width:40px;min-height:40px}
 }
+
+/* Playback isolates the stage paint and leaves hidden fullscreen chrome idle. */
+.is-playing .canvas-body{background-image:none}
+.is-playing .stage-wrap:not(.webgl-stage){contain:layout paint;isolation:isolate}
+.is-playing .curve-control{visibility:hidden}
+.stage-fullscreen .app-rail,.stage-fullscreen .app-header,.stage-fullscreen .project-nav,.stage-fullscreen .assets-panel,.stage-fullscreen .inspector,.stage-fullscreen .status-bar,.stage-fullscreen .native-nav{visibility:hidden}
+.stage-fullscreen:not(.fullscreen-with-timeline) .timeline{visibility:hidden;pointer-events:none}

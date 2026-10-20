@@ -1,4 +1,4 @@
-# CHORYN Studio · 0.7
+# CHORYN Studio · 0.7.1
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
@@ -52,7 +52,7 @@ The production build includes a manifest, install icons, and a versioned offline
 
 Canonical coordinates: X increases audience-right, Z increases upstage, facing 0° points downstage. `engine.js` validates the versioned model and samples movement. `timeline-model.js` handles immutable timing, clip operations, overlap packing, and waveform scaling. `timeline-ui.js` owns clip gestures, selection, clipboard, confirmations, and resizing. `mouse-model.js` supplies box selection and bounded group translation; `templates.js` defines the shape catalog. Renderers are `stage2d.js`, `stage3d.js`, `exports.js`, and `video.js`. `studio-power.js` integrates timeline gestures, sequence/cast dialogs, fullscreen, and recording. `features.js` implements rehearsal/production/review/report modules. `backups.js`, `revisions.js`, and `pwa.js` handle local durability and installation.
 
-103 automated tests cover canonical sampling, imports, geometry, route timing, backups, production references, timeline constraints/reordering, custom cast metadata, quality settings, encoder detection, rendering, calendar/CSV escaping, text contrast, and offline cache boundaries. Browser checks cover actual recordings at all four resolutions, drag timing/undo, sequence edits, cast/tag workflow, fullscreen, responsive viewports, and offline reopening. See `VERIFICATION.md` in the app and the workspace `docs/verification-v07.md` for current evidence and limits.
+108 automated tests cover canonical sampling, imports, geometry, route timing, backups, production references, timeline constraints/reordering, custom cast metadata, quality settings, encoder detection, rendering, calendar/CSV escaping, text contrast, and offline cache boundaries. Browser checks cover actual recordings at all four resolutions, drag timing/undo, sequence edits, cast/tag workflow, fullscreen, responsive viewports, and offline reopening. See `VERIFICATION.md` in the app and the workspace `docs/verification-v071.md` for current evidence and limits.
 
 This release deliberately remains local-first. Accounts, cloud collaboration, billing, AI generation, full translation, native app binaries, and motion-capture/biomechanics remain outside the implemented release. The original complete specification is retained in the workspace documentation.
 
@@ -99,3 +99,10 @@ The 3D module loads on demand with a guarded 2D recovery action. Camera gestures
 Desktop adds independent formations/inspector panel toggles, readable form controls and a shorter timeline on laptop-height screens. Phone mode prioritizes the stage with larger controls, an explicit Edit/Done timeline button, quick count/music access, and a compact formation track. Expanded editing retains the audio, props, cues and full clip tools; its toolbar scrolls horizontally. Small phones and landscape layouts keep stage and editor space available. Safe-area, keyboard viewport, PWA and fullscreen fallbacks remain in place.
 
 The last selected local project is reopened on the next launch. Web fonts load without blocking the core workspace stylesheet; system fonts remain available offline. Mobile fullscreen Stage controls provides Select, Pan, Edit curved paths and Measure with touch-friendly actions.
+
+
+## Fullscreen playback in 0.7.1
+
+A phase-aligned scheduler replaces the rounding-sensitive elapsed-time cap. The shared 2D/3D stage loop targets up to 60 updates per second; visible timeline controls update at up to 10, and hidden fullscreen timeline controls stay idle. Automatic quality uses editor/3D CPU update cost to reduce the target to 30 when necessary, then restores it after sustained headroom. Preferences → Playback performance also offers Smooth (60 target), Efficient (30 target), and bounded local diagnostics. Audio and video-export timing are independent. These update targets are not a guarantee of displayed FPS on every device.
+
+Fullscreen hides unused chrome and avoids hidden-inspector rebuilding at formation boundaries. Playback removes only decorative workspace dots and hides curve editing handles until pause; performers, animated props, paths, stage grid and editing data are preserved.

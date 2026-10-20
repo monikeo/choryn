@@ -9,18 +9,21 @@ const text=(node,value)=>{if(node&&node.textContent!==String(value))node.textCon
 // Keep focused stage objects and performer nodes alive while the clock advances.
 export function createPlaybackView(root){
  const find=selector=>root.querySelector(selector),layer=find('#performer-markers'),objects=find('#stage-objects');
- let markers=new Map(),props=new Map(),playingId=null;
+ let markers=new Map(),props=new Map(),playingId=null,activeId=null;
  const scan=()=>{markers=new Map(Array.from(layer?.querySelectorAll('[data-marker]')||[],node=>[node.dataset.marker,{node,facing:node.querySelector('.marker-facing'),ring:node.querySelector('.selection-ring')} ]));};scan();
  for(const node of objects?.querySelectorAll('[data-stage-object]')||[])props.set(node.dataset.stageObject,{node,shape:node.firstElementChild});
  const clock=find('[data-clock-main]'),fraction=find('#transport-time small'),scrub=find('#fine-scrub'),count=find('#precise-count'),playhead=find('#playhead'),phrase=find('[data-beat-phrase]'),beat=find('[data-beat-number]');
  const clips=new Map(Array.from(root.querySelectorAll('.timeline-formation'),node=>[node.dataset.formation,node]));
- return {update(project,time,{positions,state,playing=false,active,focused}={}){
+ return {update(project,time,{positions,state,playing=false,active,focused,hud=true}={}){
+  if(hud){
   if(scrub&&scrub!==focused)scrub.value=time;
   text(clock,timecode(time));text(fraction,`.${String(Math.floor(time%1*100)).padStart(2,'0')}`);
   text(count,time<(project.music?.beatOffset||0)?'Count-in':formatCount(time,project.bpm,project.music?.beatOffset||0));
   if(playhead)playhead.style.left=`${time/project.duration*100}%`;
   const b=beatAt(project,time);text(phrase,b.phrase);text(beat,b.beat);
   const nextId=playing?active:null;if(playingId!==nextId){clips.get(playingId)?.classList.remove('playing');clips.get(nextId)?.classList.add('playing');playingId=nextId;}
+  if(activeId!==active){clips.get(activeId)?.classList.remove('active');clips.get(active)?.classList.add('active');activeId=active;}
+  }
   if(!positions)return;
   if(layer&&positions.some(p=>p.visible!==false&&!markers.has(p.performerId))){layer.innerHTML=renderMarkers2D(project,positions,state);scan();}
   for(const p of positions){const item=markers.get(p.performerId);if(!item)continue;const {node,facing,ring}=item;const hidden=p.visible===false;

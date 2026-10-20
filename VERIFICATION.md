@@ -1,28 +1,28 @@
-# CHORYN 0.7 verification — 20 October 2026
+# CHORYN v0.7.1 fullscreen playback verification — 20 October 2026
 
-103 automated tests pass, every application/script JavaScript syntax check passes, and the production build succeeds. Seven new regression tests exercise stable performer/prop DOM updates, unchanged-hold write suppression, shape-keyframe geometry replacement, entrance/exit handling, focused scrubber protection, transport updates, one prop sample per spacing report, and 3D scene invalidation for selection, cast, visibility and animated prop geometry.
+108 automated tests pass. All application/script JavaScript syntax checks and the production build pass. The user reported that both 2D and 3D fullscreen playback felt slow; this release changes the shared scheduling path and accounts for 3D drawing cost in adaptive quality.
 
-## Performance
+## Identified cause and changes
 
-Playback now samples performers once per visual update and patches cached DOM references. Animated prop objects retain their wrapper nodes; geometry is replaced only when the shape type changes. Repeated holds cause no extra performer transform writes in the 100-performer regression fixture. Formation boundaries update the inspector and active sequence without rebuilding the entire app or recreating the WebGL context. The clock targets 30 visual updates per second and pauses when the page is hidden.
+The prior loop rendered only when elapsed callback time was at least 1000/30 milliseconds, then replaced its previous timestamp with the actual callback time. Floating-point and display scheduling differences could skip another refresh instead of retaining the intended phase. A deterministic 10-second 60Hz simulation yielded only 204 updates. The new scheduler uses an advancing deadline, a small timestamp tolerance, and drops obsolete deadlines after stalls. Smooth mode yields 600 updates in the same simulation. This is a scheduler simulation, not measured device FPS.
 
-WebGL loads on demand. Camera gestures coalesce to animation frames, reuse geometry and cache camera fitting; unchanged hold scenes skip geometry uploads/redraws. Labels retain their nodes. The core CSS no longer waits on a remote font @import; optional fonts load separately and the system fallback remains usable.
+The stage targets up to 60 editor updates/s. Automatic mode reduces the target to 30 when the average CPU update cost stays high and returns to 60 after sustained headroom. Smooth fixes the target at 60; Efficient fixes it at 30. WebGL reports its drawing cost back to the shared budget. The existing audio clock remains authoritative and is independent of visual update pacing.
 
-A Node spacing-report benchmark used 100 performers, 12 animated props, 20 poses each, eight warmups and 50 timed runs. Comparing the prior engine routine with this release produced identical reports: median 2.05 → 0.51 ms and p95 3.413 → 1.072 ms. This measures that routine on this machine, not whole-app FPS. Raw results: docs/performance-v07.json.
+Visible timeline controls update at up to 10/s. Hidden fullscreen timeline controls receive no playback HUD updates. Hidden inspectors are not rebuilt at formation boundaries. Fullscreen chrome is hidden, stage painting is isolated during playback, decorative background dots are removed during playback, and curve handles return when playback pauses. The editable stage, props, paths and geometry are retained.
 
-## Browser observations during implementation
+Preferences → Playback performance includes the quality selector and local measurements from the last 120 editor updates. Measurements cover CPU updates and submitted 3D drawing work, not the screen compositor or GPU completion time.
 
-- 1280×720 laptop: stage viewport height increased from 140 to 193 px; default animated-prop timeline decreased from 280 to 240 px. Independent panel toggles hid either sidebar, with both hidden yielding a 1216 px stage viewport. No horizontal document overflow.
-- 390×844 phone: larger stage/transport/zoom controls, quick Music and Counts buttons, and explicit Edit/Done timeline controls worked. Expanded editing kept a 220 px stage viewport and a 370 px timeline.
-- 320×568 phone: compact mode kept a 172 px stage viewport; expanded mode retained 77 px above a 245 px editable timeline. Clips were 38 px tall. Clip tools opened, Delete requested confirmation, and Keep formation cancelled removal.
-- 844×390 landscape: compact mode kept a 206 px stage viewport and a 98 px transport area. A hidden-track CSS conflict was found and fixed. The expanded view then kept a 94 px stage viewport and 96 px of visible timeline tracks in a 210 px timeline.
-- 834×1194 tablet: no horizontal document overflow, a 515.6 px stage viewport and a 249 px timeline. Tablet dialog inputs now use 16 px text and at least 44 px height.
-- A new local Performance QA 0.7 project with 100 performers played through the 16-second boundary into Open diamond, retaining 100 performer markers.
-- Deferred 3D loading produced one WebGL canvas and 12 labels. Keyboard camera rotation worked. Playback advanced from Open diamond at 29 s to Find the light at 36.95 s; canvas count remained one and the inspector followed the active formation. No console errors were observed in that check.
-- Mobile fullscreen at 320×568 opened Stage controls, switched to Edit curved paths, closed the dialog and exposed draggable path controls without toolbar overflow. The stage viewport remained 180 px above a 245 px timeline.
+## Regression coverage
+
+- Intended 60-update cadence on simulated 60/90/120/144Hz refresh callbacks; fixed 30-update Efficient mode.
+- Long stalls skip expired deadlines and do not cause catch-up bursts.
+- Automatic quality steps down under sustained expensive updates and recovers after stable headroom.
+- Bounded timing statistics, invalid-sample protection and per-run reset.
+- Hidden HUD stays untouched while performer positions continue to animate, then catches up when visible.
+- Existing route, prop, timing, validation, backup, video and offline-shell tests remain green.
 
 ## Limits
 
-The browser session was subsequently replaced by a browser error page, and the browser security policy denied access to observe it. No workaround was attempted. Final repeat drag/prop checks, final production offline reload, and hosted visual rechecking could not be completed in that session. The build/cache closure and automated motion/prop tests pass; v0.6 had previously passed production offline reopening and animated-prop MP4 recording. New source is not claimed to have passed those browser checks again.
+Live fullscreen profiling is unverified: the browser security policy denied access in the previous verification session, and no workaround was attempted. No claim of 60 displayed FPS on physical hardware is made. Prior responsive and playback checks are recorded in verification-v07.md. The source build and complete static/dynamic module cache closure are checked before packaging. The existing site audience remains owner-private.
 
-Viewport tests use Chromium, not physical Safari, iOS, iPadOS or Android hardware. Installability, native fullscreen and recording codecs remain browser-dependent. This is an adaptive installable web app, not native platform binaries. Position, size, height, rotation and colour interpolate; shape changes occur at arrival keyframes. Music is optional. Existing delete confirmations, validation/recovery, local storage and private audience are retained.
+Proposed next features are documented separately in docs/feature-roadmap.md; they are not presented as implemented.

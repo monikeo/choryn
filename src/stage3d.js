@@ -71,6 +71,7 @@ export function mountStage3D(host,project,positions,options={}){
   function requestDraw(){if(!disposed&&!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
   function draw(){
     if(disposed)return;
+    const started=performance.now();
     const rect=host.getBoundingClientRect();if(rect.width<1||rect.height<1)return;
     const dpr=Math.min(window.devicePixelRatio||1,matchMedia('(pointer: coarse)').matches?1:1.5);
     const width=Math.max(1,Math.floor(rect.width*dpr)),height=Math.max(1,Math.floor(rect.height*dpr));if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
@@ -95,6 +96,7 @@ export function mountStage3D(host,project,positions,options={}){
       if(p.visible===false)continue;const pos=projectPoint(matrix,[p.x,1.95,-p.z]);if(!pos||Math.abs(pos[0])>1||Math.abs(pos[1])>1)continue;
       const person=cast.get(p.performerId);if(!person)continue;let label=labelNodes.get(p.performerId);if(!label){label=document.createElement('button');label.onclick=()=>options.onSelect?.(p.performerId);labels.append(label);labelNodes.set(p.performerId,label);}label.hidden=false;label.textContent=String(person.number).padStart(2,'0');label.title=person.name;label.setAttribute('aria-label',`Select ${person.name} in 3D`);label.style.left=`${(pos[0]*.5+.5)*100}%`;label.style.top=`${(-pos[1]*.5+.5)*100}%`;label.style.color='var(--text)';label.style.borderColor=person.color;
     }
+    options.onRenderCost?.(performance.now()-started);
   }
   const pointers=new Map();let start;
   let pinch=null;
