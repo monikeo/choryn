@@ -1,3 +1,4 @@
+import {renderAnalysis2D} from './analysis-view.js';
 import {beatAt,timecode} from './engine.js';
 import {formatCount} from './music-model.js';
 import {sampleAttachedProp,propShapeSVG} from './prop-motion.js';
@@ -8,8 +9,8 @@ const text=(node,value)=>{if(node&&node.textContent!==String(value))node.textCon
 
 // Keep focused stage objects and performer nodes alive while the clock advances.
 export function createPlaybackView(root){
- const find=selector=>root.querySelector(selector),layer=find('#performer-markers'),objects=find('#stage-objects'),ghostLayer=find('#rehearsal-ghosts');
- let markers=new Map(),props=new Map(),playingId=null,activeId=null,ghostsRef;
+ const find=selector=>root.querySelector(selector),layer=find('#performer-markers'),objects=find('#stage-objects'),ghostLayer=find('#rehearsal-ghosts'),analysisLayer=find('#stage-analysis');
+ let markers=new Map(),props=new Map(),playingId=null,activeId=null,ghostsRef,analysisRef;
  const scan=()=>{markers=new Map(Array.from(layer?.querySelectorAll('[data-marker]')||[],node=>[node.dataset.marker,{node,facing:node.querySelector('.marker-facing'),ring:node.querySelector('.selection-ring')} ]));};scan();
  for(const node of objects?.querySelectorAll('[data-stage-object]')||[])props.set(node.dataset.stageObject,{node,shape:node.firstElementChild});
  const clock=find('[data-clock-main]'),fraction=find('#transport-time small'),scrub=find('#fine-scrub'),count=find('#precise-count'),playhead=find('#playhead'),phrase=find('[data-beat-phrase]'),beat=find('[data-beat-number]');
@@ -24,6 +25,7 @@ export function createPlaybackView(root){
   const nextId=playing?active:null;if(playingId!==nextId){clips.get(playingId)?.classList.remove('playing');clips.get(nextId)?.classList.add('playing');playingId=nextId;}
   if(activeId!==active){clips.get(activeId)?.classList.remove('active');clips.get(active)?.classList.add('active');activeId=active;}
   }
+  if(analysisLayer&&state.analysis!==analysisRef){analysisLayer.innerHTML=renderAnalysis2D(project,state.analysis,state);analysisRef=state.analysis;}
   if(!positions)return;
   if(ghostLayer&&state.ghosts!==ghostsRef){ghostLayer.innerHTML=renderGhosts2D(project,state.ghosts||[],state);ghostsRef=state.ghosts;}
   if(layer&&positions.some(p=>p.visible!==false&&!markers.has(p.performerId))){layer.innerHTML=renderMarkers2D(project,positions,state);scan();}

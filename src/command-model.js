@@ -1,0 +1,2 @@
+const normalize=text=>String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+export function searchCommands(commands,query,limit=40){const words=normalize(query).trim().split(/\s+/).filter(Boolean);return commands.map((c,i)=>{const title=normalize(c.title),text=title+' '+normalize(c.keywords)+' '+normalize(c.group);return {c,i,score:words.every(w=>text.includes(w))?words.reduce((n,w)=>n+(title.startsWith(w)?6:title.includes(w)?3:1),0):-1};}).filter(r=>r.score>=0).sort((a,b)=>b.score-a.score||a.i-b.i).slice(0,limit).map(r=>r.c);}

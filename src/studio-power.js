@@ -1,6 +1,6 @@
 import {createViewVideoRenderer} from './view-video.js';
 import {observeSize,recordingAvailable} from './compat.js';
-import {setupTimeline,bindEditorTimeline} from './timeline-ui.js';
+import {setupTimeline,bindEditorTimeline,requestSequenceReorder} from './timeline-ui.js';
 import {clone,clamp,timecode,transitionSettings} from './engine.js';
 import {editTimeline,reorderFormation,snappedTime,setFormationTransition} from './timeline-model.js';
 import {videoSettings,supportedVideoFormats,recordVideo} from './video.js';
@@ -31,7 +31,7 @@ export function setupPower(adapter){
       }
       if(action==='sequence-up'||action==='sequence-down'){
         const project=api.project(),index=project.formations.findIndex(f=>f.id===node.dataset.id),next=reorderFormation(project,node.dataset.id,index+(action==='sequence-up'?-1:1));
-        api.replace(next,'Formation sequence updated. Existing time slots stay in place.');sequenceDialog();
+        requestSequenceReorder(next,node.dataset.id,sequenceDialog);
       }
       if(action==='sequence-select'){api.selectFormation(node.dataset.id);api.close();}
       if(action==='duplicate'){api.duplicate();}
@@ -62,7 +62,7 @@ export function setupPower(adapter){
   },true);
   document.addEventListener('dragstart',event=>{const row=event.target.closest('[data-sequence-row]');if(!row)return;sequenceDragged=row.dataset.sequenceRow;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',sequenceDragged);row.classList.add('dragging');});
   document.addEventListener('dragover',event=>{if(sequenceDragged&&event.target.closest('[data-sequence-row]')){event.preventDefault();event.dataTransfer.dropEffect='move';}});
-  document.addEventListener('drop',event=>{const row=event.target.closest('[data-sequence-row]');if(!row||!sequenceDragged)return;event.preventDefault();try{api.replace(reorderFormation(api.project(),sequenceDragged,Number(row.dataset.index)),'Formation sequence reordered.');sequenceDialog();}catch(error){api.toast(error.message);}sequenceDragged=null;});
+  document.addEventListener('drop',event=>{const row=event.target.closest('[data-sequence-row]');if(!row||!sequenceDragged)return;event.preventDefault();try{requestSequenceReorder(reorderFormation(api.project(),sequenceDragged,Number(row.dataset.index)),sequenceDragged,sequenceDialog);}catch(error){api.toast(error.message);}sequenceDragged=null;});
   document.addEventListener('dragend',()=>{sequenceDragged=null;document.querySelectorAll('.dragging').forEach(el=>el.classList.remove('dragging'));});
   document.addEventListener('pointerdown',event=>{
     const grip=event.target.closest('.sequence-grip'),row=grip?.closest('[data-sequence-row]');
@@ -76,7 +76,7 @@ export function setupPower(adapter){
     rows.forEach(row=>row.classList.toggle('sequence-drop-target',Number(row.dataset.index)===sequencePointer.index));
     const body=$('#dialog .modal-body'),rect=body.getBoundingClientRect();if(event.clientY<rect.top+30)body.scrollTop-=16;else if(event.clientY>rect.bottom-30)body.scrollTop+=16;
   },{passive:false});
-  const finishSequence=cancel=>{if(!sequencePointer)return;const gesture=sequencePointer;sequencePointer=null;document.querySelectorAll('.sequence-drop-target').forEach(el=>el.classList.remove('sequence-drop-target'));if(cancel||!gesture.moved)return;try{api.replace(reorderFormation(api.project(),gesture.id,gesture.index),'Formation sequence reordered.');sequenceDialog();}catch(error){api.toast(error.message);}};
+  const finishSequence=cancel=>{if(!sequencePointer)return;const gesture=sequencePointer;sequencePointer=null;document.querySelectorAll('.sequence-drop-target').forEach(el=>el.classList.remove('sequence-drop-target'));if(cancel||!gesture.moved)return;try{requestSequenceReorder(reorderFormation(api.project(),gesture.id,gesture.index),gesture.id,sequenceDialog);}catch(error){api.toast(error.message);}};
   document.addEventListener('pointerup',()=>finishSequence(false));document.addEventListener('pointercancel',()=>finishSequence(true));
   $('#dialog').addEventListener('close',()=>{exportJob?.abort();if(videoURL){URL.revokeObjectURL(videoURL);videoURL=null;}exportBlob=null;});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&full&&!$('#dialog').open){event.preventDefault();toggleFullscreen();}if(event.key.toLowerCase()==='f'&&!event.ctrlKey&&!event.metaKey&&!event.target.matches('input,textarea,select')&&!$('#dialog').open)toggleFullscreen();});

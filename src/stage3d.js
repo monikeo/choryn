@@ -14,7 +14,7 @@ export function cameraMatrix(eye,target,aspect){
 export function projectPoint(matrix,p){const v=[...p,1],out=[0,0,0,0];for(let r=0;r<4;r++)for(let i=0;i<4;i++)out[r]+=matrix[i*4+r]*v[i];return out[3]>.01?[out[0]/out[3],out[1]/out[3],out[2]/out[3]]:null;}
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
 export function stageSceneKey(project,positions,selected){return JSON.stringify([project.stage.width,project.stage.depth,project.performers.map(p=>[p.id,p.number,p.name,p.color]),(project.props||[]).map(p=>[p.id,p.x,p.z,p.width,p.depth,p.height,p.rotation,p.shape,p.color]),positions,[...selected].sort()]);}
-function geometry(project,positions,selected,ghosts=[]){
+function geometry(project,positions,selected,ghosts=[],analysis){
   const data=[],cast=new Map(project.performers.map(p=>[p.id,p]));
   const tri=(a,b,c,color)=>{const normal=norm(cross(sub(b,a),sub(c,a)));for(const v of [a,b,c])data.push(...v,...normal,...color);};
   const box=(x,y,z,w,h,d,color,rotation=0)=>{
@@ -34,6 +34,10 @@ function geometry(project,positions,selected,ghosts=[]){
   for(let i=0;i<=d;i++)box(0,.005,i-d/2,w,.012,.012,[.66,.62,.72]);
   box(0,.015,0,.025,.015,d,[.51,.43,.63]);box(0,.015,0,w,.015,.025,[.51,.43,.63]);
   box(0,-.1,d/2+.6,w*.6,.08,.12,[.49,.38,.78]);
+  const line=(a,b,color,width=.05)=>{const dx=b.x-a.x,dz=b.z-a.z;box((a.x+b.x)/2,.06,-(a.z+b.z)/2,Math.hypot(dx,dz),.025,width,color,Math.atan2(-dz,dx)*180/Math.PI);};
+  for(const cell of analysis?.cells||[])box(cell.x,.04,-cell.z,cell.width,.025,cell.depth,rgb(cell.color));
+  for(const path of analysis?.paths||[])for(let i=1;i<path.points.length;i++)line(path.points[i-1],path.points[i],rgb(path.color),.08);
+  for(const item of analysis?.comparison||[])if(item.from&&item.from.visible!==false){cylinder(item.from.x,.055,-item.from.z,.38,.04,[.5,.4,.8],18);line(item.from,item.to,[.5,.4,.8]);}
   for(const frame of ghosts)for(const p of frame.positions){const person=cast.get(p.performerId);if(person)cylinder(p.x,.045,-p.z,.34,.06,rgb(person.color).map(v=>v*.35+.6),16);}
   for(const prop of project.props||[]){const h=Math.max(.05,prop.height),color=rgb(prop.color);if(prop.shape==='rectangle'||!prop.shape){box(prop.x,h/2,-prop.z,prop.width,h,prop.depth,color,prop.rotation||0);continue;}const n=prop.shape==='triangle'?3:24,a=(prop.rotation||0)*Math.PI/180,points=Array.from({length:n},(_,i)=>{const angle=i/n*Math.PI*2-Math.PI/2,vertex=prop.shape==='triangle'?[[0,-prop.depth/2],[prop.width/2,prop.depth/2],[-prop.width/2,prop.depth/2]][i]:[Math.cos(angle)*prop.width/2,Math.sin(angle)*prop.depth/2],dx=vertex[0],dz=vertex[1];return [prop.x+dx*Math.cos(a)-dz*Math.sin(a),-prop.z+dx*Math.sin(a)+dz*Math.cos(a)];});for(let i=0;i<n;i++){const p=points[i],q=points[(i+1)%n],b=[p[0],0,p[1]],c=[q[0],0,q[1]],t=[p[0],h,p[1]],u=[q[0],h,q[1]];tri(b,t,u,color);tri(b,u,c,color);tri([prop.x,h,-prop.z],u,t,color);tri([prop.x,0,-prop.z],b,c,color);}}
   for(const p of positions){
@@ -63,11 +67,12 @@ export function mountStage3D(host,project,positions,options={}){
   try{vs=shader(gl.VERTEX_SHADER,vertex);fs=shader(gl.FRAGMENT_SHADER,fragment);program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error('3D program failed');buffer=gl.createBuffer();}catch{fallback();return {update(){},dispose(){}};}
   const controller=new AbortController(),signal=controller.signal;
   const camera=options.camera||{yaw:.15,pitch:.68,zoom:1};let yaw=camera.yaw,pitch=camera.pitch,disposed=false,contextLost=false;
-  let current=project,currentPositions=positions,currentGhosts=options.ghosts||[],vertices,dirty=true,frame=0,fitKey='',fitDistance=0,sceneKey=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify([options.ghosts||[],camera.target]);
+  let current=project,currentPositions=positions,currentGhosts=options.ghosts||[],currentAnalysis=options.analysis,vertices,dirty=true,frame=0,fitKey='',fitDistance=0,sceneKey=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify([options.ghosts||[],camera.target]);
   let cast=new Map(project.performers.map(p=>[p.id,p]));const labelNodes=new Map(),ghostNodes=new Map();
   const matrixLocation=gl.getUniformLocation(program,'matrix');
   gl.bindBuffer(gl.ARRAY_BUFFER,buffer);for(const [name,offset] of [['position',0],['normal',12],['color',24]]){const loc=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,3,gl.FLOAT,false,36,offset);}
   const ghostLabels=document.createElement('div');ghostLabels.className='stage3d-labels stage3d-ghosts';host.append(ghostLabels);
+  const analysisLabels=document.createElement('div');analysisLabels.className='stage3d-labels analysis-labels';host.append(analysisLabels);const analysisLabel=document.createElement('span');analysisLabels.append(analysisLabel);
   const labels=document.createElement('div');labels.className='stage3d-labels';host.append(labels);
   const caption=document.createElement('p');caption.className='stage3d-caption';caption.textContent='Drag to orbit · + / − to zoom · purple edge faces the audience';host.append(caption);
   function requestDraw(){if(!disposed&&!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
@@ -91,7 +96,7 @@ export function mountStage3D(host,project,positions,options={}){
     const eye=[target[0]+Math.sin(yaw)*Math.cos(pitch)*distance,target[1]+Math.sin(pitch)*distance,target[2]+Math.cos(yaw)*Math.cos(pitch)*distance];
     const matrix=cameraMatrix(eye,target,canvas.width/canvas.height);
     gl.uniformMatrix4fv(matrixLocation,false,matrix);
-    if(dirty){vertices=geometry(current,currentPositions,options.selected?.()||new Set(),currentGhosts);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);dirty=false;}
+    if(dirty){vertices=geometry(current,currentPositions,options.selected?.()||new Set(),currentGhosts,currentAnalysis);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);dirty=false;}
     gl.drawArrays(gl.TRIANGLES,0,vertices.length/9);
     for(const node of labelNodes.values())node.hidden=true;
     for(const p of currentPositions){
@@ -101,6 +106,7 @@ export function mountStage3D(host,project,positions,options={}){
     const liveGhosts=new Set();for(const ghost of currentGhosts)for(const p of ghost.positions){const pos=projectPoint(matrix,[p.x,.2,-p.z]);if(!pos||Math.abs(pos[0])>1||Math.abs(pos[1])>1)continue;const person=cast.get(p.performerId),key=`${ghost.time}/${p.performerId}`;liveGhosts.add(key);let label=ghostNodes.get(key);if(!label){label=document.createElement('span');ghostLabels.append(label);ghostNodes.set(key,label);}const text=`${ghost.label} · ${person?.number||''}`;if(label.textContent!==text)label.textContent=text;label.style.left=`${(pos[0]*.5+.5)*100}%`;label.style.top=`${(-pos[1]*.5+.5)*100}%`;}
     for(const [key,label] of ghostNodes)if(!liveGhosts.has(key)){label.remove();ghostNodes.delete(key);}
 
+    analysisLabel.hidden=!currentAnalysis?.summary;analysisLabel.textContent=currentAnalysis?.summary||'';
     options.onRenderCost?.(performance.now()-started);
   }
   const pointers=new Map();let start;
@@ -111,7 +117,7 @@ export function mountStage3D(host,project,positions,options={}){
   canvas.addEventListener('keydown',event=>{let handled=true;if(event.key==='ArrowLeft')yaw-=.1;else if(event.key==='ArrowRight')yaw+=.1;else if(event.key==='ArrowUp')pitch=Math.min(1.45,pitch+.08);else if(event.key==='ArrowDown')pitch=Math.max(.12,pitch-.08);else if(event.key==='+'||event.key==='=')camera.zoom=Math.min(3,camera.zoom*1.1);else if(event.key==='-')camera.zoom=Math.max(.5,camera.zoom/1.1);else handled=false;if(handled){event.preventDefault();event.stopPropagation();camera.yaw=yaw;camera.pitch=pitch;options.onCameraChange?.(camera);requestDraw();}},{signal});
   canvas.addEventListener('webglcontextlost',event=>{if(!disposed){event.preventDefault();contextLost=true;fallback();}},{signal});
   const resize=observeSize(host,requestDraw);requestDraw();
-  return {camera,update(project,positions,extras={}){const ghosts=extras.ghosts||currentGhosts,key=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify([ghosts,camera.target]);if(key===sceneKey)return;sceneKey=key;current=project;currentPositions=positions;currentGhosts=ghosts;cast=new Map(project.performers.map(p=>[p.id,p]));dirty=true;requestDraw();},
-   capture(ctx,width,height){if(contextLost)throw Error('3D graphics were interrupted. Reload the studio or export the 2D view.');cancelAnimationFrame(frame);frame=0;draw();ctx.drawImage(canvas,0,0,width,height);const rect=host.getBoundingClientRect();for(const label of [...ghostLabels.children,...labels.children]){if(label.hidden)continue;const box=label.getBoundingClientRect(),style=getComputedStyle(label),x=(box.left-rect.left)/rect.width*width,y=(box.top-rect.top)/rect.height*height,w=box.width/rect.width*width,h=box.height/rect.height*height;ctx.save();ctx.globalAlpha=ghostLabels.contains(label) ? .45 : 1;ctx.fillStyle=style.backgroundColor;const r=Math.min(w/2,h/2,(parseFloat(style.borderRadius)||0)*height/rect.height);ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();if(parseFloat(style.borderTopWidth)>0){ctx.strokeStyle=style.borderColor;ctx.lineWidth=parseFloat(style.borderTopWidth)*height/rect.height;ctx.stroke();}ctx.fillStyle=style.color;ctx.font=`${style.fontWeight||'normal'} ${parseFloat(style.fontSize)*height/rect.height}px ${style.fontFamily}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label.textContent,x+w/2,y+h/2);ctx.restore();}},
+  return {camera,update(project,positions,extras={}){const ghosts=extras.ghosts||currentGhosts,key=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify([ghosts,camera.target]);if(key===sceneKey&&extras.analysis===currentAnalysis)return;sceneKey=key;currentAnalysis=extras.analysis;current=project;currentPositions=positions;currentGhosts=ghosts;cast=new Map(project.performers.map(p=>[p.id,p]));dirty=true;requestDraw();},
+   capture(ctx,width,height){if(contextLost)throw Error('3D graphics were interrupted. Reload the studio or export the 2D view.');cancelAnimationFrame(frame);frame=0;draw();ctx.drawImage(canvas,0,0,width,height);const rect=host.getBoundingClientRect();for(const label of [...ghostLabels.children,...analysisLabels.children,...labels.children]){if(label.hidden)continue;const box=label.getBoundingClientRect(),style=getComputedStyle(label),x=(box.left-rect.left)/rect.width*width,y=(box.top-rect.top)/rect.height*height,w=box.width/rect.width*width,h=box.height/rect.height*height;ctx.save();ctx.globalAlpha=ghostLabels.contains(label) ? .45 : 1;ctx.fillStyle=style.backgroundColor;const r=Math.min(w/2,h/2,(parseFloat(style.borderRadius)||0)*height/rect.height);ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();if(parseFloat(style.borderTopWidth)>0){ctx.strokeStyle=style.borderColor;ctx.lineWidth=parseFloat(style.borderTopWidth)*height/rect.height;ctx.stroke();}ctx.fillStyle=style.color;ctx.font=`${style.fontWeight||'normal'} ${parseFloat(style.fontSize)*height/rect.height}px ${style.fontFamily}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label.textContent,x+w/2,y+h/2);ctx.restore();}},
    dispose(){disposed=true;cancelAnimationFrame(frame);controller.abort();resize.disconnect();gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
 }
