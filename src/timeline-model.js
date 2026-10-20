@@ -22,7 +22,7 @@ export function editTimeline(project,{kind,id,edge='move',value}){
         const min=f.time+.1,max=(forms[index+2]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to trim.');
         target.time=roundTime(clamp(value,min,max));
       }else{
-        const minimum=Math.max(1,f.time+.1,...next.actions.map(a=>a.end),...next.cues.map(c=>c.time),...next.comments.map(c=>c.time),...next.props.flatMap(p=>(p.keyframes||[]).map(f=>f.time)));
+        const minimum=Math.max(1,f.time+.1,...next.actions.map(a=>a.end),...next.cues.map(c=>c.time),...next.comments.map(c=>c.time),...next.props.flatMap(p=>[...(p.keyframes||[]),...(p.attachments||[])].map(f=>f.time)),...(next.checkpoints||[]).map(c=>c.time),next.referenceVideo?.start||0);
         next.duration=roundTime(clamp(value,minimum,3600));
       }
     }else{

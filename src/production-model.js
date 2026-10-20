@@ -1,4 +1,5 @@
-import {validatePropAnimation} from './prop-motion.js';
+import {validateReference,validateCheckpoints} from './rehearsal-model.js';
+import {validateAttachments,validatePropAnimation} from './prop-motion.js';
 import {validateMusic} from './music-model.js';
 import {localId as id} from './compat.js';
 const finite = (n, min, max) => typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max;
@@ -21,7 +22,7 @@ export function validateExtras(source, base) {
   const formationIds = new Set(base.formations.map(f => f.id));
   const props = collection(source, 'props', 100, p => {
     requireValue(text(p.name) && finite(p.x,-100,100) && finite(p.z,-100,100) && finite(p.width,.1,50) && finite(p.depth,.1,50) && finite(p.height,0,20), 'stage object');
-    return {id:p.id,name:p.name,...validatePropAnimation(p,base.duration),kind:['prop','platform','restricted'].includes(p.kind)?p.kind:'prop',color:/^#[\da-f]{6}$/i.test(p.color)?p.color:'#9c8fb4',locked:!!p.locked};
+    return {id:p.id,name:p.name,...validatePropAnimation(p,base.duration),attachments:validateAttachments(p,base),kind:['prop','platform','restricted'].includes(p.kind)?p.kind:'prop',color:/^#[\da-f]{6}$/i.test(p.color)?p.color:'#9c8fb4',locked:!!p.locked};
   });
   const routes = collection(source, 'routes', 10000, r => {
     const from=base.formations.find(f=>f.id===r.fromId),to=base.formations.find(f=>f.id===r.toId);
@@ -43,7 +44,8 @@ export function validateExtras(source, base) {
   });
   const cueIds=new Set(base.cues.map(c=>c.id));
   const cueLog=collection(source,'cueLog',1000,c=>{requireValue(cueIds.has(c.cueId)&&finite(c.at,0,1e14)&&finite(c.time,0,base.duration),'cue confirmation');return {id:c.id,cueId:c.cueId,at:c.at,time:c.time};});
-  return {extensionVersion:3,music:validateMusic(source.music,base.audioName),props,routes,actions,rehearsals,comments,cueLog,safetyDistance:finite(source.safetyDistance,.2,5)?source.safetyDistance:.55,favorite:!!source.favorite,archived:!!source.archived,eventDate:text(source.eventDate,30)?source.eventDate:'',venue:text(source.venue)?source.venue:''};
+  const referenceVideo=validateReference(source.referenceVideo);requireValue(!referenceVideo||referenceVideo.start<=base.duration,'reference video timeline offset');
+  return {extensionVersion:4,referenceVideo,checkpoints:validateCheckpoints(source.checkpoints,base.duration),music:validateMusic(source.music,base.audioName),props,routes,actions,rehearsals,comments,cueLog,safetyDistance:finite(source.safetyDistance,.2,5)?source.safetyDistance:.55,favorite:!!source.favorite,archived:!!source.archived,eventDate:text(source.eventDate,30)?source.eventDate:'',venue:text(source.venue)?source.venue:''};
 }
 export function safeReference(value) {
   if (!value) return '';
@@ -72,7 +74,7 @@ export function routeDistance(from,to,route){
   const points=routePoints(from,to,route?.waypoints||[],route?.curve);
   return points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-points[i].x,p.z-points[i].z),0);
 }
-export function newStageObject(kind='prop'){return {id:id(),name:kind==='platform'?'Center riser':kind==='restricted'?'Keep clear':'Stage prop',kind,x:0,z:0,width:2,depth:1.2,height:kind==='platform'?.4:kind==='restricted'?0:1,color:kind==='restricted'?'#c86c79':'#9c8fb4',shape:'rectangle',rotation:0,keyframes:[],locked:false};}
+export function newStageObject(kind='prop'){return {id:id(),name:kind==='platform'?'Center riser':kind==='restricted'?'Keep clear':'Stage prop',kind,x:0,z:0,width:2,depth:1.2,height:kind==='platform'?.4:kind==='restricted'?0:1,color:kind==='restricted'?'#c86c79':'#9c8fb4',shape:'rectangle',rotation:0,keyframes:[],attachments:[],locked:false};}
 export function csvCell(value){let s=String(value??'');if(/^[=+\-@\t\r\n]/.test(s)||/^\s+[=+\-@]/.test(s))s=`'${s}`;return `"${s.replaceAll('"','""')}"`;}
 export function cueCSV(project){return [['Time (s)','Cue','Status'],...project.cues.map(c=>[c.time,c.label,'Planned'])].map(row=>row.map(csvCell).join(',')).join('\r\n');}
 export function rehearsalICS(project,rehearsal){

@@ -1,0 +1,29 @@
+import {samplePerformance} from './engine.js';
+import {sampleProps} from './prop-motion.js';
+import {renderStage2D} from './stage2d.js';
+import {followView,ghostFrames,ghostInterval,referenceTime} from './rehearsal-model.js';
+import {lastMatch} from './compat.js';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function viewFrameSVG(project,time,snapshot,settings,ghosts){
+ const positions=samplePerformance(project,time),state=followView(project,positions,{...snapshot,selected:new Set(snapshot.selected||[]),labels:settings.labels??snapshot.labels,time,ghosts:ghosts||ghostFrames(project,time,snapshot.aids,new Set(snapshot.selected||[]))}),formation=lastMatch(project.formations,f=>f.time<=time)||project.formations[0];
+ const variables=Object.entries(snapshot.colors||{}).map(([name,value])=>`--${name}:${value}`).join(';'),style=`<style>svg{${variables};font-family:${esc(snapshot.font||'system-ui')}}.curve-control{visibility:hidden}.marker-name{font-family:inherit}.is-selected .marker-body{stroke-width:4px}</style>`;
+ return renderStage2D(project,formation,positions,state).replace('<svg ',`<svg xmlns="http://www.w3.org/2000/svg" width="${settings.width}" height="${settings.height}" `).replace('<defs>',style+'<defs>');
+}
+function mediaWait(element,event,signal){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>finish(Error('Video frame decoding timed out. Try a smaller reference or disable its export.')),10000),success=()=>finish(),error=()=>finish(Error('View frame decoding failed.')),abort=()=>finish(Error('Video export cancelled.'));function finish(reason){clearTimeout(timer);element.removeEventListener(event,success);element.removeEventListener('error',error);signal?.removeEventListener('abort',abort);reason?reject(reason):resolve();}element.addEventListener(event,success,{once:true});element.addEventListener('error',error,{once:true});signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();});}
+export async function createViewVideoRenderer(project,settings,snapshot,{signal}={}){
+ let stage,host,reference,referenceURL,ghostKey='',ghosts=[];
+ const selected=new Set(snapshot.selected||[]),getGhosts=time=>{const index=ghostInterval(project,time),key=`${index}/${Math.abs(time-project.formations[index].time)<.001}`;if(key!==ghostKey){ghostKey=key;ghosts=ghostFrames(project,time,snapshot.aids,selected);}return ghosts;};
+ const dispose=()=>{stage?.dispose();host?.remove();if(reference){reference.pause();reference.removeAttribute('src');reference.load();}if(referenceURL)URL.revokeObjectURL(referenceURL);};
+ try{
+  if(snapshot.kind==='spatial'){
+   const {mountStage3D}=await import('./stage3d.js');host=document.createElement('div');host.className='stage-wrap';host.style.cssText=`position:fixed;left:-20000px;top:0;width:${Math.max(1,snapshot.viewport.width)}px;height:${Math.max(1,snapshot.viewport.height)}px;pointer-events:none;`;host.style.fontFamily=snapshot.font||'system-ui';document.body.append(host);const positions=samplePerformance(project,settings.start),state=followView(project,positions,snapshot);stage=mountStage3D(host,{...project,props:sampleProps(project,settings.start,positions)},positions,{pixelRatio:settings.height/Math.max(1,snapshot.viewport.height),camera:{...state.camera},selected:()=>selected,ghosts:getGhosts(settings.start)});if(!stage.capture)throw Error('This device cannot render the current 3D view for export. Switch to 2D or use a device with WebGL.');
+  }
+  if(snapshot.reference?.blob){reference=document.createElement('video');reference.muted=true;reference.playsInline=true;reference.preload='auto';referenceURL=URL.createObjectURL(snapshot.reference.blob);const ready=mediaWait(reference,'loadeddata',signal);reference.src=referenceURL;await ready;}
+  return {async draw(ctx,time){
+   if(signal?.aborted)throw Error('Video export cancelled.');
+   if(stage){const positions=samplePerformance(project,time),state=followView(project,positions,snapshot);Object.assign(stage.camera,state.camera);stage.update({...project,props:sampleProps(project,time,positions)},positions,{ghosts:getGhosts(time)});stage.capture(ctx,settings.width,settings.height);}
+   else{const svg=viewFrameSVG(project,time,snapshot,settings,getGhosts(time)),url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'})),img=new Image();try{const ready=mediaWait(img,'load',signal);img.src=url;await ready;ctx.fillStyle=snapshot.colors?.bg||'#faf9fc';ctx.fillRect(0,0,settings.width,settings.height);ctx.drawImage(img,0,0,settings.width,settings.height);}finally{URL.revokeObjectURL(url);}}
+   if(reference){const point=referenceTime(snapshot.reference.config,time),target=Math.min(point.source,Math.max(0,reference.duration-.001));if(Math.abs(reference.currentTime-target)>.001){const ready=mediaWait(reference,'seeked',signal);reference.currentTime=target;await ready;}const box=snapshot.reference.box||{x:.65,y:.04,width:.32,height:.25};const x=box.x*settings.width,y=box.y*settings.height,w=box.width*settings.width,h=box.height*settings.height,fit=Math.min(w/reference.videoWidth,h/reference.videoHeight),rw=reference.videoWidth*fit,rh=reference.videoHeight*fit;ctx.fillStyle=snapshot.colors?.stage||'#f5f3f8';ctx.fillRect(x,y,w,h);ctx.drawImage(reference,x+(w-rw)/2,y+(h-rh)/2,rw,rh);}
+  },dispose};
+ }catch(error){dispose();throw error;}
+}

@@ -10,14 +10,15 @@ export function videoSettings(duration,input={}){
   if(!RESOLUTIONS[resolution]||![24,30,60].includes(fps)||!['compact','standard','high'].includes(quality))throw Error('Choose a supported video quality.');
   const start=Number(input.start??0),end=Number(input.end??duration);
   if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end>duration||end-start<.25)throw Error('Choose a clip of at least 0.25 seconds inside the performance.');
-  const [width,height]=RESOLUTIONS[resolution],bitrate=Math.round(width*height*fps*.08*({compact:.55,standard:1,high:1.8}[quality]));
+  let [width,height]=RESOLUTIONS[resolution];if(input.aspect!=null){const aspect=Number(input.aspect);if(!Number.isFinite(aspect)||aspect<.1||aspect>20)throw Error('The stage viewport cannot be exported at this aspect ratio.');width=Math.max(2,Math.round(height*aspect/2)*2);if(width>4096){width=4096;height=Math.max(2,Math.round(width/aspect/2)*2);}}
+  const bitrate=Math.round(width*height*fps*.08*({compact:.55,standard:1,high:1.8}[quality]));
   const estimatedBytes=(bitrate+192000)*(end-start)/8;
   if(estimatedBytes>400*1024*1024)throw Error('This clip is too large for an in-memory export. Choose a shorter range or lower quality (estimated limit 400 MB).');
   return {width,height,fps,quality,start,end,bitrate,estimatedBytes,labels:input.labels!==false};
 }
 export function supportedVideoFormats(Recorder=globalThis.MediaRecorder){
   if(!Recorder?.isTypeSupported)return [];
-  return [['video/webm;codecs=vp9,opus','WebM · VP9','webm'],['video/webm;codecs=vp8,opus','WebM · VP8','webm'],['video/mp4;codecs=avc1.42E01E,mp4a.40.2','MP4 · H.264','mp4'],['video/mp4','MP4','mp4']].filter(([mime])=>(()=>{try{return Recorder.isTypeSupported(mime);}catch{return false;}})());
+  return [['video/mp4;codecs=avc1.42E01E,mp4a.40.2','MP4 · H.264','mp4'],['video/mp4','MP4','mp4'],['video/webm;codecs=vp9,opus','WebM · VP9','webm'],['video/webm;codecs=vp8,opus','WebM · VP8','webm']].filter(([mime])=>(()=>{try{return Recorder.isTypeSupported(mime);}catch{return false;}})());
 }
 export function drawVideoFrame(ctx,project,time,settings){
   const {width:w,height:h}=settings,s=h/720;
@@ -31,7 +32,7 @@ export function drawVideoFrame(ctx,project,time,settings){
   for(let z=-Math.floor(project.stage.depth/2);z<=project.stage.depth/2;z++){const py=y+sh/2-z*unit;ctx.beginPath();ctx.moveTo(left,py);ctx.lineTo(left+sw,py);ctx.stroke();}
   ctx.strokeStyle='#8e829f';ctx.strokeRect(left,y,sw,sh);
   const point=p=>({x:left+sw/2+p.x*unit,y:y+sh/2-p.z*unit});
-  for(const prop of sampleProps(project,time)){const p=point(prop),w=prop.width*unit,d=prop.depth*unit;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.globalAlpha=.35;ctx.fillStyle=prop.color;ctx.beginPath();if(prop.shape==='ellipse')ctx.ellipse(0,0,w/2,d/2,0,0,Math.PI*2);else if(prop.shape==='triangle'){ctx.moveTo(0,-d/2);ctx.lineTo(w/2,d/2);ctx.lineTo(-w/2,d/2);ctx.closePath();}else ctx.rect(-w/2,-d/2,w,d);ctx.fill();ctx.restore();}
+  for(const prop of sampleProps(project,time,samplePerformance(project,time))){const p=point(prop),w=prop.width*unit,d=prop.depth*unit;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.globalAlpha=.35;ctx.fillStyle=prop.color;ctx.beginPath();if(prop.shape==='ellipse')ctx.ellipse(0,0,w/2,d/2,0,0,Math.PI*2);else if(prop.shape==='triangle'){ctx.moveTo(0,-d/2);ctx.lineTo(w/2,d/2);ctx.lineTo(-w/2,d/2);ctx.closePath();}else ctx.rect(-w/2,-d/2,w,d);ctx.fill();ctx.restore();}
   ctx.save();ctx.beginPath();ctx.rect(left-26,y-26,sw+52,sh+52);ctx.clip();
   for(const position of samplePerformance(project,time)){
     if(position.visible===false)continue;const person=project.performers.find(p=>p.id===position.performerId),p=point(position),radius=clamp(unit*.29,6,18);
@@ -46,7 +47,7 @@ export function drawVideoFrame(ctx,project,time,settings){
 }
 
 // MediaRecorder records in real time. A separate audio graph shares its clock with drawing.
-export async function recordVideo(project,settings,{mime,audioBuffer,signal,onProgress=()=>{},canvas=document.createElement('canvas')}={}){
+export async function recordVideo(project,settings,{mime,audioBuffer,signal,frameRenderer,onProgress=()=>{},canvas=document.createElement('canvas')}={}){
   if(!globalThis.MediaRecorder||!canvas.captureStream)throw Error('Video recording is unavailable in this browser. Try a current Chromium or Safari browser.');
   canvas.width=settings.width;canvas.height=settings.height;
   const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw Error('The device could not allocate the video canvas. Try a lower resolution.');
@@ -57,7 +58,7 @@ export async function recordVideo(project,settings,{mime,audioBuffer,signal,onPr
   const abort=()=>stop('Video export cancelled.');
   try{
     if(signal?.aborted)throw Error('Video export cancelled.');
-    drawVideoFrame(ctx,project,settings.start,settings);stream=canvas.captureStream(settings.fps);
+    if(frameRenderer)await frameRenderer.draw(ctx,settings.start);else drawVideoFrame(ctx,project,settings.start,settings);stream=canvas.captureStream(settings.fps);
     if(audioBuffer){audioContext=createAudioContext();await audioContext.resume();const destination=audioContext.createMediaStreamDestination(),gain=audioContext.createGain();gain.gain.value=.65;gain.connect(destination);source=audioContext.createBufferSource();source.buffer=audioBuffer;source.connect(gain);destination.stream.getAudioTracks().forEach(track=>stream.addTrack(track));}
     if(signal?.aborted)throw Error('Video export cancelled.');
     recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:settings.bitrate,audioBitsPerSecond:192000});
@@ -65,8 +66,9 @@ export async function recordVideo(project,settings,{mime,audioBuffer,signal,onPr
     visibilityHandler=()=>{if(document.hidden)stop('Export stopped because the studio was hidden. Keep this tab visible while recording.');};document.addEventListener('visibilitychange',visibilityHandler);signal?.addEventListener('abort',abort,{once:true});
     const duration=settings.end-settings.start,clock=()=>audioContext?audioContext.currentTime:performance.now()/1000;
     recorder.start(500);const started=clock();if(source){const slice=audioSlice(project,audioBuffer.duration,settings.start,settings.end);if(slice)source.start(audioContext.currentTime+slice.delay,slice.offset,slice.duration);}
-    const draw=()=>{const elapsed=Math.max(0,clock()-started);drawVideoFrame(ctx,project,Math.min(settings.end,settings.start+elapsed),settings);onProgress(Math.min(1,elapsed/duration),canvas);if(elapsed>=duration){stop('');return;}frame=requestAnimationFrame(draw);};
+    const draw=async()=>{try{const elapsed=Math.max(0,clock()-started);if(frameRenderer)await frameRenderer.draw(ctx,Math.min(settings.end,settings.start+elapsed));else drawVideoFrame(ctx,project,Math.min(settings.end,settings.start+elapsed),settings);if(aborted)return;onProgress(Math.min(1,elapsed/duration),canvas);if(elapsed>=duration){stop('');return;}frame=requestAnimationFrame(draw);}catch(error){stop(error.message||'Video rendering failed.');}};
     draw();timer=setTimeout(()=>{if(recorder.state==='recording')stop('Recording stalled. Keep this tab active and try a lower resolution.');},(duration+15)*1000);
+
     const blob=await result;if(!blob.size)throw Error('The video encoder returned an empty file.');return blob;
   }finally{cleanup();}
 }

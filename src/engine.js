@@ -74,7 +74,7 @@ export function beatAt(project,time) {
   return { beat:((beat%8)+8)%8+1, phrase:Math.floor(beat/8)+1, total:beat+1 };
 }
 export function warnings(project,positions,time=0) {
-  const issues=[],cast=new Map(project.performers.map(p=>[p.id,p])),props=sampleProps(project,time);
+  const issues=[],cast=new Map(project.performers.map(p=>[p.id,p])),props=sampleProps(project,time,positions);
   for(const p of positions){
     const performer=cast.get(p.performerId);
     if(Math.abs(p.x)>project.stage.width/2 || Math.abs(p.z)>project.stage.depth/2) issues.push(`${performer?.name}: outside stage`);

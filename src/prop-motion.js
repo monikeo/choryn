@@ -1,4 +1,4 @@
-import {localId,cloneData} from './compat.js';
+import {localId,cloneData,lastMatch} from './compat.js';
 export const PROP_SHAPES=['rectangle','ellipse','triangle'];
 const numbers={x:[-100,100],z:[-100,100],width:[.1,50],depth:[.1,50],height:[0,20],rotation:[-360,360]};
 export function validatePropPose(source){
@@ -17,7 +17,22 @@ export function sampleProp(prop,time){
  if(!to)return {...prop,...validatePropPose(from)};const raw=Math.max(0,Math.min(1,(time-from.time)/Math.max(.001,to.time-from.time))),t=to.easing==='linear'?raw:raw*raw*(3-2*raw),pose={...prop};
  for(const key of Object.keys(numbers))pose[key]=from[key]+(to[key]-from[key])*t;pose.rotation=from.rotation+(((to.rotation-from.rotation+540)%360)-180)*t;if(pose.rotation>360)pose.rotation-=360;if(pose.rotation<-360)pose.rotation+=360;pose.color=mixColor(from.color,to.color,t);pose.shape=from.shape;return pose;
 }
-export const sampleProps=(project,time)=>(project.props||[]).map(p=>sampleProp(p,time));
+export function validateAttachments(prop,project){
+ const events=prop.attachments??[];if(!Array.isArray(events)||events.length>100)throw Error('Use up to 100 prop attachments or handoffs.');const ids=new Set(),times=new Set(),people=new Set(project.performers.map(p=>p.id));
+ return events.map(e=>{if(!e||!/^[-\w]{1,100}$/.test(e.id)||ids.has(e.id)||!Number.isFinite(e.time)||e.time<0||e.time>project.duration||times.has(e.time)||e.performerId!==null&&!people.has(e.performerId))throw Error('Invalid prop attachment.');ids.add(e.id);times.add(e.time);const result={id:e.id,time:e.time,performerId:e.performerId,rotate:e.rotate!==false};for(const key of ['x','z','rotation']){const value=e[key]??0;if(!Number.isFinite(value)||Math.abs(value)>(key==='rotation'?360:200))throw Error('Invalid prop attachment offset.');result[key]=value;}return result;}).sort((a,b)=>a.time-b.time);
+}
+export function sampleAttachedProp(prop,time,positions=[]){
+ const pose=sampleProp(prop,time),event=lastMatch(prop.attachments||[],e=>e.time<=time);if(!event)return pose;
+ if(event.performerId===null)return {...pose,x:event.x,z:event.z,rotation:event.rotation};
+ const person=positions.find(p=>p.performerId===event.performerId);if(!person)return pose;const angle=(event.rotate?person.facing:0)*Math.PI/180;
+ return {...pose,x:person.x+event.x*Math.cos(angle)+event.z*Math.sin(angle),z:person.z-event.x*Math.sin(angle)+event.z*Math.cos(angle),rotation:((event.rotation+(event.rotate?person.facing:0)+540)%360)-180,carrierId:event.performerId};
+}
+export const sampleProps=(project,time,positions=[])=>(project.props||[]).map(p=>sampleAttachedProp(p,time,positions));
+export function setAttachment(project,propId,{time,performerId,x=0,z=0,rotation=0,rotate=true,keepPosition=false},positions){
+ const next=cloneData(project),prop=next.props.find(p=>p.id===propId);if(!prop)throw Error('Choose a prop.');if(prop.locked)throw Error('Unlock the prop before changing attachments.');time=Math.round(Number(time)*1000)/1000;
+ if(keepPosition){const pose=sampleAttachedProp(prop,time,positions),person=positions.find(p=>p.performerId===performerId);if(performerId!==null&&!person)throw Error('Choose an existing performer.');if(person){const a=(rotate?person.facing:0)*Math.PI/180,dx=pose.x-person.x,dz=pose.z-person.z;x=dx*Math.cos(a)-dz*Math.sin(a);z=dx*Math.sin(a)+dz*Math.cos(a);rotation=((pose.rotation-(rotate?person.facing:0)+540)%360)-180;}else{x=pose.x;z=pose.z;rotation=pose.rotation;}}
+ const existing=(prop.attachments||[]).find(e=>e.time===time),event={id:existing?.id||localId(),time,performerId,x:Number(x),z:Number(z),rotation:Number(rotation),rotate};prop.attachments=[...(prop.attachments||[]).filter(e=>e.time!==time),event];prop.attachments=validateAttachments(prop,next);return next;
+}
 export function setPropPose(prop,time,pose,easing='smooth'){
  if(prop.locked)throw Error('Unlock the prop before editing.');if(!Number.isFinite(time)||time<0)throw Error('Choose a valid keyframe time.');const next=cloneData(prop),value=validatePropPose(pose);time=Math.round(time*1000)/1000;
  next.keyframes||=[];if(time===0&&!next.keyframes.length)return {...next,...value};

@@ -1,28 +1,29 @@
-# CHORYN v0.7.1 fullscreen playback verification — 20 October 2026
+# CHORYN v0.8 verification — 20 October 2026
 
-108 automated tests pass. All application/script JavaScript syntax checks and the production build pass. The user reported that both 2D and 3D fullscreen playback felt slow; this release changes the shared scheduling path and accounts for 3D drawing cost in adaptive quality.
+126 automated tests pass (108 existing, 13 rehearsal/model tests and 5 capture/export tests). Application and script JavaScript syntax checks, the production build, source/build coherence and complete service-worker module closure pass before packaging.
 
-## Identified cause and changes
+## Delivered behavior
 
-The prior loop rendered only when elapsed callback time was at least 1000/30 milliseconds, then replaced its previous timestamp with the actual callback time. Floating-point and display scheduling differences could skip another refresh instead of retaining the intended phase. A deterministic 10-second 60Hz simulation yielded only 204 updates. The new scheduler uses an advancing deadline, a small timestamp tolerance, and drops obsolete deadlines after stalls. Smooth mode yields 600 updates in the same simulation. This is a scheduler simulation, not measured device FPS.
+- View aids: previous/next formation overlays, saved count checkpoints, count-grid intermediate poses during outgoing movement, selected-cast focus and a 300-position rendering budget. Dots use canonical curved transition sampling and are cached between interval boundaries.
+- Reference guide: local upload/decode probe, IndexedDB persistence, source trim, score offset, muted picture-in-picture, shared playback clock/speed, ±1 configured-frame stepping, before/after holds, missing-source guidance and session fallback when storage fails.
+- Carrier events: local offset/facing, carry, handoff, floor detachment, continuity with Keep world position, event editing/removal and Undo. Animated size/colour/shape remain independent of ownership. Deleting cast removes invalid carrier references; end trims protect authored events.
+- Follow camera: performer/group centroid in 2D and 3D, independent view zoom, manual reset and unchanged choreography coordinates.
+- View video: same SVG stage renderer or actual WebGL scene camera, dynamic follow, ghost/prop poses, projected labels, current viewport aspect ratio and optional reference guide. MP4 capability detection is preferred, with supported WebM alternatives, four target heights and three bitrates. The downloaded extension follows the actual MIME type.
 
-The stage targets up to 60 editor updates/s. Automatic mode reduces the target to 30 when the average CPU update cost stays high and returns to 60 after sustained headroom. Smooth fixes the target at 60; Efficient fixes it at 30. WebGL reports its drawing cost back to the shared budget. The existing audio clock remains authoritative and is independent of visual update pacing.
+## Automated evidence
 
-Visible timeline controls update at up to 10/s. Hidden fullscreen timeline controls receive no playback HUD updates. Hidden inspectors are not rebuilt at formation boundaries. Fullscreen chrome is hidden, stage painting is isolated during playback, decorative background dots are removed during playback, and curve handles return when playback pauses. The editable stage, props, paths and geometry are retained.
+Rehearsal tests cover validation and bounds, reference trim/delay/FPS mapping, canonical curved ghost positions and count-grid movement windows, rendering bounds/named checkpoint priority, rotated/reflected follow cameras, carrier-facing offsets, continuous handoffs and floor holds, immutable upserts/locks, backup roundtrips, duration-trim protection, shared SVG transforms and even codec sizing.
 
-Preferences → Playback performance includes the quality selector and local measurements from the last 120 editor updates. Measurements cover CPU updates and submitted 3D drawing work, not the screen compositor or GPU completion time.
+Capture tests use test doubles for DOM, WebGL, MediaRecorder and media decoding. They verify high-resolution scene surfaces, camera matrix changes, cached geometry, ghost labels, awaited asynchronous frame rendering, actual recorder MIME propagation, capture-track cleanup on render failure, reference seek/end-frame hold without repeated seeks, and cancellation during frame decoding. They do not encode or decode a real video.
 
-## Regression coverage
+All preexisting timeline editing/deletion confirmation, backup, audio trim, pacing, validation and offline cache tests remain green. Static and dynamic module references, stylesheets and offline shell files are checked against the service-worker allowlist. Packaged output is checked byte-for-byte against the source build, including its generated cache hash, and published from the synchronized Git commit.
 
-- Intended 60-update cadence on simulated 60/90/120/144Hz refresh callbacks; fixed 30-update Efficient mode.
-- Long stalls skip expired deadlines and do not cause catch-up bursts.
-- Automatic quality steps down under sustained expensive updates and recovers after stable headroom.
-- Bounded timing statistics, invalid-sample protection and per-run reset.
-- Hidden HUD stays untouched while performer positions continue to animate, then catches up when visible.
-- Existing route, prop, timing, validation, backup, video and offline-shell tests remain green.
+## Limits and practical use
 
-## Limits
+Live v0.8 browser, physical-device and decoder/encoder verification is incomplete. Browser security policy denied access in the prior verification session; no alternate browser surface or workaround was attempted. Previous releases' responsive and codec checks are historical and do not prove these new capture paths. No universal browser/device support or displayed-FPS guarantee is claimed.
 
-Live fullscreen profiling is unverified: the browser security policy denied access in the previous verification session, and no workaround was attempted. No claim of 60 displayed FPS on physical hardware is made. Prior responsive and playback checks are recorded in verification-v07.md. The source build and complete static/dynamic module cache closure are checked before packaging. The existing site audience remains owner-private.
+Reference files are local to the browser/origin, capped at 250 MB, and excluded from portable backups (metadata is included). Reattach the source on another device. Frame stepping uses the entered FPS and time seeks; variable-frame-rate files are approximate. Source decoder support and MP4/WebM encoder support depend on the browser. Handoffs switch ownership at the event time and do not simulate limbs or collisions.
 
-Proposed next features are documented separately in docs/feature-roadmap.md; they are not presented as implemented.
+Exports preserve stage framing/content rather than editor chrome. 3D uses the actual scene and projected labels; 2D serializes the shared SVG. Font fallback, label shadows and rasterization can differ slightly. Reference audio stays muted; optional music uses the score's trimmed soundtrack. Recording is real-time, requires a visible tab and has device-dependent frame cadence and memory limits. Decode/graphics/cancellation failures clean up and return to export settings.
+
+Use View aids beside the fine scrubber or in the stage menu. In fullscreen the workspace menu keeps these tools reachable. Props → edit object → Attachments & handoffs opens carrier events. Export → Video captures the selected stage view. Existing installs may need **Save and update** to load the coherent new offline shell. The site remains owner-private and local-first.
