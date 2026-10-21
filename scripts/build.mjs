@@ -14,6 +14,6 @@ for(const file of ['index.html','favicon.svg','favicon.ico','apple-touch-icon.pn
 const version=hash.digest('hex').slice(0,16);
 for(const file of ['index.html','offline.html'])await writeFile(new URL(`../dist/${file}`,import.meta.url),(await readFile(new URL(`../${file}`,import.meta.url),'utf8')).replaceAll('__BUILD_VERSION__',version));
 const worker=await readFile(new URL('../sw.js',import.meta.url),'utf8'),shell=worker.match(/const SHELL=(\[[\s\S]*?\]);/)[1],integrity={};
-for(const [,path] of shell.matchAll(/'([^']+)'/g))integrity[path]=createHash('sha256').update(await readFile(new URL(`../dist${path==='/'?'/index.html':path}`,import.meta.url))).digest('hex');
+for(const [,path] of shell.matchAll(/'([^']+)'/g))integrity[path]=createHash('sha256').update(await readFile(new URL(`../dist${path==='/'?'/index.html':path==='/offline'?'/offline.html':path}`,import.meta.url))).digest('hex');
 await writeFile(new URL('../dist/sw.js',import.meta.url),worker.replaceAll('__BUILD_VERSION__',version).replace('__SHELL_INTEGRITY__',JSON.stringify(integrity)));
 console.log('CHORYN Studio built → dist/');

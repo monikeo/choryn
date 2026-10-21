@@ -1,10 +1,14 @@
-# CHORYN Studio · 0.11.1
+# CHORYN Studio · 0.12.0
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
 ## Run
 
 Node.js 20+; no npm dependencies. Direct Node commands also work if a system npm installation is unavailable: from `studio/`, run `node scripts/serve.mjs`, `node --test`, or `node scripts/build.mjs`. From the workspace root, run `npm run dev`, `npm test`, or `npm run build`. The app lives in `studio/`; its package exposes the same scripts. Preview the production build by running `node scripts/serve.mjs --built` from `studio/`.
+
+## Mouse, touch and camera controls in 0.12
+
+Use **View controls** on either stage for clickable pan, zoom, fit and focus. In 3D, drag to orbit, right/middle drag to pan, and wheel/pinch to zoom; use Pan mode for left-drag or trackpad scrolling. Touch combines two-finger pan/pinch and smooth one-finger continuation. 3D framing now persists during playback, and exported views use the same current camera. The PWA supports both production HTML aliases, including the extensionless offline page. See NAVIGATION.md and PWA.md.
 
 ## PWA installation and offline controls in 0.11
 

@@ -1,3 +1,5 @@
+import {safeCamera,bindCameraControls} from './camera-controls.js';
+import {mountNavigationDock} from './navigation-dock.js';
 import {observeSize} from './compat.js';
 const sub=(a,b)=>a.map((v,i)=>v-b[i]);
 const dot=(a,b)=>a.reduce((v,n,i)=>v+n*b[i],0);
@@ -55,7 +57,7 @@ function geometry(project,positions,selected,ghosts=[],analysis){
 
 export function mountStage3D(host,project,positions,options={}){
   host.classList.add('webgl-stage');host.classList.remove('spatial');host.replaceChildren();
-  const canvas=document.createElement('canvas');canvas.tabIndex=0;canvas.setAttribute('aria-label','3D stage preview. Drag to orbit. Arrow keys rotate. Plus and minus zoom.');
+  const canvas=document.createElement('canvas');canvas.tabIndex=0;canvas.setAttribute('aria-label','3D stage. Drag to orbit; right or middle drag pans. Wheel or pinch zooms. Open View controls for camera buttons.');
   host.append(canvas);
   const gl=canvas.getContext('webgl',{antialias:true,alpha:false,preserveDrawingBuffer:false});
   const fallback=()=>{host.innerHTML='<div class="stage3d-fallback"><strong>3D is unavailable on this device.</strong><p>You can keep editing and rehearsing in 2D.</p><button class="button" data-view="2d">Return to 2D</button></div>';};
@@ -66,19 +68,19 @@ export function mountStage3D(host,project,positions,options={}){
   let program,buffer,vs,fs;
   try{vs=shader(gl.VERTEX_SHADER,vertex);fs=shader(gl.FRAGMENT_SHADER,fragment);program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error('3D program failed');buffer=gl.createBuffer();}catch{fallback();return {update(){},dispose(){}};}
   const controller=new AbortController(),signal=controller.signal;
-  const camera=options.camera||{yaw:.15,pitch:.68,zoom:1};let yaw=camera.yaw,pitch=camera.pitch,disposed=false,contextLost=false;
-  let current=project,currentPositions=positions,currentGhosts=options.ghosts||[],currentAnalysis=options.analysis,vertices,dirty=true,frame=0,fitKey='',fitDistance=0,sceneKey=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify([options.ghosts||[],camera.target]);
+  const camera=options.camera||{};Object.assign(camera,safeCamera(camera));let yaw=camera.yaw,pitch=camera.pitch,disposed=false,contextLost=false;
+  let current=project,currentPositions=positions,currentGhosts=options.ghosts||[],currentAnalysis=options.analysis,vertices,dirty=true,frame=0,fitKey='',fitDistance=0,sceneKey=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify(options.ghosts||[]);
   let cast=new Map(project.performers.map(p=>[p.id,p]));const labelNodes=new Map(),ghostNodes=new Map();
   const matrixLocation=gl.getUniformLocation(program,'matrix');
   gl.bindBuffer(gl.ARRAY_BUFFER,buffer);for(const [name,offset] of [['position',0],['normal',12],['color',24]]){const loc=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,3,gl.FLOAT,false,36,offset);}
   const ghostLabels=document.createElement('div');ghostLabels.className='stage3d-labels stage3d-ghosts';host.append(ghostLabels);
   const analysisLabels=document.createElement('div');analysisLabels.className='stage3d-labels analysis-labels';host.append(analysisLabels);const analysisLabel=document.createElement('span');analysisLabels.append(analysisLabel);
   const labels=document.createElement('div');labels.className='stage3d-labels';host.append(labels);
-  const caption=document.createElement('p');caption.className='stage3d-caption';caption.textContent='Drag to orbit · + / − to zoom · purple edge faces the audience';host.append(caption);
+  const caption=document.createElement('p');caption.className='stage3d-caption';caption.textContent='Drag orbit · Right/middle drag pan · Wheel/pinch zoom · View controls above';host.append(caption);
   function requestDraw(){if(!disposed&&!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
   function draw(){
     if(disposed)return;
-    const started=performance.now();
+    yaw=camera.yaw;pitch=camera.pitch;const started=performance.now();
     const rect=host.getBoundingClientRect();if(rect.width<1||rect.height<1)return;
     const dpr=options.pixelRatio?Math.max(.25,Math.min(32,options.pixelRatio)):Math.min(window.devicePixelRatio||1,matchMedia('(pointer: coarse)').matches?1:1.5);
     const width=Math.max(1,Math.floor(rect.width*dpr)),height=Math.max(1,Math.floor(rect.height*dpr));if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
@@ -109,15 +111,15 @@ export function mountStage3D(host,project,positions,options={}){
     analysisLabel.hidden=!currentAnalysis?.summary;analysisLabel.textContent=currentAnalysis?.summary||'';
     options.onRenderCost?.(performance.now()-started);
   }
-  const pointers=new Map();let start;
-  let pinch=null;
-  canvas.addEventListener('pointerdown',event=>{canvas.focus();canvas.setPointerCapture(event.pointerId);pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});start={x:event.clientX,y:event.clientY,yaw,pitch};if(pointers.size===2){const [a,b]=[...pointers.values()];pinch={distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),zoom:camera.zoom};}},{signal});
-  canvas.addEventListener('pointermove',event=>{if(!pointers.has(event.pointerId))return;pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size===2&&pinch){const [a,b]=[...pointers.values()];camera.zoom=Math.max(.5,Math.min(3,pinch.zoom*Math.hypot(a.x-b.x,a.y-b.y)/pinch.distance));options.onCameraChange?.(camera);requestDraw();}else if(pointers.size===1&&start){yaw=start.yaw-(event.clientX-start.x)*.008;pitch=Math.max(.12,Math.min(1.45,start.pitch+(event.clientY-start.y)*.006));camera.yaw=yaw;camera.pitch=pitch;options.onCameraChange?.(camera);requestDraw();}},{signal});
-  const end=event=>{pointers.delete(event.pointerId);start=null;pinch=null;};canvas.addEventListener('pointerup',end,{signal});canvas.addEventListener('pointercancel',end,{signal});
-  canvas.addEventListener('keydown',event=>{let handled=true;if(event.key==='ArrowLeft')yaw-=.1;else if(event.key==='ArrowRight')yaw+=.1;else if(event.key==='ArrowUp')pitch=Math.min(1.45,pitch+.08);else if(event.key==='ArrowDown')pitch=Math.max(.12,pitch-.08);else if(event.key==='+'||event.key==='=')camera.zoom=Math.min(3,camera.zoom*1.1);else if(event.key==='-')camera.zoom=Math.max(.5,camera.zoom/1.1);else handled=false;if(handled){event.preventDefault();event.stopPropagation();camera.yaw=yaw;camera.pitch=pitch;options.onCameraChange?.(camera);requestDraw();}},{signal});
+  let navigation=options.navigationMode==='pan'?'pan':'orbit';host.dataset.navigation=navigation;
+  const metrics=()=>{const rect=host.getBoundingClientRect();return {width:rect.width,height:rect.height,distance:(fitDistance||Math.max(current.stage.width,current.stage.depth)*1.4)/camera.zoom};};
+  const changed=()=>{options.onCameraChange?.(camera);requestDraw();};
+  const reset=()=>{options.onManualPan?.();Object.assign(camera,{yaw:.15,pitch:.68,zoom:1,target:[0,.2,0]});changed();};
+  const controls=options.interactive===false?null:bindCameraControls(canvas,{camera,metrics,changed,mode:()=>navigation,manualPan:()=>options.onManualPan?.(),following:()=>options.following?.()||false,reset,signal});
+  const dock=options.interactive===false?null:mountNavigationDock(host,{kind:'spatial',getMode:()=>navigation,mode:value=>{navigation=value;host.dataset.navigation=value;options.onNavigationMode?.(value);},pan:controls.pan,orbit:controls.orbit,zoom:controls.zoom,fit:reset,focus:()=>options.onFocus?.(),signal});
   canvas.addEventListener('webglcontextlost',event=>{if(!disposed){event.preventDefault();contextLost=true;fallback();}},{signal});
   const resize=observeSize(host,requestDraw);requestDraw();
-  return {camera,update(project,positions,extras={}){const ghosts=extras.ghosts||currentGhosts,key=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify([ghosts,camera.target]);if(key===sceneKey&&extras.analysis===currentAnalysis)return;sceneKey=key;currentAnalysis=extras.analysis;current=project;currentPositions=positions;currentGhosts=ghosts;cast=new Map(project.performers.map(p=>[p.id,p]));dirty=true;requestDraw();},
+  return {camera,update(project,positions,extras={}){const ghosts=extras.ghosts||currentGhosts,key=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify(ghosts);if(key===sceneKey&&extras.analysis===currentAnalysis)return;sceneKey=key;currentAnalysis=extras.analysis;current=project;currentPositions=positions;currentGhosts=ghosts;cast=new Map(project.performers.map(p=>[p.id,p]));dirty=true;requestDraw();},
    capture(ctx,width,height){if(contextLost)throw Error('3D graphics were interrupted. Reload the studio or export the 2D view.');cancelAnimationFrame(frame);frame=0;draw();ctx.drawImage(canvas,0,0,width,height);const rect=host.getBoundingClientRect();for(const label of [...ghostLabels.children,...analysisLabels.children,...labels.children]){if(label.hidden)continue;const box=label.getBoundingClientRect(),style=getComputedStyle(label),x=(box.left-rect.left)/rect.width*width,y=(box.top-rect.top)/rect.height*height,w=box.width/rect.width*width,h=box.height/rect.height*height;ctx.save();ctx.globalAlpha=ghostLabels.contains(label) ? .45 : 1;ctx.fillStyle=style.backgroundColor;const r=Math.min(w/2,h/2,(parseFloat(style.borderRadius)||0)*height/rect.height);ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();if(parseFloat(style.borderTopWidth)>0){ctx.strokeStyle=style.borderColor;ctx.lineWidth=parseFloat(style.borderTopWidth)*height/rect.height;ctx.stroke();}ctx.fillStyle=style.color;ctx.font=`${style.fontWeight||'normal'} ${parseFloat(style.fontSize)*height/rect.height}px ${style.fontFamily}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label.textContent,x+w/2,y+h/2);ctx.restore();}},
-   dispose(){disposed=true;cancelAnimationFrame(frame);controller.abort();resize.disconnect();gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
+   dispose(){disposed=true;dock?.dispose();cancelAnimationFrame(frame);controller.abort();resize.disconnect();gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
 }

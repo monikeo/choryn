@@ -11,7 +11,7 @@ http.createServer(async (req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
     if(pathname==='/sw.js'&&!built){res.writeHead(404).end('Service worker is enabled in built preview only.');return;}
     if(pathname.split('/').some(part=>part.startsWith('.')&&part!=='.')){res.writeHead(403).end();return;}
-    const path = resolve(root, `.${pathname === '/' ? '/index.html' : pathname}`);
+    const path = resolve(root, `.${pathname === '/' ? '/index.html' : pathname === '/offline' ? '/offline.html' : pathname}`);
     if (path !== root && !path.startsWith(root + sep)) { res.writeHead(403).end(); return; }
     const data = await readFile(path);
     res.writeHead(200, { 'Content-Type': `${types[extname(path)] || 'application/octet-stream'}; charset=utf-8`, 'Cache-Control': 'no-cache','X-Content-Type-Options':'nosniff' });
