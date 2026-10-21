@@ -4,8 +4,17 @@ const SHELL=['/src/branding.css','/icons/choryn-mark-light.svg','/icons/choryn-m
 const EXPECTED=__SHELL_INTEGRITY__;
 const allowed=new Set(SHELL);
 async function acceptable(response,path){
- if(!response.ok||response.redirected||!response.url||new URL(response.url).origin!==self.location.origin||!EXPECTED[path])return false;
+ if(!response.ok||!response.url||!EXPECTED[path])return false;
+ const finalURL=new URL(response.url);
+ if(finalURL.origin!==self.location.origin||response.redirected&&!(path==='/index.html'&&finalURL.pathname==='/'&&!finalURL.search))return false;
  const type=response.headers.get('content-type')||'';
+ // Hosting adds request-specific security scripts to HTML. Preserve those
+ // responses unchanged and verify our build tag; keep exact hashes for assets.
+ if(['/','/index.html','/offline.html'].includes(path)){
+  if(!/text\/html/.test(type))return false;
+  const html=await response.clone().text(),version=CACHE.replace('choryn-shell-','');
+  return html.includes('name="application-name" content="CHORYN"')&&html.includes(`name="choryn-build" content="${version}"`);
+ }
  if(path.endsWith('.js')&&!/javascript/.test(type)||path.endsWith('.css')&&!/text\/css/.test(type))return false;
  const bytes=await response.clone().arrayBuffer(),digest=await crypto.subtle.digest('SHA-256',bytes);
  return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')===EXPECTED[path];
