@@ -10,7 +10,7 @@ for (const file of ['index.html', 'favicon.svg', 'src','icons','manifest.json','
   await cp(new URL(`../${file}`, import.meta.url), new URL(`../dist/${file}`, import.meta.url), { recursive: true });
 }
 const hash=createHash('sha256');
-for(const file of ['index.html','manifest.json','offline.html','sw.js',...(await readdir(new URL('../icons/',import.meta.url))).sort().map(f=>`icons/${f}`),...(await readdir(new URL('../src/',import.meta.url))).sort().map(f=>`src/${f}`)])hash.update(await readFile(new URL(`../${file}`,import.meta.url)));
+for(const file of ['index.html','favicon.svg','manifest.json','offline.html','sw.js',...(await readdir(new URL('../icons/',import.meta.url))).sort().map(f=>`icons/${f}`),...(await readdir(new URL('../src/',import.meta.url))).sort().map(f=>`src/${f}`)])hash.update(await readFile(new URL(`../${file}`,import.meta.url)));
 const version=hash.digest('hex').slice(0,16);
 await writeFile(new URL('../dist/sw.js',import.meta.url),(await readFile(new URL('../sw.js',import.meta.url),'utf8')).replaceAll('__BUILD_VERSION__',version));
 console.log('CHORYN Studio built → dist/');

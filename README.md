@@ -1,10 +1,14 @@
-# CHORYN Studio · 0.10.0
+# CHORYN Studio · 0.10.1
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
 ## Run
 
 Node.js 20+; no npm dependencies. Direct Node commands also work if a system npm installation is unavailable: from `studio/`, run `node scripts/serve.mjs`, `node --test`, or `node scripts/build.mjs`. From the workspace root, run `npm run dev`, `npm test`, or `npm run build`. The app lives in `studio/`; its package exposes the same scripts. Preview the production build by running `node scripts/serve.mjs --built` from `studio/`.
+
+## Official Figma branding in 0.10.1
+
+The official five-node formation mark, light/dark palette, Inter wordmark and “From first count to final cue.” slogan now appear across the header, project dashboard, navigation, offline page and install/browser icons. The identity comes from the supplied CHORYN Figma file; source assets remain local and unchanged. See BRANDING.md for provenance and regeneration.
 
 ## Image export studio and MP4 in 0.10
 
