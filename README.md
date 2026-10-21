@@ -1,10 +1,14 @@
-# CHORYN Studio · 0.10.1
+# CHORYN Studio · 0.11.0
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
 ## Run
 
 Node.js 20+; no npm dependencies. Direct Node commands also work if a system npm installation is unavailable: from `studio/`, run `node scripts/serve.mjs`, `node --test`, or `node scripts/build.mjs`. From the workspace root, run `npm run dev`, `npm test`, or `npm run build`. The app lives in `studio/`; its package exposes the same scripts. Preview the production build by running `node scripts/serve.mjs --built` from `studio/`.
+
+## PWA installation and offline controls in 0.11
+
+Open **Preferences → Install & offline** or **All tools → Install & offline** for device-specific installation, verified cache status, offline preparation/repair, updates and optional persistent storage. The manifest includes official-logo desktop, maskable Android and Apple touch icons, ICO/PNG/SVG fallbacks, and shortcuts to Projects, Rehearsal and offline controls. Updates pause and save first; close other CHORYN windows before activation. SHA-256 checks prevent mixed-release offline files. See PWA.md for device support, icon refresh and local-data limitations.
 
 ## Official Figma branding in 0.10.1
 

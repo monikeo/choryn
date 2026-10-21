@@ -1,4 +1,6 @@
+import {setupPWA} from './pwa.js';
 import {installErrorHandling,reportError} from './errors.js';
+void setupPWA();
 const fonts=document.querySelector('#studio-fonts');if(fonts){const ready=()=>fonts.media='all';if(fonts.sheet)ready();else fonts.addEventListener('load',ready,{once:true});}
 installErrorHandling(window,{notify:message=>{const toast=document.querySelector('#toast');if(toast){toast.textContent=message;toast.classList.add('visible');setTimeout(()=>toast.classList.remove('visible'),8000);}}});
 import('./app.js').catch(error=>{
