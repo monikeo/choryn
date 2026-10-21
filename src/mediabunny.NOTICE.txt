@@ -1,0 +1,8 @@
+Mediabunny 1.62.0 — unmodified browser distribution
+Copyright (c) the Mediabunny contributors / Vanilagy.
+License: Mozilla Public License 2.0 (MPL-2.0); see mediabunny.LICENSE.txt.
+Preferred source and license: https://github.com/Vanilagy/mediabunny/tree/v1.62.0
+Pinned npm distribution: https://registry.npmjs.org/mediabunny/-/mediabunny-1.62.0.tgz
+Package integrity: sha512-D8E8BDxjCyqyrGj074jLRQNgilDW5izJu8o9pg7THMYMIZBL1Fao5hOtdDPDfA+nSnk68tMa8IaCJmz8hSpJpw==
+Bundled file: package/dist/bundles/mediabunny.min.mjs, copied to mediabunny.js.
+No project media is uploaded to this library's authors or to a conversion service.
