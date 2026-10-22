@@ -1,4 +1,5 @@
 const paths = {
+ clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>',
  rotate:'<path d="M20 7v5h-5M20 12a8 8 0 1 0-2 6"/>',
  logo:'<path d="M17 3a9 9 0 1 0 0 18M17 8a4 4 0 1 0 0 8"/>',
  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
