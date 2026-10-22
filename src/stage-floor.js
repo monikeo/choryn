@@ -1,3 +1,4 @@
+import {floorCorners} from './stage-import.js'; // Shared calibration with the canonical stage.
 // A single textured floor quad, reused by live WebGL and captured exports.
 export function createStageFloor(gl,changed){
  let source='',image,texture,program,buffer,vertex,fragment,disposed=false,error;
@@ -7,7 +8,7 @@ export function createStageFloor(gl,changed){
  return {load,get ready(){return ready.then(()=>{if(error)throw error;});},draw(matrix,plan){
   if(!plan||!texture||disposed)return;if(error)throw error;
   if(!program){vertex=compile(gl.VERTEX_SHADER,'attribute vec3 floorPosition;attribute vec2 floorUV;uniform mat4 floorMatrix;varying vec2 uv;void main(){uv=floorUV;gl_Position=floorMatrix*vec4(floorPosition,1.);}');fragment=compile(gl.FRAGMENT_SHADER,'precision mediump float;varying vec2 uv;uniform sampler2D floorTexture;uniform float opacity;void main(){gl_FragColor=texture2D(floorTexture,uv);gl_FragColor.a*=opacity;}');program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error('Floor plan rendering unavailable.');buffer=gl.createBuffer();}
-  const x=plan.x,z=-plan.z,w=plan.width/2,d=plan.depth/2,verts=new Float32Array([x-w,.022,z+d,0,0,x+w,.022,z+d,1,0,x+w,.022,z-d,1,1,x-w,.022,z+d,0,0,x+w,.022,z-d,1,1,x-w,.022,z-d,0,1]);
+  const corners=floorCorners(plan),uv=[[0,0],[1,0],[1,1],[0,1]],verts=new Float32Array([0,1,2,0,2,3].flatMap(i=>[corners[i].x,.022,-corners[i].z,...uv[i]]));
   gl.useProgram(program);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,verts,gl.DYNAMIC_DRAW);for(const [name,size,offset] of [['floorPosition',3,0],['floorUV',2,12]]){const location=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,size,gl.FLOAT,false,20,offset);}gl.uniformMatrix4fv(gl.getUniformLocation(program,'floorMatrix'),false,matrix);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(gl.getUniformLocation(program,'floorTexture'),0);gl.uniform1f(gl.getUniformLocation(program,'opacity'),plan.opacity);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);gl.drawArrays(gl.TRIANGLES,0,6);gl.depthMask(true);gl.disable(gl.BLEND);
  },dispose(){if(disposed)return;disposed=true;settle?.();if(image){image.onload=image.onerror=null;}if(texture)gl.deleteTexture(texture);if(buffer)gl.deleteBuffer(buffer);if(program)gl.deleteProgram(program);if(vertex)gl.deleteShader(vertex);if(fragment)gl.deleteShader(fragment);}};
 }

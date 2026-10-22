@@ -1,4 +1,8 @@
 // Deliberately support text DXF geometry; binary DWG requires conversion first.
+export function floorCorners(plan){
+ const angle=(plan.rotation||0)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle);
+ return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,z])=>({x:plan.x+c*x*plan.width/2-s*z*plan.depth/2,z:plan.z+s*x*plan.width/2+c*z*plan.depth/2}));
+}
 export function parseDXF(text,{scale=1,center=true}={}){
  if(typeof text!=='string'||text.length>2000000||!Number.isFinite(scale)||scale<=0||scale>1000)throw Error('Choose a text DXF under 2 MB and a valid meters-per-unit scale.');
  const values=text.replace(/\r/g,'').trimEnd().split('\n');if(values.length%2)throw Error('DXF group code/value pairs are incomplete.');const pairs=[];for(let i=0;i<values.length;i+=2){const code=Number(values[i].trim());if(!Number.isInteger(code))throw Error('Invalid text DXF group code.');pairs.push([code,values[i+1].trim()]);}

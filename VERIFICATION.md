@@ -1,4 +1,10 @@
-# CHORYN v0.14.1 production verification — 22 October 2026
+# CHORYN v0.15.0 production verification — 22 October 2026
+
+The visual production update adds model/event-handler evidence for stage handle snapping, symmetric resize, empty-outline materialization, bounds/topology rejection, pointer coalescing, final-release commits, unrelated pointers, cancellation, stale authoring, keyboard precision, locks and read-only protection. Import tests execute actual CAD/image preview/apply handlers, setting invalidation and rotation. Group costume changes reject conflicts atomically. Lighting blackout checks preserve earlier fixture states and exclude future fixtures. Preview/scrub tests make no project writes and distinguish draft from saved state. Shared SVG capture and mocked WebGL floor buffers retain rotated calibration. Preview identities are isolated from the main stage and editable designer.
+
+298 automated tests pass, including 18 new model, actual form-handler and gesture checks. All 63 source/script/worker syntax checks pass and 177 relative module paths resolve. The production build contains 104 files. All 105 offline entries match their compiled hashes: 101 static assets and four HTML routes. Source review covers responsive field grids, bounded previews, native range/select controls, keyboard handle names/focus and forced-colors rules. No actual browser layout, device touch, real GPU or hardware lighting test is claimed. CAD is text DXF only; costume visualization is colors and labels.
+
+## Retained v0.14.1 evidence
 
 280 automated tests pass: all 256 earlier checks plus 24 integration/refinement checks. All 61 source/script/worker syntax checks and the production build pass; 169 relative JavaScript paths resolve. The offline shell has 103 entries: 99 byte-hashed static assets and four matching-build HTML routes.
 

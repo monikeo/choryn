@@ -1,4 +1,18 @@
-# Production workspace · v0.14.1
+# Production workspace · v0.15.0
+
+## Visual stage, lighting and wardrobe workflows
+
+The Stage designer now places an interactive stage above the numeric forms. Drag outline circles to reshape the usable polygon, drag named zones to move them, or drag square handles to resize symmetrically about their centers. Empty outlines acquire four rectangle vertices on their first edit. Geometry snaps to 0.25 m; Alt bypasses snapping. Focus a handle and use arrows for 0.1 m, Shift for 1 m, or Alt for 0.01 m. Pointer previews coalesce into animation frames and release commits once. Escape, lost capture, pointer cancellation, blur, hidden documents and recovery cancel; unrelated pointer events cannot end the edit. Changes made elsewhere reject a stale drag. Props-layer locks and read-only snapshots protect the edit. Outline edits update the numeric textarea and zone summaries immediately.
+
+Floor plans support rotation in degrees in addition to their width, depth, position and opacity. Text DXF import supports a rotation and center offset after unit conversion. Both previews show the placed drawing against the real stage before Apply. Changing import settings invalidates Apply; asynchronous reads reject changed settings. The same positive canonical X/Z rotation becomes a negative SVG screen rotation and the corresponding WebGL floor corners, keeping images consistent in playback and capture.
+
+Lighting and Costumes include a stage scrubber with active fixture swatches, performer costume labels and current/next technical cues. Scrubbing the saved score does not write to the project. Editing an add form shows a marked draft at that event's time; **Show saved score** compares against persisted authoring. The draft retains existing event identities for linked-event preview validation, but saving a conflicting timestamp is rejected rather than silently replacing it. Lighting look presets cover warm/cool washes, a spotlight and blackout. **Black out active fixtures at preview time** adds simultaneous intensity-zero cut keys to active saved fixtures. It rejects duplicate timestamps, locks and unsaved lighting drafts; one Undo reverses the complete operation.
+
+Costume changes can target one performer, selected stage performers, a named performer group or the whole cast. Recipients are deduplicated, all states validate together, and a timestamp conflict rejects the entire operation. Event rows identify the performer. Appearance states remain marker color and costume labels, not modeled garments. Lighting remains rehearsal visualization without hardware/DMX output. Both use the canonical stage sampler and matching-view export renderers. CAD remains text DXF reference geometry, not native DWG or automatically detected obstacles.
+
+The visual direction preserves the existing quiet utility workspace: system/product type, violet accent, neutral surfaces, native form controls and the established spacing rhythm. Previews resize within their panel and field grids retain phone/tablet breakpoints; actual device rendering and touch behavior remain unverified because browser UI access is unavailable.
+
+## Earlier production workflows
 
 The Production page now includes a direct workspace button. Workflow refinements in this release:
 
