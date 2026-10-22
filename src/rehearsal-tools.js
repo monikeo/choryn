@@ -10,6 +10,7 @@ const aids={previous:false,next:false,countStep:0,checkpoints:true,selectedOnly:
 export const rehearsalAids=()=>({...aids});
 export const setFollowZoom=value=>aids.followZoom=Math.max(.5,Math.min(3,value));
 export const disableFollow=()=>aids.follow='';
+export function followPerformer(id){if(!api.project().performers.some(p=>p.id===id))throw Error('Choose an existing performer.');aids.follow=id;aids.followZoom=1.8;}
 export const referenceSource=()=>sourceId===api?.project().referenceVideo?.id?sourceBlob:null;
 const timeField=(p,time)=>`<div class="field-row"><label class="field">At<input name="at" value="${time>=(p.music.beatOffset||0)?formatCount(time,p.bpm,p.music.beatOffset):time.toFixed(3)}" required></label><label class="field">Time unit<select name="unit"><option value="counts" ${time<(p.music.beatOffset||0)?'':'selected'}>Phrase.count</option><option value="seconds" ${time<(p.music.beatOffset||0)?'selected':''}>Seconds</option></select></label></div>`;
 const atTime=(data,p)=>data.get('unit')==='counts'?parseCount(data.get('at'),p.bpm,p.music.beatOffset):Number(data.get('at'));

@@ -35,6 +35,7 @@ export function timelineScrollVelocity(x,rect){
 export function timelineCommandReason(project,selection,command,time,{readOnly=false,clipboard}={}){
  if(['tools','copy','details'].includes(command))return '';
  if(readOnly)return 'Read-only snapshot';
+ const locked=project.production?.layers?.[{formation:'formations',movement:'movement',cue:'cues'}[command==='paste'?clipboard?.kind:selection.kind]]?.locked;if(locked)return 'Unlock the selected track first';
  if(command==='paste')return clipboard?.projectId===project.id?'':'Copy a clip in this project first';
  const kind=selection.kind,item=project[{formation:'formations',movement:'actions',cue:'cues'}[kind]]?.find(v=>v.id===selection.id);if(!item)return 'Select a timeline clip';
  const index=kind==='formation'?project.formations.indexOf(item):-1,start=kind==='movement'?item.start:item.time,end=kind==='formation'?(project.formations[index+1]?.time??project.duration):item.end;

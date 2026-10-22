@@ -1,6 +1,7 @@
 import {safeCamera,bindCameraControls} from './camera-controls.js';
 import {mountNavigationDock} from './navigation-dock.js';
 import {observeSize} from './compat.js';
+import {createStageFloor} from './stage-floor.js';
 const sub=(a,b)=>a.map((v,i)=>v-b[i]);
 const dot=(a,b)=>a.reduce((v,n,i)=>v+n*b[i],0);
 const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
@@ -15,7 +16,9 @@ export function cameraMatrix(eye,target,aspect){
 }
 export function projectPoint(matrix,p){const v=[...p,1],out=[0,0,0,0];for(let r=0;r<4;r++)for(let i=0;i<4;i++)out[r]+=matrix[i*4+r]*v[i];return out[3]>.01?[out[0]/out[3],out[1]/out[3],out[2]/out[3]]:null;}
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
-export function stageSceneKey(project,positions,selected){return JSON.stringify([project.stage.width,project.stage.depth,project.performers.map(p=>[p.id,p.number,p.name,p.color]),(project.props||[]).map(p=>[p.id,p.x,p.z,p.width,p.depth,p.height,p.rotation,p.shape,p.color]),positions,[...selected].sort()]);}
+const stageReferences=new WeakMap();let nextStageReference=0;
+const stageReference=value=>{if(!value)return 0;if(!stageReferences.has(value))stageReferences.set(value,++nextStageReference);return stageReferences.get(value);};
+export function stageSceneKey(project,positions,selected){return JSON.stringify([project.stage.width,project.stage.depth,stageReference(project.production?.stage),project.sceneLights,project.performers.map(p=>[p.id,p.number,p.name,p.color]),(project.props||[]).map(p=>[p.id,p.x,p.z,p.width,p.depth,p.height,p.rotation,p.shape,p.color]),positions,[...selected].sort()]);}
 function geometry(project,positions,selected,ghosts=[],analysis){
   const data=[],cast=new Map(project.performers.map(p=>[p.id,p]));
   const tri=(a,b,c,color)=>{const normal=norm(cross(sub(b,a),sub(c,a)));for(const v of [a,b,c])data.push(...v,...normal,...color);};
@@ -37,6 +40,9 @@ function geometry(project,positions,selected,ghosts=[],analysis){
   box(0,.015,0,.025,.015,d,[.51,.43,.63]);box(0,.015,0,w,.015,.025,[.51,.43,.63]);
   box(0,-.1,d/2+.6,w*.6,.08,.12,[.49,.38,.78]);
   const line=(a,b,color,width=.05)=>{const dx=b.x-a.x,dz=b.z-a.z;box((a.x+b.x)/2,.06,-(a.z+b.z)/2,Math.hypot(dx,dz),.025,width,color,Math.atan2(-dz,dx)*180/Math.PI);};
+  for(const item of project.production?.stage.lines||[])line(item.a,item.b,[.5,.35,.75],.035);
+  const outline=project.production?.stage.outline||[];outline.forEach((point,i)=>line(point,outline[(i+1)%outline.length],[.5,.35,.75],.06));
+  for(const light of project.sceneLights||[]){if(light.intensity<=0)continue;const mixed=rgb(light.color).map(v=>v*light.intensity*.65+.82*(1-light.intensity*.65));cylinder(light.x,.035,-light.z,light.radius,.012,mixed,32);}
   for(const cell of analysis?.cells||[])box(cell.x,.04,-cell.z,cell.width,.025,cell.depth,rgb(cell.color));
   for(const path of analysis?.paths||[])for(let i=1;i<path.points.length;i++)line(path.points[i-1],path.points[i],rgb(path.color),.08);
   for(const item of analysis?.comparison||[])if(item.from&&item.from.visible!==false){cylinder(item.from.x,.055,-item.from.z,.38,.04,[.5,.4,.8],18);line(item.from,item.to,[.5,.4,.8]);}
@@ -68,6 +74,7 @@ export function mountStage3D(host,project,positions,options={}){
   let program,buffer,vs,fs;
   try{vs=shader(gl.VERTEX_SHADER,vertex);fs=shader(gl.FRAGMENT_SHADER,fragment);program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error('3D program failed');buffer=gl.createBuffer();}catch{fallback();return {update(){},dispose(){}};}
   const controller=new AbortController(),signal=controller.signal;
+  const floor=createStageFloor(gl,()=>requestDraw());floor.load(project.production?.stage.image?.data||'');
   const camera=options.camera||{};Object.assign(camera,safeCamera(camera));let yaw=camera.yaw,pitch=camera.pitch,disposed=false,contextLost=false;
   let current=project,currentPositions=positions,currentGhosts=options.ghosts||[],currentAnalysis=options.analysis,vertices,dirty=true,frame=0,fitKey='',fitDistance=0,sceneKey=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify(options.ghosts||[]);
   let cast=new Map(project.performers.map(p=>[p.id,p]));const labelNodes=new Map(),ghostNodes=new Map();
@@ -97,9 +104,11 @@ export function mountStage3D(host,project,positions,options={}){
     const distance=fitDistance/camera.zoom,target=camera.target||[0,.2,0];
     const eye=[target[0]+Math.sin(yaw)*Math.cos(pitch)*distance,target[1]+Math.sin(pitch)*distance,target[2]+Math.cos(yaw)*Math.cos(pitch)*distance];
     const matrix=cameraMatrix(eye,target,canvas.width/canvas.height);
+    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);for(const [name,offset] of [['position',0],['normal',12],['color',24]]){const location=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,3,gl.FLOAT,false,36,offset);}
     gl.uniformMatrix4fv(matrixLocation,false,matrix);
     if(dirty){vertices=geometry(current,currentPositions,options.selected?.()||new Set(),currentGhosts,currentAnalysis);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);dirty=false;}
     gl.drawArrays(gl.TRIANGLES,0,vertices.length/9);
+    floor.draw(matrix,current.production?.stage.image);
     for(const node of labelNodes.values())node.hidden=true;
     for(const p of currentPositions){
       if(p.visible===false)continue;const pos=projectPoint(matrix,[p.x,1.95,-p.z]);if(!pos||Math.abs(pos[0])>1||Math.abs(pos[1])>1)continue;
@@ -119,7 +128,7 @@ export function mountStage3D(host,project,positions,options={}){
   const dock=options.interactive===false?null:mountNavigationDock(host,{kind:'spatial',getMode:()=>navigation,mode:value=>{navigation=value;host.dataset.navigation=value;options.onNavigationMode?.(value);},pan:controls.pan,orbit:controls.orbit,zoom:controls.zoom,fit:reset,focus:()=>options.onFocus?.(),signal});
   canvas.addEventListener('webglcontextlost',event=>{if(!disposed){event.preventDefault();contextLost=true;fallback();}},{signal});
   const resize=observeSize(host,requestDraw);requestDraw();
-  return {camera,update(project,positions,extras={}){const ghosts=extras.ghosts||currentGhosts,key=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify(ghosts);if(key===sceneKey&&extras.analysis===currentAnalysis)return;sceneKey=key;currentAnalysis=extras.analysis;current=project;currentPositions=positions;currentGhosts=ghosts;cast=new Map(project.performers.map(p=>[p.id,p]));dirty=true;requestDraw();},
+  return {camera,get ready(){return floor.ready;},update(project,positions,extras={}){const ghosts=extras.ghosts||currentGhosts,key=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify(ghosts);floor.load(project.production?.stage.image?.data||'');if(key===sceneKey&&extras.analysis===currentAnalysis){requestDraw();return;}sceneKey=key;currentAnalysis=extras.analysis;current=project;currentPositions=positions;currentGhosts=ghosts;cast=new Map(project.performers.map(p=>[p.id,p]));dirty=true;requestDraw();},
    capture(ctx,width,height){if(contextLost)throw Error('3D graphics were interrupted. Reload the studio or export the 2D view.');cancelAnimationFrame(frame);frame=0;draw();ctx.drawImage(canvas,0,0,width,height);const rect=host.getBoundingClientRect();for(const label of [...ghostLabels.children,...analysisLabels.children,...labels.children]){if(label.hidden)continue;const box=label.getBoundingClientRect(),style=getComputedStyle(label),x=(box.left-rect.left)/rect.width*width,y=(box.top-rect.top)/rect.height*height,w=box.width/rect.width*width,h=box.height/rect.height*height;ctx.save();ctx.globalAlpha=ghostLabels.contains(label) ? .45 : 1;ctx.fillStyle=style.backgroundColor;const r=Math.min(w/2,h/2,(parseFloat(style.borderRadius)||0)*height/rect.height);ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();if(parseFloat(style.borderTopWidth)>0){ctx.strokeStyle=style.borderColor;ctx.lineWidth=parseFloat(style.borderTopWidth)*height/rect.height;ctx.stroke();}ctx.fillStyle=style.color;ctx.font=`${style.fontWeight||'normal'} ${parseFloat(style.fontSize)*height/rect.height}px ${style.fontFamily}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label.textContent,x+w/2,y+h/2);ctx.restore();}},
-   dispose(){disposed=true;dock?.dispose();cancelAnimationFrame(frame);controller.abort();resize.disconnect();gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
+   dispose(){disposed=true;floor.dispose();dock?.dispose();cancelAnimationFrame(frame);controller.abort();resize.disconnect();gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);gl.getExtension('WEBGL_lose_context')?.loseContext();}};
 }

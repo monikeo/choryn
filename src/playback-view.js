@@ -3,6 +3,8 @@ import {beatAt,timecode} from './engine.js';
 import {formatCount} from './music-model.js';
 import {sampleAttachedProp,propShapeSVG} from './prop-motion.js';
 import {renderMarkers2D,renderGhosts2D} from './stage2d.js';
+import {sampleAppearance,lightingSVG,safetySVG,safetyIssues} from './production-next-model.js';
+import {contrastText} from './colors.js';
 
 const attr=(node,key,value)=>{if(node&&node.getAttribute(key)!==String(value))node.setAttribute(key,String(value));};
 const text=(node,value)=>{if(node&&node.textContent!==String(value))node.textContent=String(value);};
@@ -30,6 +32,8 @@ export function createPlaybackView(root){
   if(!state)return;
   if(analysisLayer&&state.analysis!==analysisRef){analysisLayer.innerHTML=renderAnalysis2D(project,state.analysis,state);analysisRef=state.analysis;}
   if(!positions)return;
+  if(hud){for(const [selector,html] of [['#production-lighting',lightingSVG(project,time)],['#production-safety',safetySVG(project,positions,time)]]){const node=find(selector);if(node&&node.innerHTML!==html)node.innerHTML=html;}const issues=safetyIssues(project,positions,time);text(find('#validation-status'),issues.length?`${issues.length} spacing / stage warnings`:'No current geometry warnings');}
+  if(project.production?.appearances.length){const people=new Map(sampleAppearance(project,time).map(p=>[p.id,p]));for(const [id,{node}] of markers){const person=people.get(id);if(!person)continue;attr(node.querySelector('.marker-body'),'fill',person.color);attr(node.querySelector('.marker-facing path'),'fill',person.color);attr(node.querySelector('text'),'fill',contrastText(person.color));}}
   if(ghostLayer&&state.ghosts!==ghostsRef){ghostLayer.innerHTML=renderGhosts2D(project,state.ghosts||[],state);ghostsRef=state.ghosts;}
   if(layer&&positions.some(p=>p.visible!==false&&!markers.has(p.performerId))){layer.innerHTML=renderMarkers2D(project,positions,state);scan();}
   for(const p of positions){const item=markers.get(p.performerId);if(!item)continue;const {node,facing,ring}=item;const hidden=p.visible===false;

@@ -1,6 +1,7 @@
 import {samplePerformance,transitionSettings} from './engine.js';
 import {viewVector} from './stage-view.js';
 import {formatCount} from './music-model.js';
+import {directedView} from './production-next-model.js';
 export function validateReference(value){
  if(value==null)return null;const n=(v,min,max)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max;
  if(!/^[-\w]{1,100}$/.test(value.id)||typeof value.name!=='string'||value.name.length>200||!n(value.duration,.01,14400)||!n(value.trimStart,0,value.duration)||!n(value.trimEnd,0,value.duration)||value.trimEnd<=value.trimStart||!n(value.start,0,3600)||!n(value.fps,1,120))throw Error('Invalid reference video settings.');
@@ -20,7 +21,7 @@ export function ghostFrames(project,time,aids={},selected=new Set()){
  const maxFrames=Math.max(1,Math.floor(300/Math.max(1,aids.selectedOnly&&selected.size?selected.size:project.performers.length))),seen=new Set();return times.filter(f=>!seen.has(f.time)&&seen.add(f.time)).slice(0,maxFrames).map(f=>({...f,positions:samplePerformance(project,f.time).filter(p=>p.visible!==false&&(!aids.selectedOnly||!selected.size||selected.has(p.performerId)))}));
 }
 export function followView(project,positions,state){
- const follow=state.aids?.follow;if(!follow)return state;const ids=follow.startsWith('group:')?new Set(project.performers.filter(p=>p.group===follow.slice(6)).map(p=>p.id)):new Set([follow]),people=positions.filter(p=>p.visible!==false&&ids.has(p.performerId));if(!people.length)return state;
+ const follow=state.aids?.follow;if(!follow)return directedView(project,state.time||0,state);const ids=follow.startsWith('group:')?new Set(project.performers.filter(p=>p.group===follow.slice(6)).map(p=>p.id)):new Set([follow]),people=positions.filter(p=>p.visible!==false&&ids.has(p.performerId));if(!people.length)return state;
  const center={x:people.reduce((v,p)=>v+p.x,0)/people.length,z:people.reduce((v,p)=>v+p.z,0)/people.length},delta=viewVector(center.x*60,-center.z*60,state.rotation,state.mirror,state.flip),zoom=Math.max(.5,Math.min(3,Number(state.aids.followZoom)||state.zoom||1));
  return {...state,zoom,pan:{x:-delta.x*zoom,y:-delta.y*zoom},camera:{...state.camera,zoom:Math.max(.5,Math.min(3,zoom)),target:[center.x,.2,-center.z]}};
 }

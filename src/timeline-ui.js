@@ -3,6 +3,7 @@ import {timelineToolButtons,reorderImpact,timelineFingerprint,timelineCommandRea
 import {bindTimelineGestures} from './timeline-gesture.js';
 import {observeSize} from './compat.js';
 import {wheelPixels} from './camera-controls.js';
+import {timedItems} from './production-timing.js';
 import {clamp,timecode} from './engine.js';
 
 import {editTimeline,reorderFormation,timelineItem,copyTimelineItem,pasteTimelineItem,duplicateTimelineItem,splitTimelineItem,removeTimelineItem,packMovementRows} from './timeline-model.js';
@@ -19,6 +20,12 @@ export function resetTimelineSize(){height=null;}
 export function disposeTimeline(){gestureController?.dispose();gestureController=null;zoomController=null;observer?.disconnect();observer=null;dragging=false;}
 
 const selectedItem=()=>{const s=current();return timelineItem(api.project(),s.kind,s.id);};
+function syncRelatedTiming(project,duration=project.duration){
+ const items=new Map(timedItems(project).map(v=>[v.key,v]));
+ for(const node of document.querySelectorAll('[data-timeline-id]')){const v=items.get(node.dataset.timelineKind+'/'+node.dataset.timelineId);if(!v||v.kind==='formation')continue;node.style.left=v.time/duration*100+'%';if(v.kind==='movement')node.style.width=(v.item.end-v.item.start)/duration*100+'%';}
+ for(const node of document.querySelectorAll('.production-lane [data-production="event"]')){const key={lights:'light',appearances:'appearance',cameras:'camera'}[node.dataset.key],v=items.get(key+'/'+node.dataset.id);if(v)node.style.left=v.time/duration*100+'%';}
+ for(const node of document.querySelectorAll('.prop-lane [data-score="prop-frame"]')){const prop=project.props.find(v=>v.id===node.dataset.id),key=prop?.keyframes.find(v=>v.id===node.dataset.frame);if(key)node.style.left=key.time/duration*100+'%';}
+}
 
 const actionButton=(action,label,disabled=false)=>`<button class="button" type="button" data-timeline-action="${action}" ${disabled?'disabled':''}>${label}</button>`;
 
@@ -88,7 +95,8 @@ export function confirmTimelineRemoval(kind,id,operation='delete'){
 
   pendingRemoval={projectId:p.id,kind,id,operation,before:timelineFingerprint(p)};
 
-  api.dialog(`${operation==='cut'?'Cut':'Delete'} this ${kind}?`,`<p class="modal-intro"><strong>${esc(item.name||item.label)}</strong> will be removed from the timeline.${kind==='formation'?' Its incoming and outgoing route overrides will also be removed. Other formation times stay in place.':''}</p><p class="field-help">${operation==='cut'?'A copy will stay in the project clipboard for pasting. ':''}Undo restores this edit.</p><div class="modal-footer">${actionButton('cancel-remove','Keep '+kind)}<button class="button danger-fill" data-timeline-action="confirm-remove">${operation==='cut'?'Cut':'Delete'} ${kind}</button></div>`);
+  const removalDetail=' Its incoming and outgoing route overrides will also be removed. '+(p.production?.ripple?'Ripple mode also removes events inside this sequence interval, trims overlapping movements, and moves later events and the performance end earlier.':'Other formation times stay in place.');
+  api.dialog(`${operation==='cut'?'Cut':'Delete'} this ${kind}?`,`<p class="modal-intro"><strong>${esc(item.name||item.label)}</strong> will be removed from the timeline.${kind==='formation'?removalDetail:''}</p><p class="field-help">${operation==='cut'?'A copy will stay in the project clipboard for pasting. ':''}Undo restores this edit.</p><div class="modal-footer">${actionButton('cancel-remove','Keep '+kind)}<button class="button danger-fill" data-timeline-action="confirm-remove">${operation==='cut'?'Cut':'Delete'} ${kind}</button></div>`);
 
 }
 
@@ -97,7 +105,7 @@ function applyResult(result,message){api.replace(result.project,message,{formati
 export function requestSequenceReorder(next,id,after){
  if(api.readOnly())return false;const currentProject=api.project(),impact=reorderImpact(currentProject,next),formation=next.formations.find(f=>f.id===id);if(!formation)throw Error('Choose an existing formation.');if(!impact.changed){api.render();return false;}
  if(!impact.removedRoutes.length){api.replace(next,'Sequence reordered. Time slots stay fixed. Undo is available.',{formationId:id,time:formation.time});after?.();return true;}
- pendingReorder={before:timelineFingerprint(currentProject),next,id,time:formation.time,after};api.render();api.dialog('Review sequence reorder',`<p class="modal-intro">Moving <strong>${esc(formation.name)}</strong> changes ${impact.removedRoutes.length} custom performer route${impact.removedRoutes.length===1?'':'s'} between formations that are no longer adjacent. New transitions use formation defaults. Time slots stay fixed; prop events, checkpoints and cues keep their times.</p><p class="field-help">New order: ${next.formations.map(f=>esc(f.name)).join(' → ')}</p><div class="modal-footer">${actionButton('cancel-reorder','Keep original order')}${actionButton('confirm-reorder','Apply reorder')}</div>`);return false;
+ pendingReorder={before:timelineFingerprint(currentProject),next,id,time:formation.time,after};api.render();api.dialog('Review sequence reorder',`<p class="modal-intro">Moving <strong>${esc(formation.name)}</strong> changes ${impact.removedRoutes.length} custom performer route${impact.removedRoutes.length===1?'':'s'} between formations that are no longer adjacent. New transitions use formation defaults. Time slots stay fixed. Linked events move with their sequence; unlinked events keep their times.</p><p class="field-help">New order: ${next.formations.map(f=>esc(f.name)).join(' → ')}</p><div class="modal-footer">${actionButton('cancel-reorder','Keep original order')}${actionButton('confirm-reorder','Apply reorder')}</div>`);return false;
 }
 
 export function runTimelineCommand(command,override){
@@ -229,6 +237,7 @@ export function bindEditorTimeline(){
     tap(g){if(g.kind){suppressUntil=performance.now()+250;activate(g.kind,g.id);}else focusTimeline();},
     preview(g,{magnetic}){
       const p=g.candidate,el=blocks.get(g.id);let at,end;
+      syncRelatedTiming(p,g.project.duration);
       floating?.classList.remove('is-error');
       if(g.kind==='formation'){
         p.formations.forEach((f,index)=>{const block=blocks.get(f.id),span=(p.formations[index+1]?.time??p.duration)-f.time,label=labels.get(f.id);if(block){block.style.left=`${f.time/g.project.duration*100}%`;block.style.width=`${span/g.project.duration*100}%`;}if(label?.index)label.index.textContent=String(index+1).padStart(2,'0');if(label?.duration)label.duration.textContent=`${+span.toFixed(3)}s`;if(label?.move)label.move.style.width=`${Math.min(f.transition?.duration??p.transitionDuration,span)/span*100}%`;});
@@ -241,7 +250,7 @@ export function bindEditorTimeline(){
       if(guide){guide.style.display='';guide.style.left=`${at/g.project.duration*100}%`;}el.classList.add('timeline-dragging');
     },
     invalid(g,message){restore();floating?.classList.add('is-error');if(guide)guide.style.display='none';feedback(message,true);},
-    clear(){restore();floating?.remove();guide?.remove();floating=guide=null;area.classList.remove('gesture-active','reordering');feedback('');},
+    clear(){restore();syncRelatedTiming(api.project());floating?.remove();guide?.remove();floating=guide=null;area.classList.remove('gesture-active','reordering');feedback('');},
     cancel(g,message){lastTap=null;if(message)api.toast(message);},
     commit(g){
       if(g.edge==='reorder'){requestSequenceReorder(g.candidate,g.id);return;}

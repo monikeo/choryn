@@ -2,6 +2,8 @@ import {sampleProps} from './prop-motion.js';
 import {localId,cloneData,lastIndex} from './compat.js';
 import {validateExtras,getRoute,routePosition} from './production-model.js';
 import {extraLayout} from './templates.js';
+import {validateProduction,motionProgress} from './production-schema.js';
+import {safetyIssues} from './production-next-model.js';
 // Canonical coordinates are meters: x increases to audience-right, z upstage.
 // Every renderer and export samples this model, never screen coordinates.
 export const COLORS = ['#8465d6', '#3c9c96', '#d98970', '#c69d43'];
@@ -65,7 +67,7 @@ export function samplePerformance(project, time) {
     const window=Math.min(to.time-from.time,route.duration);
     const delay=Math.min(route.delay,Math.max(0,window-.001));
     const progress=clamp((time-(to.time-window+delay))/Math.max(.001,window-delay),0,1);
-    const amount=route.easing==='linear'?progress:progress*progress*(3-2*progress);
+    const amount=route.timingCurve?motionProgress(progress,route.timingCurve):route.easing==='linear'?progress:progress*progress*(3-2*progress);
     return interpolatePosition(pathProject,p,next,amount,route);
   });
 }
@@ -74,16 +76,7 @@ export function beatAt(project,time) {
   return { beat:((beat%8)+8)%8+1, phrase:Math.floor(beat/8)+1, total:beat+1 };
 }
 export function warnings(project,positions,time=0) {
-  const issues=[],cast=new Map(project.performers.map(p=>[p.id,p])),props=sampleProps(project,time,positions);
-  for(const p of positions){
-    const performer=cast.get(p.performerId);
-    if(Math.abs(p.x)>project.stage.width/2 || Math.abs(p.z)>project.stage.depth/2) issues.push(`${performer?.name}: outside stage`);
-  }
-  for(let i=0;i<positions.length;i++) for(let j=i+1;j<positions.length;j++) {
-    if(positions[i].visible!==false&&positions[j].visible!==false&&Math.hypot(positions[i].x-positions[j].x,positions[i].z-positions[j].z)<(project.safetyDistance||.55)) issues.push(`Performers ${cast.get(positions[i].performerId)?.number} & ${cast.get(positions[j].performerId)?.number}: less than ${project.safetyDistance||.55} m apart`);
-  }
-  for(const p of positions) for(const prop of props){if(p.visible!==false&&prop.kind!=='platform'&&Math.abs(p.x-prop.x)<prop.width/2+.25&&Math.abs(p.z-prop.z)<prop.depth/2+.25)issues.push(`${cast.get(p.performerId)?.name}: near ${prop.name}`);}
-  return issues;
+  const names=new Map(project.performers.map(p=>[p.id,p.name]));return safetyIssues(project,positions,time).map(v=>v.ids.map(id=>names.get(id)).join(' & ')+': '+(v.type==='boundary'?'outside stage or usable outline':v.message));
 }
 // Imports are untrusted; allowlist fields and bound geometry, counts and text.
 export function validateProject(input) {
@@ -107,5 +100,5 @@ export function validateProject(input) {
   const cueIds=new Set();
   const cues=(Array.isArray(input.cues)?input.cues:[]).slice(0,100).filter(c=>c && str(c.label) && finite(c.time,0,input.duration)).map(c=>{const id=safeId(c.id)&&!cueIds.has(c.id)?c.id:uid();cueIds.add(id);return {id,label:c.label,time:c.time};});
   const base={schemaVersion:1,id:input.id,name:input.name,discipline:str(input.discipline)?input.discipline:'Dance',description:str(input.description)?input.description:'',updatedAt:finite(input.updatedAt,0,1e14)?input.updatedAt:Date.now(),stage:{width:input.stage.width,depth:input.stage.depth,grid:1},bpm:input.bpm,duration:input.duration,transitionDuration:input.transitionDuration,easing:input.easing==='linear'?'linear':'smooth',pathType:input.pathType==='curved'?'curved':'direct',notes:str(input.notes,10000)?input.notes:'',performers,formations,cues,audioName:str(input.audioName)?input.audioName:null};
-  return {...base,...validateExtras(input,base)};
+  return {...base,...validateExtras(input,base),production:validateProduction(input,base)};
 }

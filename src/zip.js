@@ -2,7 +2,7 @@ const table=Uint32Array.from({length:256},(_,n)=>{for(let i=0;i<8;i++)n=n&1?0xed
 export function crc32(bytes){let crc=0xffffffff;for(const b of bytes)crc=table[(crc^b)&255]^(crc>>>8);return (crc^0xffffffff)>>>0;}
 const header=size=>{const bytes=new Uint8Array(size);return {bytes,view:new DataView(bytes.buffer)};};
 export async function imageZip(entries,{signal,onProgress=()=>{},maxBytes=120*1024*1024}={}){
- if(!entries.length||entries.length>101)throw Error('Choose images to download.');
+ if(!entries.length||entries.length>301)throw Error('Choose up to 301 files to download.');
  const names=new Set(),chunks=[],directory=[];let offset=0,total=0;
  for(let i=0;i<entries.length;i++){
   if(signal?.aborted)throw Error('ZIP export cancelled.');const {name,blob}=entries[i];if(typeof name!=='string'||!name||/[\\/\u0000]/.test(name)||name==='.'||name==='..'||names.has(name.toLowerCase()))throw Error('Invalid or duplicate ZIP filename.');names.add(name.toLowerCase());

@@ -1,6 +1,10 @@
-# CHORYN v0.13 timeline verification — 22 October 2026
+# CHORYN v0.14 production verification — 22 October 2026
 
-222 automated tests pass: the existing 200 checks plus 22 timeline gesture/UI tests. All 53 source/script/worker syntax checks and the production build pass, with 133 relative JavaScript import edges resolved. The offline shell includes the new timeline controller and stylesheet: 94 entries, including 90 byte-hashed static assets and four matching-build HTML routes.
+256 automated tests pass: all 222 earlier checks and 34 production model/UI/WebGL-double tests. All 60 source/script/worker syntax checks and the production build pass; 163 relative JavaScript paths resolve. The offline shell has 102 entries: 98 byte-hashed static assets and four matching-build HTML routes.
+
+The production additions are detailed in PRODUCTION.md. New evidence covers old-backup defaults and roundtrips; untrusted data and duplicate event rejection; boundary/obstacle/spacing and swept crossing analysis; ranked immutable route suggestions; alignment; Bézier timing endpoints; ripple retiming/trim/delete; spanning movement and linked offsets; locked/opening/approved protection; cue/scene/appearance interpolation; DXF scale/centering and invalid geometry; escaping/formula-safe personal exports; live/export shared scene markup; preview/apply flows; actual production forms and event dragging; stale confirmations; and textured-floor calibration/disposal. WebGL scene invalidation avoids serializing embedded floor-plan bytes every frame.
+
+The following timeline evidence is retained from v0.13. Production layer, ripple and linked behavior extend its default unlinked editing semantics. No browser/physical-device or real encoder/GPU results are claimed for this release; browser UI access remains unavailable after the earlier denial.
 
 ## Design and behavior
 

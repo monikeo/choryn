@@ -1,4 +1,5 @@
 import {clone,clamp,uid,samplePerformance} from './engine.js';
+import {applyTimingRelations,applyReorderRelations,assertTrackUnlocked,cleanLinks,rippleRemoveFormation} from './production-timing.js';
 
 export const roundTime=value=>Math.round(value*1000)/1000;
 export function waveformWindow(audioDuration,performanceDuration){
@@ -10,7 +11,8 @@ export function snappedTime(value,bpm,snap='beat',offset=0){
   const origin=snap==='beat'||snap==='half-beat'?offset:0;return roundTime(Math.round((value-origin)/step)*step+origin);
 }
 // Return a complete candidate so a rejected gesture cannot partially mutate the score.
-export function editTimeline(project,{kind,id,edge='move',value}){
+export function editTimeline(project,operation){const {kind,id,edge='move'}=operation;assertTrackUnlocked(project,kind,id);return applyTimingRelations(project,editTimelineBase(project,operation),{kind,id,edge});}
+function editTimelineBase(project,{kind,id,edge='move',value}){
   if(!Number.isFinite(value))throw Error('Enter a valid time.');
   const next=clone(project),forms=next.formations;
   if(kind==='formation'){
@@ -19,7 +21,7 @@ export function editTimeline(project,{kind,id,edge='move',value}){
     if(edge==='end'){
       if(forms[index+1]){
         const target=forms[index+1];if(target.status==='approved')throw Error('Unlock the next formation before moving this shared boundary.');
-        const min=f.time+.1,max=(forms[index+2]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to trim.');
+        const min=f.time+.1,max=project.production?.ripple?Math.min(3600,next.duration+value-target.time):(forms[index+2]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to trim.');
         target.time=roundTime(clamp(value,min,max));
       }else{
         const minimum=Math.max(1,f.time+.1,...next.actions.map(a=>a.end),...next.cues.map(c=>c.time),...next.comments.map(c=>c.time),...next.props.flatMap(p=>[...(p.keyframes||[]),...(p.attachments||[])].map(f=>f.time)),...(next.checkpoints||[]).map(c=>c.time),next.referenceVideo?.start||0);
@@ -27,7 +29,7 @@ export function editTimeline(project,{kind,id,edge='move',value}){
       }
     }else{
       if(index===0)throw Error('The opening time stays at zero. Trim its right edge instead.');
-      const min=forms[index-1].time+.1,max=(forms[index+1]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to retime.');
+      const min=forms[index-1].time+.1,max=project.production?.ripple?3600:(forms[index+1]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to retime.');
       f.time=roundTime(clamp(value,min,max));
     }
   }else if(kind==='cue'){
@@ -50,6 +52,7 @@ function freeFormationTime(project,time){
 }
 export function copyTimelineItem(project,kind,id){return {projectId:project.id,kind,item:clone(timelineItem(project,kind,id))};}
 export function pasteTimelineItem(project,clipboard,time){
+  assertTrackUnlocked(project,clipboard?.kind);
   if(!Number.isFinite(time))throw Error('Choose a valid paste time.');
   if(!clipboard||clipboard.projectId!==project.id)throw Error('Copy a clip from this project first.');
   const next=clone(project),kind=clipboard.kind,key=keyFor(kind),limit={formation:100,movement:300,cue:100}[kind];
@@ -69,6 +72,7 @@ export function duplicateTimelineItem(project,kind,id){
   return pasteTimelineItem(project,copyTimelineItem(project,kind,id),time);
 }
 export function splitTimelineItem(project,kind,id,time){
+  assertTrackUnlocked(project,kind,id);
   if(!Number.isFinite(time))throw Error('Choose a valid split time.');
   const original=timelineItem(project,kind,id),next=clone(project),key=keyFor(kind),source=next[key].find(item=>item.id===id);time=roundTime(time);
   if(kind==='cue')throw Error('A cue is a point in time and cannot be split.');
@@ -81,6 +85,7 @@ export function splitTimelineItem(project,kind,id,time){
   return {project:next,item,kind};
 }
 export function removeTimelineItem(project,kind,id){
+  assertTrackUnlocked(project,kind,id);
   const item=timelineItem(project,kind,id),next=clone(project),key=keyFor(kind);
   if(kind==='formation'){
     if(item.time===0)throw Error('Keep the opening formation at zero.');
@@ -88,7 +93,7 @@ export function removeTimelineItem(project,kind,id){
     next.routes=next.routes.filter(r=>r.fromId!==id&&r.toId!==id);
   }
   next[key]=next[key].filter(item=>item.id!==id);if(kind==='cue')next.cueLog=next.cueLog.filter(c=>c.cueId!==id);
-  return next;
+  return kind==='formation'&&project.production?.ripple?rippleRemoveFormation(project,next,id):cleanLinks(next);
 }
 export function packMovementRows(actions){
   const ends=[],rows=new Map();for(const action of [...actions].sort((a,b)=>a.start-b.start||a.end-b.end)){
@@ -96,6 +101,7 @@ export function packMovementRows(actions){
   }return {rows,count:Math.max(1,ends.length)};
 }
 export function reorderFormation(project,id,targetIndex){
+  assertTrackUnlocked(project,'formation',id);
   const next=clone(project),source=next.formations.findIndex(f=>f.id===id);
   if(source<0||!Number.isInteger(targetIndex)||targetIndex<0||targetIndex>=next.formations.length)throw Error('Choose an existing sequence slot.');
   const affected=next.formations.slice(Math.min(source,targetIndex),Math.max(source,targetIndex)+1);
@@ -104,10 +110,11 @@ export function reorderFormation(project,id,targetIndex){
   next.formations.splice(targetIndex,0,item);next.formations.forEach((f,i)=>f.time=times[i]);
   const adjacent=new Set(next.formations.slice(0,-1).map((f,i)=>`${f.id}/${next.formations[i+1].id}`));
   next.routes=next.routes.filter(r=>adjacent.has(`${r.fromId}/${r.toId}`));
-  return next;
+  return applyReorderRelations(project,next);
 }
 
 export function setFormationTransition(project,id,settings){
+  assertTrackUnlocked(project,'formation',id);
   const next=clone(project),index=next.formations.findIndex(f=>f.id===id),f=next.formations[index],to=next.formations[index+1];
   if(!f||!to)throw Error('Select a formation with a following sequence. The final formation holds to the end.');
   if(f.status==='approved')throw Error('Unlock this formation before editing its movement.');
