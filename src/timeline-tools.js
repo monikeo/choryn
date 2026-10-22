@@ -3,6 +3,8 @@ import {icon} from './icons.js';
 export function magneticTime(value,project,{snap='beat',playhead=0,pixelsPerSecond=1,exclude}={}){
  const grid=snappedTime(value,project.bpm,snap,project.music?.beatOffset||0);if(snap==='off')return {time:grid,label:'Exact'};
  const targets=[...project.formations.filter(f=>f.id!==exclude).map(f=>({time:f.time,label:f.name})),...project.actions.filter(a=>a.id!==exclude).flatMap(a=>[{time:a.start,label:a.name+' start'},{time:a.end,label:a.name+' end'}]),...(project.checkpoints||[]).map(c=>({time:c.time,label:c.label||'Checkpoint'})),...project.cues.filter(c=>c.id!==exclude).map(c=>({time:c.time,label:c.label})),{time:playhead,label:'Playhead'},{time:project.duration,label:'Performance end'}];
+ for(const key of ['lights','appearances','cameras'])for(const item of project.production?.[key]||[])if(item.id!==exclude)targets.push({time:item.time,label:item.name||item.costume||'Camera key'});
+ for(const prop of project.props||[])for(const frame of prop.keyframes||[])if(frame.id!==exclude)targets.push({time:frame.time,label:prop.name+' pose'});
  const nearest=targets.filter(t=>Math.abs(t.time-value)*pixelsPerSecond<=9).sort((a,b)=>Math.abs(a.time-value)-Math.abs(b.time-value))[0];return nearest||{time:grid,label:snap==='half-beat'?'Half beat':snap==='second'?'Second':'Beat'};
 }
 export function reorderImpact(before,after){const kept=new Set(after.routes.map(r=>r.id));return {removedRoutes:before.routes.filter(r=>!kept.has(r.id)),changed:before.formations.some((f,i)=>f.id!==after.formations[i]?.id)};}

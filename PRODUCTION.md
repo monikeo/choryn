@@ -1,4 +1,12 @@
-# Production workspace · v0.14
+# Production workspace · v0.14.1
+
+The Production page now includes a direct workspace button. Workflow refinements in this release:
+
+- Suggestions include current-route metrics and a side-by-side scrubber. It shows all performers and at most 12 path traces, with isolated noninteractive SVG identities. Previewing does not alter the score; Apply still checks freshness.
+- Lighting, appearance, camera and prop-pose dragging uses the chosen timeline snap mode and magnetic boundaries, Alt precision, gradual edge scrolling, coalesced previews, stable grab offsets and linked-event previews. Keyboard Left/Right nudges by the selected step, Shift multiplies it by eight, and Alt uses 0.01 seconds. Locked props and linked content reject the complete edit. Drops outside the viewport cancel.
+- 3D playback and matching-view capture include warning rings. Both views update geometry warning status; lighting interpolates independently of the slower transport HUD. Clearance checks follow rotated rectangles, triangles and the true distance to elliptical props.
+- Personal packs include intermediate costume changes, technical/lighting cues, movement starts/ends and that person's prop pickups/handoffs. Turn off detailed events for a compact formation/checkpoint book. Exports use a coherent snapshot, cached outgoing paths, per-person progress, a 100 MB batch limit and a 1,000-checkpoint limit per performer. Closing the dialog cancels packaging and prevents a late download. Geometry edits invalidate cached paths.
+- End trims retain later production events. Ripple trims move events on the old endpoint with the new endpoint. Imported stage outlines reject crossings, touching nonadjacent edges, repeated vertices and out-of-stage coordinates; a repeated closing vertex is accepted as a closed polygon.
 
 Open **All tools → Production workspace**, **Timeline → More → Production workspace**, or find it in command search. Eight panels keep advanced authoring out of the primary timeline rail. The workspace preserves CHORYN's existing typography, violet accent, neutral surfaces and accessible native forms. Panels scroll and use two-column fields, collapsing to one column on very narrow phones; fullscreen uses the same tools.
 
@@ -50,4 +58,4 @@ Choose a performer and **Export performer follow video** to set a personal follo
 
 ## Verification and limits
 
-256 automated tests pass, including 34 new model/UI/WebGL-double checks. Tests cover schema migration, atomic linked/ripple changes and deletion, locks, Bézier sampling, crossings, suggestion candidates, alignment, DXF validation, live/export state sharing, personal packages, actual form/click handlers, stale confirmations, final-release dragging and textured-floor resources. Production build, syntax checks and offline asset hashes pass. Browser screenshots, computed responsive layout, real GPU presentation, physical touch devices and installation were not verified because browser UI access remains unavailable. No alternate browser-control path was used.
+280 automated tests pass, including the earlier 34 production checks and 24 integration/refinement checks. Tests cover schema migration, atomic linked/ripple changes and deletion, locks, Bézier sampling, crossings, suggestion candidates/previews, alignment, DXF/topology validation, live/export state sharing and 3D warning geometry, detailed personal packages and cancellation, actual form/click/keyboard handlers, coalesced snapping/edge-scrolling event gestures, stale confirmations and textured-floor resources. Production build, syntax checks and offline asset hashes pass. Browser screenshots, computed responsive layout, real GPU presentation, physical touch devices and installation were not verified because browser UI access remains unavailable. No alternate browser-control path was used.

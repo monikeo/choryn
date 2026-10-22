@@ -18,9 +18,10 @@ export function projectPoint(matrix,p){const v=[...p,1],out=[0,0,0,0];for(let r=
 const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
 const stageReferences=new WeakMap();let nextStageReference=0;
 const stageReference=value=>{if(!value)return 0;if(!stageReferences.has(value))stageReferences.set(value,++nextStageReference);return stageReferences.get(value);};
-export function stageSceneKey(project,positions,selected){return JSON.stringify([project.stage.width,project.stage.depth,stageReference(project.production?.stage),project.sceneLights,project.performers.map(p=>[p.id,p.number,p.name,p.color]),(project.props||[]).map(p=>[p.id,p.x,p.z,p.width,p.depth,p.height,p.rotation,p.shape,p.color]),positions,[...selected].sort()]);}
+export function stageSceneKey(project,positions,selected){return JSON.stringify([project.stage.width,project.stage.depth,stageReference(project.production?.stage),project.sceneLights,project.sceneSafety?.map(v=>[v.type,v.ids]),project.performers.map(p=>[p.id,p.number,p.name,p.color]),(project.props||[]).map(p=>[p.id,p.x,p.z,p.width,p.depth,p.height,p.rotation,p.shape,p.color]),positions,[...selected].sort()]);}
 function geometry(project,positions,selected,ghosts=[],analysis){
   const data=[],cast=new Map(project.performers.map(p=>[p.id,p]));
+  const unsafe=new Set((project.sceneSafety||[]).flatMap(v=>v.ids));
   const tri=(a,b,c,color)=>{const normal=norm(cross(sub(b,a),sub(c,a)));for(const v of [a,b,c])data.push(...v,...normal,...color);};
   const box=(x,y,z,w,h,d,color,rotation=0)=>{
     const points=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(p=>{const a=rotation*Math.PI/180,dx=p[0]*w/2,dz=p[2]*d/2;return [x+dx*Math.cos(a)-dz*Math.sin(a),y+p[1]*h/2,z+dx*Math.sin(a)+dz*Math.cos(a)];});
@@ -52,6 +53,7 @@ function geometry(project,positions,selected,ghosts=[],analysis){
     if(p.visible===false)continue;
     const performer=cast.get(p.performerId);if(!performer)continue;
     const color=rgb(performer.color),x=p.x,z=-p.z;
+    if(unsafe.has(p.performerId)){const color=[.78,.3,.4];for(let i=0;i<24;i++){const a=i/24*Math.PI*2,b=(i+1)/24*Math.PI*2,point=(angle,r)=>[x+Math.cos(angle)*r,.08,z+Math.sin(angle)*r];tri(point(a,.55),point(b,.55),point(b,.62),color);tri(point(a,.55),point(b,.62),point(a,.62),color);}}
     cylinder(x,.025,z,selected.has(p.performerId)?.42:.34,.025,selected.has(p.performerId)?[.48,.32,.79]:[.73,.68,.8],18);
     box(x-.11,.34,z,.15,.6,.18,[.32,.29,.38]);box(x+.11,.34,z,.15,.6,.18,[.32,.29,.38]);
     cylinder(x,.95,z,.24,.68,color);cylinder(x,1.48,z,.17,.28,[.94,.79,.65]);

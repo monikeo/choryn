@@ -1,6 +1,8 @@
-# Timeline editing · v0.14
+# Timeline editing · v0.14.1
 
 Production workspace adds hide/collapse/lock controls for eight lanes, ripple retiming/trimming/deletion, linked event groups, and editable lighting/appearance/camera events. See PRODUCTION.md. The behavior below describes default editing with Ripple off and unlinked events; linked events follow their sequence during reorder. Ripple deletion explicitly confirms enclosed-event removal and the shortened performance.
+
+Production events and prop-pose keys now share selected snapping, magnetic targets, Alt precision, linked timing previews, gradual edge scrolling, pointer cancellation and keyboard nudging. Touch edits use dedicated grips. End trims protect lighting, costume and camera events; ripple endpoint trims move events on the old endpoint. Linked editing keeps approved formations and locked props/tracks protected.
 
 The performance timeline uses CHORYN's existing system typography, neutral surfaces and violet sequence blocks. Duplicate, Split and Delete remain icon actions; More tools exposes the clip inspector, copy/paste/cut, trim dialogs, move earlier/later, formation sequence, image previews and loop range. Narrow phone layouts keep Delete inside More tools. Music, exact counts, rehearsal view aids and the fine scrubber share the editing rail. Desktop uses one row; phone editing wraps below its main tools. Fullscreen keeps the same controls. Timeline height can be resized, with a minimum that preserves usable track space.
 

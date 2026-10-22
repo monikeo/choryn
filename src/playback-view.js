@@ -17,7 +17,7 @@ export function createPlaybackView(root){
  for(const node of objects?.querySelectorAll('[data-stage-object]')||[])props.set(node.dataset.stageObject,{node,shape:node.firstElementChild});
  const clock=find('[data-clock-main]'),fraction=find('#transport-time small'),scrub=find('#fine-scrub'),count=find('#precise-count'),playhead=find('#playhead'),phrase=find('[data-beat-phrase]'),beat=find('[data-beat-number]');
  const clips=new Map(Array.from(root.querySelectorAll('.timeline-formation'),node=>[node.dataset.formation,node]));
- return {update(project,time,{positions,state,playing=false,active,focused,hud=true}={}){
+ return {update(project,time,{positions,geometryPositions=positions,state,playing=false,active,focused,hud=true}={}){
   if(hud){
   if(scrub&&scrub!==focused)scrub.value=time;
   text(clock,timecode(time));text(fraction,`.${String(Math.floor(time%1*100)).padStart(2,'0')}`);
@@ -31,8 +31,10 @@ export function createPlaybackView(root){
   // Keep the current overlays intact until an explicit stage update arrives.
   if(!state)return;
   if(analysisLayer&&state.analysis!==analysisRef){analysisLayer.innerHTML=renderAnalysis2D(project,state.analysis,state);analysisRef=state.analysis;}
+  if(hud&&geometryPositions){const issues=safetyIssues(project,geometryPositions,time);text(find('#validation-status'),issues.length?`${issues.length} spacing / stage warnings`:'No current geometry warnings');}
   if(!positions)return;
-  if(hud){for(const [selector,html] of [['#production-lighting',lightingSVG(project,time)],['#production-safety',safetySVG(project,positions,time)]]){const node=find(selector);if(node&&node.innerHTML!==html)node.innerHTML=html;}const issues=safetyIssues(project,positions,time);text(find('#validation-status'),issues.length?`${issues.length} spacing / stage warnings`:'No current geometry warnings');}
+  const lightLayer=find('#production-lighting'),lightHTML=lightLayer?lightingSVG(project,time):'';if(lightLayer&&lightLayer.innerHTML!==lightHTML)lightLayer.innerHTML=lightHTML;
+  if(hud){const node=find('#production-safety'),html=safetySVG(project,positions,time);if(node&&node.innerHTML!==html)node.innerHTML=html;}
   if(project.production?.appearances.length){const people=new Map(sampleAppearance(project,time).map(p=>[p.id,p]));for(const [id,{node}] of markers){const person=people.get(id);if(!person)continue;attr(node.querySelector('.marker-body'),'fill',person.color);attr(node.querySelector('.marker-facing path'),'fill',person.color);attr(node.querySelector('text'),'fill',contrastText(person.color));}}
   if(ghostLayer&&state.ghosts!==ghostsRef){ghostLayer.innerHTML=renderGhosts2D(project,state.ghosts||[],state);ghostsRef=state.ghosts;}
   if(layer&&positions.some(p=>p.visible!==false&&!markers.has(p.performerId))){layer.innerHTML=renderMarkers2D(project,positions,state);scan();}

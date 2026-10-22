@@ -1,3 +1,4 @@
+import {parseOutline} from './stage-import.js';
 const finite=(n,a,b)=>typeof n==='number'&&Number.isFinite(n)&&n>=a&&n<=b;
 const text=(s,n=200)=>typeof s==='string'&&s.length<=n;
 const id=s=>typeof s==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(s);
@@ -10,6 +11,7 @@ export function validateProduction(source,base){
  const list=(key,max,parse)=>{const values=input[key]||[];check(Array.isArray(values)&&values.length<=max,key);const seen=new Set();return values.map(v=>{check(v&&id(v.id)&&!seen.has(v.id),key+' identity');seen.add(v.id);return parse(v);});};
  const stage=input.stage||{},point=p=>p&&finite(p.x,-100,100)&&finite(p.z,-100,100);
  check(!stage.outline||Array.isArray(stage.outline)&&stage.outline.length<=64&&(!stage.outline.length||stage.outline.length>=3)&&stage.outline.every(point),'stage outline');
+ if(stage.outline?.length){parseOutline(stage.outline.map(p=>p.x+','+p.z).join('\n'));check(stage.outline.every(p=>Math.abs(p.x)<=base.stage.width/2&&Math.abs(p.z)<=base.stage.depth/2),'outline outside stage');}
  check(!stage.lines||Array.isArray(stage.lines)&&stage.lines.length<=2000&&stage.lines.every(l=>point(l.a)&&point(l.b)),'CAD lines');
  const image=stage.image;
  check(!image||text(image.data,1500000)&&/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(image.data)&&finite(image.width,.1,100)&&finite(image.depth,.1,100)&&finite(image.x,-100,100)&&finite(image.z,-100,100)&&finite(image.opacity,0,1),'stage image');
