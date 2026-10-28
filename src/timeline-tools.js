@@ -1,4 +1,4 @@
-import {snappedTime} from './timeline-model.js';
+import {snappedTime,roundTime} from './timeline-model.js';
 import {icon} from './icons.js';
 export function timelineSnapExclusions(project,key){
  const group=project.production?.links?.find(group=>group.items.includes(key));return new Set([key,...(group?.items||[])]);
@@ -55,7 +55,9 @@ export function timelineCommandReason(project,selection,command,time,{readOnly=f
  const locked=project.production?.layers?.[{formation:'formations',movement:'movement',cue:'cues'}[command==='paste'?clipboard?.kind:selection.kind]]?.locked;if(locked)return 'Unlock the selected track first';
  if(command==='paste')return clipboard?.projectId===project.id?'':'Copy a clip in this project first';
  const kind=selection.kind,item=project[{formation:'formations',movement:'actions',cue:'cues'}[kind]]?.find(v=>v.id===selection.id);if(!item)return 'Select a timeline clip';
+ if(['duplicate','split'].includes(command)&&project[{formation:'formations',movement:'actions',cue:'cues'}[kind]].length>=({formation:100,movement:300,cue:100}[kind]))return 'This track has reached its item limit';
  const index=kind==='formation'?project.formations.indexOf(item):-1,start=kind==='movement'?item.start:item.time,end=kind==='formation'?(project.formations[index+1]?.time??project.duration):item.end;
+ if(command==='duplicate'&&kind==='formation'){const at=roundTime((start+end)/2);if(at-start<.0999||end-at<.0999)return 'This interval is too short to duplicate. Extend it to at least 0.2 seconds';}
  if(['move-earlier','move-later'].includes(command)){
   if(kind!=='formation')return 'Choose a formation sequence';
   const next=project.formations[index+(command==='move-earlier'?-1:1)];
@@ -66,6 +68,6 @@ export function timelineCommandReason(project,selection,command,time,{readOnly=f
  if(['split','delete','cut','trim-start','trim-end','move-earlier','move-later'].includes(command)&&kind==='formation'&&item.status==='approved')return 'Unlock the approved formation first';
  if(['delete','cut','trim-start'].includes(command)&&kind==='formation'&&index===0)return 'Keep the opening formation';
  if(command==='trim-end'&&kind==='formation'&&project.formations[index+1]?.status==='approved')return 'Unlock the next formation before moving this shared boundary';
- if(command==='split'&&(time<start+.1||time>end-.1))return 'Place the playhead inside this clip, at least 0.1 seconds from either edge';
+ if(command==='split'&&(!Number.isFinite(time)||roundTime(time)-start<.0999||end-roundTime(time)<.0999))return 'Place the playhead inside this clip, at least 0.1 seconds from either edge';
  return '';
 }

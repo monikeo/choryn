@@ -13,15 +13,13 @@ export function assertProductionLocks(before,after){
  const p=before.production;if(!p)return;const values=project=>({music:[project.music,project.audioName,project.bpm],formations:[project.formations,project.routes,project.duration],movement:project.actions,cues:project.cues,props:[project.props,project.stage,project.production?.stage,project.production?.zones],lighting:project.production?.lights,appearance:project.production?.appearances,camera:project.production?.cameras}),a=values(before),b=values(after);
  for(const key of Object.keys(a))if(p.layers[key]?.locked&&JSON.stringify(a[key])!==JSON.stringify(b[key]))throw Error('Unlock the '+key+' track before changing its contents.');
 }
-export function applyTimingRelations(original,candidate,{kind,id,edge}){
- assertTrackUnlocked(original,kind,id);const production=original.production;if(!production)return candidate;
- const next=clone(candidate),before=timedItems(original),after=timedItems(next),key=kind+'/'+id,source=before.find(v=>v.key===key),target=after.find(v=>v.key===key);if(!source||!target)return next;
- if(!production.ripple&&!production.links.length)return candidate;
+// Freshly owned candidates can be retimed in place; default callers copy before related writes.
+export function applyTimingRelations(original,candidate,{kind,id,edge,copy=true,validate=true}){
+ assertTrackUnlocked(original,kind,id);const production=original.production;if(!production||!production.ripple&&!production.links.length||kind==='movement'&&(edge==='start'||edge==='end'))return candidate;
+ const next=copy?clone(candidate):candidate,before=timedItems(original),after=timedItems(next),beforeByKey=new Map(before.map(v=>[v.key,v])),afterByKey=new Map(after.map(v=>[v.key,v])),key=kind+'/'+id,source=before.find(v=>v.key===key),target=after.find(v=>v.key===key);if(!source||!target)return next;
  const shifts=new Map(),endBoundary=kind==='formation'&&edge==='end';
  let anchor=source.time,delta=target.time-source.time,pivot=source.key;
  if(endBoundary){const index=original.formations.findIndex(f=>f.id===id),a=original.formations[index+1],b=next.formations[index+1];anchor=a?.time??original.duration;delta=(b?.time??next.duration)-anchor;pivot=a?'formation/'+a.id:'';}
- if(kind==='movement'&&edge==='end')return next;
- if(kind==='movement'&&edge==='start')return next;
  if(!delta)return next;
  if(production.ripple&&kind==='formation'){
   before.forEach(v=>{if(v.time>=anchor-.00001)shifts.set(v.key,delta);});
@@ -35,18 +33,18 @@ export function applyTimingRelations(original,candidate,{kind,id,edge}){
  }else shifts.set(pivot,delta);
  // A linked group follows any member displaced by this edit, exactly once.
  for(const group of production.links){if(group.items.some(k=>shifts.has(k)))group.items.forEach(k=>shifts.set(k,delta));}
- for(const [itemKey,shift] of shifts){const a=before.find(v=>v.key===itemKey),b=after.find(v=>v.key===itemKey);if(!a||!b)continue;assertTrackUnlocked(original,a.kind,a.item.id);if(a.parent?.locked)throw Error('Unlock the linked prop before retiming.');if(a.kind==='formation'&&a.time===0)throw Error('A linked or ripple edit cannot move the opening from zero.');if(a.kind==='movement'){b.item.start=round(a.item.start+shift);b.item.end=round(a.item.end+shift);}else b.item.time=round(a.time+shift);}
+ for(const [itemKey,shift] of shifts){const a=beforeByKey.get(itemKey),b=afterByKey.get(itemKey);if(!a||!b)continue;assertTrackUnlocked(original,a.kind,a.item.id);if(a.parent?.locked)throw Error('Unlock the linked prop before retiming.');if(a.kind==='formation'&&a.time===0)throw Error('A linked or ripple edit cannot move the opening from zero.');if(a.kind==='movement'){b.item.start=round(a.item.start+shift);b.item.end=round(a.item.end+shift);}else b.item.time=round(a.time+shift);}
  if(next.formations.some((f,i)=>i&&f.time-next.formations[i-1].time<.0999))throw Error('Linked timing would overlap sequence boundaries.');
  next.cues.sort((a,b)=>a.time-b.time);for(const k of ['lights','appearances','cameras'])next.production[k].sort((a,b)=>a.time-b.time);
- return validateProject(next);
+ return validate?validateProject(next):next;
 }
 export function shiftProductionItem(project,key,time){
  if(!Number.isFinite(time))throw Error('Enter a valid time.');const next=clone(project),item=timedItems(next).find(v=>v.key===key);if(!item)throw Error('This event no longer exists.');assertTrackUnlocked(project,item.kind,item.item.id);if(item.parent?.locked)throw Error('Unlock this prop first.');if(item.kind==='movement'){const delta=time-item.item.start;item.item.start=time;item.item.end+=delta;}else item.item.time=time;
- return validateProject(applyTimingRelations(project,next,{kind:item.kind,id:key.slice(key.indexOf('/')+1),edge:'move'}));
+ return validateProject(applyTimingRelations(project,next,{kind:item.kind,id:key.slice(key.indexOf('/')+1),edge:'move',copy:false,validate:false}));
 }
-export function applyReorderRelations(original,candidate){
- if(!original.production?.links.length)return candidate;const next=clone(candidate),before=timedItems(original),after=timedItems(next);
- for(const group of original.production.links){const deltas=group.items.map(key=>{const a=before.find(v=>v.key===key),b=after.find(v=>v.key===key);return a&&b?round(b.time-a.time):0;}).filter(Boolean);if(!deltas.length)continue;if(deltas.some(d=>d!==deltas[0]))throw Error('Linked events would move by different amounts. Unlink them before reordering.');const delta=deltas[0];for(const key of group.items){const a=before.find(v=>v.key===key),b=after.find(v=>v.key===key);if(!a||!b)continue;assertTrackUnlocked(original,a.kind,a.item.id);if(a.parent?.locked)throw Error('Unlock the linked prop first.');if(a.kind==='formation'&&a.time===0)throw Error('A linked group cannot move the opening.');if(b.time===a.time){if(a.kind==='movement'){b.item.start=round(a.item.start+delta);b.item.end=round(a.item.end+delta);}else b.item.time=round(a.time+delta);}}}
+export function applyReorderRelations(original,candidate,{copy=true}={}){
+ if(!original.production?.links.length)return candidate;const next=copy?clone(candidate):candidate,before=timedItems(original),after=timedItems(next),beforeByKey=new Map(before.map(v=>[v.key,v])),afterByKey=new Map(after.map(v=>[v.key,v]));
+ for(const group of original.production.links){const deltas=group.items.map(key=>{const a=beforeByKey.get(key),b=afterByKey.get(key);return a&&b?round(b.time-a.time):0;}).filter(Boolean);if(!deltas.length)continue;if(deltas.some(d=>d!==deltas[0]))throw Error('Linked events would move by different amounts. Unlink them before reordering.');const delta=deltas[0];for(const key of group.items){const a=beforeByKey.get(key),b=afterByKey.get(key);if(!a||!b)continue;assertTrackUnlocked(original,a.kind,a.item.id);if(a.parent?.locked)throw Error('Unlock the linked prop first.');if(a.kind==='formation'&&a.time===0)throw Error('A linked group cannot move the opening.');if(b.time===a.time){if(a.kind==='movement'){b.item.start=round(a.item.start+delta);b.item.end=round(a.item.end+delta);}else b.item.time=round(a.time+delta);}}}
  for(const key of ['lights','appearances','cameras'])next.production[key].sort((a,b)=>a.time-b.time);next.cues.sort((a,b)=>a.time-b.time);return validateProject(next);
 }
 export function rippleRemoveFormation(original,candidate,id){

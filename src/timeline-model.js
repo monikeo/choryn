@@ -2,6 +2,7 @@ import {clone,clamp,uid,samplePerformance} from './engine.js';
 import {applyTimingRelations,applyReorderRelations,assertTrackUnlocked,cleanLinks,rippleRemoveFormation} from './production-timing.js';
 
 export const roundTime=value=>Math.round(value*1000)/1000;
+const namedCopy=(name,suffix)=>name.slice(0,200-suffix.length)+suffix;
 export function waveformWindow(audioDuration,performanceDuration){
   if(!Number.isFinite(audioDuration)||!Number.isFinite(performanceDuration)||audioDuration<=0||performanceDuration<=0)throw Error('Audio and performance lengths must be positive.');
   return {width:Math.min(1,audioDuration/performanceDuration)*100,viewBoxWidth:1360*Math.min(1,performanceDuration/audioDuration)};
@@ -11,7 +12,7 @@ export function snappedTime(value,bpm,snap='beat',offset=0){
   const origin=snap==='beat'||snap==='half-beat'?offset:0;return roundTime(Math.round((value-origin)/step)*step+origin);
 }
 // Return a complete candidate so a rejected gesture cannot partially mutate the score.
-export function editTimeline(project,operation){const {kind,id,edge='move'}=operation;assertTrackUnlocked(project,kind,id);return applyTimingRelations(project,editTimelineBase(project,operation),{kind,id,edge});}
+export function editTimeline(project,operation){const {kind,id,edge='move'}=operation;assertTrackUnlocked(project,kind,id);return applyTimingRelations(project,editTimelineBase(project,operation),{kind,id,edge,copy:false});}
 function editTimelineBase(project,{kind,id,edge='move',value}){
   if(!Number.isFinite(value))throw Error('Enter a valid time.');
   const next=clone(project),forms=next.formations;
@@ -58,17 +59,17 @@ export function pasteTimelineItem(project,clipboard,time){
   const next=clone(project),kind=clipboard.kind,key=keyFor(kind),limit={formation:100,movement:300,cue:100}[kind];
   if(!key||next[key].length>=limit)throw Error(`This track supports up to ${limit||0} items.`);
   time=roundTime(time);const item=clone(clipboard.item);item.id=uid();
-  if(kind==='formation'){freeFormationTime(next,time);const base=samplePerformance(project,time);item.positions=next.performers.map(person=>clone(item.positions.find(p=>p.performerId===person.id)||base.find(p=>p.performerId===person.id)));item.time=time;item.status='draft';item.name=`${item.name} — copy`.slice(0,200);}
-  if(kind==='movement'){const length=item.end-item.start;if(time<0||time+length>next.duration+.0001)throw Error('The copied movement does not fit here. Move the playhead earlier or extend the performance.');item.performerIds=item.performerIds.filter(id=>next.performers.some(p=>p.id===id));item.start=time;item.end=roundTime(time+length);item.name=`${item.name} — copy`.slice(0,200);}
-  if(kind==='cue'){if(time<0||time>next.duration)throw Error('Place this cue inside the performance.');item.time=time;item.label=`${item.label} — copy`.slice(0,200);}
+  if(kind==='formation'){freeFormationTime(next,time);const base=samplePerformance(project,time);item.positions=next.performers.map(person=>clone(item.positions.find(p=>p.performerId===person.id)||base.find(p=>p.performerId===person.id)));item.time=time;item.status='draft';item.name=namedCopy(item.name,' — copy');}
+  if(kind==='movement'){const length=item.end-item.start;if(time<0||time+length>next.duration+.0001)throw Error('The copied movement does not fit here. Move the playhead earlier or extend the performance.');item.performerIds=item.performerIds.filter(id=>next.performers.some(p=>p.id===id));item.start=time;item.end=roundTime(time+length);item.name=namedCopy(item.name,' — copy');}
+  if(kind==='cue'){if(time<0||time>next.duration)throw Error('Place this cue inside the performance.');item.time=time;item.label=namedCopy(item.label,' — copy');}
   next[key].push(item);if(kind!=='movement')next[key].sort((a,b)=>a.time-b.time);if(kind==='formation')pruneRoutes(next);
   return {project:next,item,kind};
 }
 export function duplicateTimelineItem(project,kind,id){
   const item=timelineItem(project,kind,id);let time;
   if(kind==='formation'){const index=project.formations.indexOf(item),end=project.formations[index+1]?.time??project.duration;time=roundTime((item.time+end)/2);}
-  if(kind==='movement'){const length=item.end-item.start;time=item.end+length<=project.duration?item.end:item.start-length;}
-  if(kind==='cue')time=Math.min(project.duration,item.time+60/project.bpm);
+  if(kind==='movement'){const length=item.end-item.start;time=item.end+length<=project.duration?item.end:item.start-length>=0?item.start-length:clamp(item.start+60/project.bpm,0,project.duration-length);}
+  if(kind==='cue'){const step=Math.min(60/project.bpm,project.duration/2);for(let i=1;i<=project.cues.length+1&&time===undefined;i++)for(const direction of [1,-1]){const candidate=roundTime(item.time+direction*step*i);if(candidate>=0&&candidate<=project.duration&&!project.cues.some(c=>Math.abs(c.time-candidate)<.0005)){time=candidate;break;}}if(time===undefined){const bounds=[0,...project.cues.map(c=>c.time),project.duration].sort((a,b)=>a-b),gaps=bounds.slice(1).map((end,i)=>roundTime((bounds[i]+end)/2)).filter(at=>!project.cues.some(c=>Math.abs(c.time-at)<.0005));gaps.sort((a,b)=>Math.abs(a-item.time)-Math.abs(b-item.time));time=gaps[0];}if(time===undefined)throw Error('No free cue time. Extend the performance or remove a cue.');}
   return pasteTimelineItem(project,copyTimelineItem(project,kind,id),time);
 }
 export function splitTimelineItem(project,kind,id,time){
@@ -78,8 +79,8 @@ export function splitTimelineItem(project,kind,id,time){
   if(kind==='cue')throw Error('A cue is a point in time and cannot be split.');
   if(next[key].length>=(kind==='formation'?100:300))throw Error('This track has reached its item limit.');
   const end=kind==='formation'?(project.formations[project.formations.indexOf(original)+1]?.time??project.duration):original.end,start=kind==='formation'?original.time:original.start;
-  if(time<start+.1||time>end-.1)throw Error('Place the playhead inside the selected clip, at least 0.1 seconds from either edge.');
-  const item=clone(source);item.id=uid();item.name=`${item.name} · part 2`.slice(0,200);
+  if(time-start<.0999||end-time<.0999)throw Error('Place the playhead inside the selected clip, at least 0.1 seconds from either edge.');
+  const item=clone(source);item.id=uid();item.name=namedCopy(item.name,' · part 2');
   if(kind==='formation'){if(source.status==='approved')throw Error('Unlock this formation before splitting.');item.time=time;item.status='draft';item.positions=samplePerformance(project,time);next.formations.push(item);next.formations.sort((a,b)=>a.time-b.time);pruneRoutes(next);}
   else{source.end=time;item.start=time;next.actions.push(item);}
   return {project:next,item,kind};
@@ -110,7 +111,7 @@ export function reorderFormation(project,id,targetIndex){
   next.formations.splice(targetIndex,0,item);next.formations.forEach((f,i)=>f.time=times[i]);
   const adjacent=new Set(next.formations.slice(0,-1).map((f,i)=>`${f.id}/${next.formations[i+1].id}`));
   next.routes=next.routes.filter(r=>adjacent.has(`${r.fromId}/${r.toId}`));
-  return applyReorderRelations(project,next);
+  return applyReorderRelations(project,next,{copy:false});
 }
 
 export function setFormationTransition(project,id,settings){

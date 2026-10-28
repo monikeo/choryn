@@ -1,10 +1,14 @@
-# CHORYN Studio · 0.17.0
+# CHORYN Studio · 0.17.1
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
 ## Run
 
 Node.js 20+; no npm dependencies. Direct Node commands also work if a system npm installation is unavailable: from `studio/`, run `node scripts/serve.mjs`, `node --test`, or `node scripts/build.mjs`. From the workspace root, run `npm run dev`, `npm test`, or `npm run build`. The app lives in `studio/`; its package exposes the same scripts. Preview the production build by running `node scripts/serve.mjs --built` from `studio/`.
+
+## Timeline corrections in 0.17.1
+
+Valid decimal-boundary splits now work consistently. Long movement clips duplicate into overlapping packed rows when no adjacent space fits, and cues duplicated at the endpoint choose a free time. Copy/part suffixes remain visible on long names. Trim dialogs retain their original clip, reject stale/replayed submissions and avoid empty Undo edits. Retiming previews make one full project copy instead of two, and related-event lookups use keyed maps. Local stale-clip, commit and scrub errors clear safely. See VERIFICATION.md for evidence and profiling limits.
 
 ## Timeline precision in 0.17
 

@@ -4,13 +4,13 @@ import {bindTimelineGestures,bindTimelineResizer} from './timeline-gesture.js';
 import {observeSize} from './compat.js';
 import {wheelPixels} from './camera-controls.js';
 import {timedItems} from './production-timing.js';
-import {clamp,timecode} from './engine.js';
+import {clamp,timecode,uid} from './engine.js';
 
 import {editTimeline,reorderFormation,timelineItem,copyTimelineItem,pasteTimelineItem,duplicateTimelineItem,splitTimelineItem,removeTimelineItem,packMovementRows} from './timeline-model.js';
 
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let api,selection,clipboard,pendingRemoval,pendingReorder,zoom=1,snap='beat',dragMode='reorder',height=null,observer,dragging=false,lastTap=null,gestureController,zoomController,resizeController;
+let api,selection,clipboard,pendingRemoval,pendingReorder,pendingTrim,zoom=1,snap='beat',dragMode='reorder',height=null,observer,dragging=false,lastTap=null,gestureController,zoomController,resizeController;
 let uiListeners=[],uiNodes=[];
 function timelineListen(node,type,handler,options){node.addEventListener(type,handler,options);uiListeners.push(()=>node.removeEventListener(type,handler,options));}
 
@@ -21,6 +21,7 @@ export function timelineSelection(){return api?{...current()}:null;}
 export function resetTimelineSize(){height=null;}
 export function disposeTimeline(){document.dispatchEvent(new Event('timeline-teardown'));resizeController?.dispose();resizeController=null;uiListeners.forEach(remove=>remove());uiListeners=[];uiNodes.forEach(node=>node.remove());uiNodes=[];gestureController?.dispose();gestureController=null;zoomController=null;observer?.disconnect();observer=null;dragging=false;}
 
+const boundaryTime=(project,kind,id,edge)=>{const item=timelineItem(project,kind,id);return kind==='movement'?item[edge]:edge==='start'?item.time:project.formations[project.formations.indexOf(item)+1]?.time??project.duration;};
 const selectedItem=()=>{const s=current();return timelineItem(api.project(),s.kind,s.id);};
 export function syncRelatedTiming(project,duration=project.duration,includeFormations=false){
  const items=new Map(timedItems(project).map(v=>[v.key,v]));
@@ -40,7 +41,8 @@ function focusTimeline(){$('.timeline')?.focus({preventScroll:true});}
 
 export function setupTimeline(adapter){
 
-  api=adapter;
+  api=adapter;pendingTrim=null;
+  $('#dialog')?.addEventListener?.('close',()=>{if(!$('#dialog')?.open)pendingTrim=null;});
 
   document.addEventListener('click',event=>{
 
@@ -66,7 +68,7 @@ export function setupTimeline(adapter){
 
     if(event.target.id!=='timeline-trim-form')return;event.preventDefault();event.stopImmediatePropagation();if(api.readOnly())return;
 
-    try{const data=new FormData(event.target),s=current(),next=editTimeline(api.project(),{...s,edge:data.get('edge'),value:Number(data.get('time'))});api.replace(next,'Clip trimmed. Undo is available.');api.close();}catch(error){api.toast(error.message);}
+    try{const pending=pendingTrim;if(!pending||event.target.dataset.trimToken!==pending.token)throw Error('This trim dialog expired. Reopen it.');if(pending.before!==timelineFingerprint(api.project()))throw Error('The score changed. Reopen the trim dialog before saving.');const data=new FormData(event.target),edge=data.get('edge');if(!['start','end'].includes(edge))throw Error('Choose the start or end edge.');const next=editTimeline(api.project(),{kind:pending.kind,id:pending.id,edge,value:Number(data.get('time'))});if(boundaryTime(next,pending.kind,pending.id,edge)===boundaryTime(api.project(),pending.kind,pending.id,edge)){const input=event.target.elements?.time;if(input)input.value=boundaryTime(next,pending.kind,pending.id,edge);api.toast('No timing change. Existing events or sequence boundaries limit this trim.');return;}api.replace(next,'Clip trimmed. Undo is available.',{formationId:pending.kind==='formation'?pending.id:undefined});pendingTrim=null;rememberClipSelection(pending.kind,pending.id);api.close();markSelection();focusTimeline();}catch(error){api.toast(error.message);}
 
   },true);
 
@@ -155,7 +157,7 @@ export function runTimelineCommand(command,override){
     const index=p.formations.findIndex(f=>f.id===s.id);requestSequenceReorder(reorderFormation(p,s.id,index+(command==='move-earlier'?-1:1)),s.id);return;
   }
 
-  if(command==='duplicate'){applyResult(duplicateTimelineItem(p,s.kind,s.id),'Clip duplicated. Drag it to refine the timing.');return;}
+  if(command==='duplicate'){applyResult(duplicateTimelineItem(p,s.kind,s.id),s.kind==='movement'?'Movement duplicated. Overlaps use separate rows; drag to refine the timing.':'Clip duplicated. Drag it to refine the timing.');return;}
 
   if(command==='split'){applyResult(splitTimelineItem(p,s.kind,s.id,api.time()),s.kind==='formation'?'Formation split at the sampled pose. Transitions rebuilt; route overrides on this interval removed.':'Movement split at the playhead.');return;}
 
@@ -172,9 +174,10 @@ function clipTools(){
   api.dialog('Clip inspector',`<label class="field">Selected clip<select id="clip-select">${[['formation','formations'],['movement','actions'],['cue','cues']].flatMap(([kind,key])=>p[key].map(item=>`<option value="${kind}/${item.id}" ${kind===s.kind&&item.id===s.id?'selected':''}>${kind} · ${esc(item.name||item.label)}</option>`)).join('')}</select></label><div class="clip-summary"><strong>${esc(item.name||item.label)}</strong><span>${s.kind} · ${point?item.time+'s':s.kind==='movement'?`${item.start}–${item.end}s`:`${item.time}–${p.formations[p.formations.indexOf(item)+1]?.time??p.duration}s`} ${locked?'· approved':''}</span></div><label class="field">Playhead / split / paste time (seconds)<input id="clip-playhead" type="number" min="0" max="${p.duration}" step=".001" value="${api.time().toFixed(3)}"></label><div class="clip-command-grid">${buttons}</div><p class="field-help">Drag → Reorder moves sequences between fixed time slots; Retime moves a start within its neighbors. Handles trim shared boundaries. On touch, scroll clip bodies and drag a grip or edge. Alt bypasses snapping; Escape cancels a drag. Ctrl/⌘ D duplicates, C/X/V copies/cuts/pastes; S splits. Alt ←/→ moves a sequence. Delete and Cut always ask first. Split formations sample the playhead pose and rebuild their interval transitions.</p>`,true);
 }
 
-function trimDialog(edge){const p=api.project(),s=current(),item=selectedItem();if(s.kind==='cue')throw Error('Cues are point events. Edit their time instead.');const value=s.kind==='movement'?item[edge]:edge==='start'?item.time:p.formations[p.formations.indexOf(item)+1]?.time??p.duration;
+function trimDialog(edge){const p=api.project(),s=current(),item=selectedItem();if(s.kind==='cue')throw Error('Cues are point events. Edit their time instead.');const value=boundaryTime(p,s.kind,s.id,edge);
 
-  api.dialog('Trim with precision.',`<form id="timeline-trim-form"><p class="modal-intro">${esc(item.name)}. Formation clips share boundaries with their neighbors. The last formation’s end controls the performance duration and cannot cut off existing movements, cues, or notes.</p><label class="field">Edge<select name="edge"><option value="start" ${edge==='start'?'selected':''}>Start</option><option value="end" ${edge==='end'?'selected':''}>End</option></select></label><label class="field">Time (seconds)<input name="time" type="number" min="0" max="${s.kind==='formation'?3600:p.duration}" step=".001" value="${value}" required></label><div class="modal-footer"><span>Undo restores the previous timing.</span><button class="button primary">Save trim</button></div></form>`);
+  pendingTrim={kind:s.kind,id:s.id,before:timelineFingerprint(p),token:uid()};
+  api.dialog('Trim with precision.',`<form id="timeline-trim-form" data-trim-token="${pendingTrim.token}"><p class="modal-intro">${esc(item.name)}. Formation clips share boundaries with their neighbors. The last formation’s end controls the performance duration and cannot cut off existing movements, cues, or notes.</p><label class="field">Edge<select name="edge"><option value="start" ${edge==='start'?'selected':''}>Start</option><option value="end" ${edge==='end'?'selected':''}>End</option></select></label><label class="field">Time (seconds)<input name="time" type="number" min="0" max="${s.kind==='formation'?3600:p.duration}" step=".001" value="${value}" required></label><div class="modal-footer"><span>Undo restores the previous timing.</span><button class="button primary">Save trim</button></div></form>`);
 
 }
 

@@ -17,6 +17,7 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
   gesture=null;clear();release(g);options.active?.(false);options.clear?.(g);
   if(g.moved)options.suppressClick?.();
   if(cancel){if(!silent)options.cancel?.(g);return;}
+  if(g.error){options.cancel?.(g,g.error);return;}
   if(!g.moved){options.tap?.(g);return;}
   const rect=scroll.getBoundingClientRect(),outside=g.clientY<rect.top-48||g.clientY>rect.bottom+48||g.clientX<rect.left-80||g.clientX>rect.right+80;
   if(outside){options.cancel?.(g,'Dropped outside the timeline. The original score is unchanged.');return;}
@@ -24,11 +25,11 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
   if(!g.candidate){options.cancel?.(g);return;}
   if(g.fingerprint!==timelineFingerprint(options.project())){options.cancel?.(g,'The score changed during the drag. Please drag again.');return;}
   if(timelineFingerprint(g.candidate)===g.fingerprint){options.cancel?.(g);return;}
-  options.commit?.(g);
+  try{options.commit?.(g);}catch(error){options.cancel?.(g,error.message||'The edit could not be saved. Try again.');}
  };
  const preview=g=>{
   g.dirty=false;const rect=area.getBoundingClientRect(),pixels=rect.width/g.project.duration;
-  if(!g.kind){options.scrub?.(Math.max(0,Math.min(g.project.duration,timeAt(g.clientX,g))));return;}
+  if(!g.kind){try{options.scrub?.(Math.max(0,Math.min(g.project.duration,timeAt(g.clientX,g))));g.error=null;}catch(error){g.error=error.message||'This time could not be previewed.';options.invalid?.(g,g.error);}return;}
   if(!g.moved)return;
   options.pointer?.(g);
   if(!g.editable){g.error=options.readOnly()?'Read-only snapshot':'Unlock this formation before editing its timing.';options.invalid?.(g,g.error);return;}
@@ -65,7 +66,7 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
   if(event.pointerType==='touch'&&item&&!event.target.closest('[data-reorder-grip],[data-drag-time]'))return;
   if(event.pointerType==='touch'&&!item&&!event.target.closest('.time-ruler'))return;
   const edge=handle?.dataset.dragTime||(kind==='formation'&&options.mode()==='reorder'?'reorder':'move');
-  const p=options.project(),project=clone(p),value=kind?timelineItem(project,kind,id):null,index=kind==='formation'?project.formations.findIndex(f=>f.id===id):-1;
+  const p=options.project();if(kind){try{timelineItem(p,kind,id);}catch{options.cancel?.({kind,id},'This clip is no longer available. Select a current clip and try again.');return;}}const project=clone(p),value=kind?timelineItem(project,kind,id):null,index=kind==='formation'?project.formations.findIndex(f=>f.id===id):-1;
   const start=kind==='movement'?value.start:value?.time||0,end=kind==='formation'?(project.formations[index+1]?.time??project.duration):value?.end;
   const base=edge==='reorder'?(start+end)/2:edge==='end'?end:start;
   const editable=!options.readOnly()&&!(kind==='formation'&&(value.status==='approved'||index===0&&edge!=='end'&&edge!=='reorder'));

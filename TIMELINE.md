@@ -1,4 +1,12 @@
-# Timeline editing · v0.17.0
+# Timeline editing · v0.17.1
+
+## Remaining-edge corrections
+
+Split accepts a valid 0.1-second decimal boundary using the same tolerance as command availability. Tiny formation intervals and full tracks expose unavailable-command reasons. Movement duplication first tries adjacent space; a clip too long to fit there gets a valid overlapping row, preserving its duration. Endpoint cues choose a free earlier timestamp, and occupied beat candidates fall back to a free gap. Long names keep their copy/part suffix inside the 200-character limit.
+
+Trim dialogs capture the clip identity and authored-project fingerprint in a single-use token. Selection changes cannot redirect a trim; authored changes, closed/replaced dialogs and repeated submissions are rejected. Autosave timestamps alone do not invalidate the proposal. A boundary held in place by existing events makes no history edit, and the form reports the unchanged time.
+
+Retiming avoids the redundant second full-project copy. Related events use maps rather than repeated array scans, and internal callers pass their already isolated candidate through relation processing. Public related writes still preserve their candidate. Clone-count and mutation-isolation tests cover large scores. Stale clip nodes, commit rejection and scrub failures report locally and clear the gesture without entering general application recovery.
 
 ## Precision and input refinements
 

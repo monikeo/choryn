@@ -1,4 +1,12 @@
-# CHORYN v0.17.0 timeline verification — 28 October 2026
+# CHORYN v0.17.1 timeline verification — 28 October 2026
+
+351 automated tests pass, including 16 additions. All 63 syntax files and 176 relative module paths pass. Build `c1dbb6f47e659f35` retains 104 output files and 105 integrity-checked offline entries.
+
+New evidence covers long/full-performance movement duplication into packed overlaps; endpoint and occupied-grid cue duplication; visible copy/part suffixes; decimal split and command-boundary agreement; small-interval/full-track availability; one-copy retiming on 100 performers/100 formations with 1 MB of image data; isolated geometry and public relation candidates; rejected linked changes; split pose rendering in both canonical 3D and 2D capture; trim identity, stale/replayed submissions and no-op history; and local stale-node/commit/scrub error cleanup. Existing desktop/touch, fullscreen, 2D/3D, editing, MP4 and PWA regressions remain passing.
+
+A single Node CPU comparison of 30 retiming operations on that large fixture observed median times of 18.93 → 10.00 ms without links and 21.20 → 12.15 ms with a two-formation link. Full-project copy counts fell from 60 to 30. These are execution-host model timings, without a browser or GPU, not measured device FPS or a hardware guarantee. Browser UI remains unavailable following the earlier denial; real desktop/iPad/mobile gestures, computed layout, GPU smoothness and actual codec output remain unverified.
+
+## Retained v0.17.0 evidence
 
 335 automated tests pass: the 313 earlier checks plus 22 new checks. All 63 syntax files and 176 relative module paths pass; the build retains 104 files and 105 integrity-checked offline entries.
 
