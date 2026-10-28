@@ -1,4 +1,16 @@
-# Production workspace · v0.15.0
+# Production workspace · v0.16.0
+
+## Cross-view and touch refinements
+
+**Main stage** now opens the designer directly; the same chip stays available in stage fullscreen. A native target selector exposes every outline point and zone move/resize action, including small or overlapping objects. Arrow buttons adjust at 0.1, 0.25 or 1 meter; drag snapping offers 0.25 m, 0.1 m or none. Numeric geometry remains available in collapsible Stage dimensions, Add zone, CAD and Floor plan sections. The established CHORYN type, violet accent, neutral surfaces and native control styling are preserved. Controls wrap at the tablet/phone breakpoint, selects use 16 px text there, and buttons have 44 px targets. These are source rules, not measured physical-device results.
+
+The designer supports 50–400% zoom, Fit, explicit pan mode and two-finger pan/pinch around the gesture center. Tapping a handle selects its target. Moving/reshaping uses the inverse content transform, so meters remain correct after zoom and pan. A second touch cancels an uncommitted geometry preview before navigating, and one-finger navigation can continue after the pinch. Zoom/pan do not change the score; locked/read-only geometry is still protected. Cancellation, lost capture, Escape, blur, resize/orientation, hidden documents and recovery clear active gestures. Scroll the dialog outside the canvas; gestures on the canvas control the designer.
+
+2D warning rings now follow moving performers while fullscreen hides the transport HUD. Warning geometry is reused instead of calculated again for the ring markup. Main playback also reuses one effective view/ghost/analysis result per update and passes the 3D scene's warning result to the HUD. No hardware frame-rate claim is made.
+
+3D playback and matching-view capture now honor performer-name and grid settings. Costume-only state changes invalidate 3D label metadata. Names are captured with the same labels as the scene. When a video aspect ratio differs from the current viewport, both 2D and 3D preserve that viewport's proportions with letterboxing; reference-video placement follows the same fitted rectangle, and 3D label capture clips to it. Capture reads the original camera, and the offscreen 3D renderer starts with the canonical zones, lighting, appearance and the range's start time.
+
+Floor-plan replacement settles obsolete waits and ignores stale image callbacks. Removed/disposed images detach callbacks and release waits. Decode/upload failures or a 12-second timeout leave the live stage usable with a caption and reject an incomplete export explicitly. Export cancellation interrupts a pending 3D texture wait. Real GPU behavior, codecs, browser layout and physical-device gestures still require browser/device testing; automated evidence uses DOM, WebGL, media and timer doubles.
 
 ## Visual stage, lighting and wardrobe workflows
 

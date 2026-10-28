@@ -1,4 +1,12 @@
-# CHORYN v0.15.0 production verification — 22 October 2026
+# CHORYN v0.16.0 production verification — 28 October 2026
+
+313 automated tests pass, including 15 additions and expanded 3D capture assertions. All 63 source/script/worker syntax checks pass; 176 relative module paths resolve. The build includes 104 files and 105 integrity-checked offline entries.
+
+New execution evidence covers native target/nudge/resize controls, snap choices, view-only zoom/pan, inverse-transform editing, second-touch rollback into pinch, one-finger continuation, background pinch, read-only navigation and resize cancellation. Fullscreen 2D warning rings move and clear with an idle transport HUD. Export tests cover portrait/landscape viewport fitting, 3D letterboxing and label placement, visible 3D names and grid geometry, common timed 2D/3D production states, reference placement, obsolete floor-plan callbacks/waits, decode failure, timeout, disposal and cancellation during a pending 3D texture load.
+
+The existing MP4, image, timeline, storage, PWA and editing regression checks remain passing. Source review confirms the Main stage entry remains in fullscreen, control grids wrap under 640 px, selects avoid small text on touch screens and precision buttons use 44 px targets. These are not computed-layout or physical-device measurements. Browser UI remains unavailable after the earlier denial; no alternate browser-control path was used. Real GPU/codec behavior, actual mobile/tablet gestures, screen readers and PWA installation remain unverified.
+
+## Retained v0.15.0 evidence
 
 The visual production update adds model/event-handler evidence for stage handle snapping, symmetric resize, empty-outline materialization, bounds/topology rejection, pointer coalescing, final-release commits, unrelated pointers, cancellation, stale authoring, keyboard precision, locks and read-only protection. Import tests execute actual CAD/image preview/apply handlers, setting invalidation and rotation. Group costume changes reject conflicts atomically. Lighting blackout checks preserve earlier fixture states and exclude future fixtures. Preview/scrub tests make no project writes and distinguish draft from saved state. Shared SVG capture and mocked WebGL floor buffers retain rotated calibration. Preview identities are isolated from the main stage and editable designer.
 

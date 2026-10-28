@@ -1,10 +1,14 @@
-# CHORYN Studio · 0.15.0
+# CHORYN Studio · 0.16.0
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
 ## Run
 
 Node.js 20+; no npm dependencies. Direct Node commands also work if a system npm installation is unavailable: from `studio/`, run `node scripts/serve.mjs`, `node --test`, or `node scripts/build.mjs`. From the workspace root, run `npm run dev`, `npm test`, or `npm run build`. The app lives in `studio/`; its package exposes the same scripts. Preview the production build by running `node scripts/serve.mjs --built` from `studio/`.
+
+## Cross-view and touch workflows in 0.16
+
+Click Main stage to open the designer in normal or fullscreen view. Select an outline point or a zone move/resize target, use precision arrow buttons, change drag snapping, pan, pinch, zoom (50–400%) or Fit. Advanced forms collapse to keep the canvas visible. A second finger cancels an unfinished geometry edit before navigating. Fullscreen warning rings keep updating when the timeline is hidden. 3D honors performer names and the grid in both playback and exports. Different export aspect ratios preserve the current view and reference placement with letterboxing. Floor-plan loads now time out safely, ignore stale callbacks and allow export cancellation. See PRODUCTION.md and VERIFICATION.md for exact behavior and test limits.
 
 ## Visual production design in 0.15
 

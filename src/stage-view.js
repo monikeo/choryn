@@ -1,4 +1,8 @@
 // Camera-only transforms. Choreography stays in canonical stage meters.
+export function captureViewport(source,target){
+ const width=source?.width>0?source.width:target.width,height=source?.height>0?source.height:target.height,scale=Math.min(target.width/width,target.height/height),w=width*scale,h=height*scale;
+ return {x:(target.width-w)/2,y:(target.height-h)/2,width:w,height:h};
+}
 export function viewVector(x,y,rotation=0,mirror=false,flip=false){
   const a=rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a);x*=mirror?-1:1;y*=flip?-1:1;
   return {x:c*x-s*y,y:s*x+c*y};
