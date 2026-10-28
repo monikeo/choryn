@@ -1,6 +1,6 @@
 import {icon} from './icons.js';
 import {timelineToolButtons,reorderImpact,timelineFingerprint,timelineCommandReason} from './timeline-tools.js';
-import {bindTimelineGestures} from './timeline-gesture.js';
+import {bindTimelineGestures,bindTimelineResizer} from './timeline-gesture.js';
 import {observeSize} from './compat.js';
 import {wheelPixels} from './camera-controls.js';
 import {timedItems} from './production-timing.js';
@@ -10,14 +10,16 @@ import {editTimeline,reorderFormation,timelineItem,copyTimelineItem,pasteTimelin
 
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let api,selection,clipboard,pendingRemoval,pendingReorder,zoom=1,snap='beat',dragMode='reorder',height=null,observer,dragging=false,lastTap=null,gestureController,zoomController;
+let api,selection,clipboard,pendingRemoval,pendingReorder,zoom=1,snap='beat',dragMode='reorder',height=null,observer,dragging=false,lastTap=null,gestureController,zoomController,resizeController;
+let uiListeners=[],uiNodes=[];
+function timelineListen(node,type,handler,options){node.addEventListener(type,handler,options);uiListeners.push(()=>node.removeEventListener(type,handler,options));}
 
 export function rememberClipSelection(kind,id){if(api)selection={projectId:api.project().id,kind,id};}
 
 function current(){const p=api.project();if(selection?.projectId===p.id){try{timelineItem(p,selection.kind,selection.id);return selection;}catch{}}return {projectId:p.id,kind:'formation',id:api.formation().id};}
 export function timelineSelection(){return api?{...current()}:null;}
 export function resetTimelineSize(){height=null;}
-export function disposeTimeline(){gestureController?.dispose();gestureController=null;zoomController=null;observer?.disconnect();observer=null;dragging=false;}
+export function disposeTimeline(){document.dispatchEvent(new Event('timeline-teardown'));resizeController?.dispose();resizeController=null;uiListeners.forEach(remove=>remove());uiListeners=[];uiNodes.forEach(node=>node.remove());uiNodes=[];gestureController?.dispose();gestureController=null;zoomController=null;observer?.disconnect();observer=null;dragging=false;}
 
 const selectedItem=()=>{const s=current();return timelineItem(api.project(),s.kind,s.id);};
 export function syncRelatedTiming(project,duration=project.duration,includeFormations=false){
@@ -76,6 +78,8 @@ export function setupTimeline(adapter){
     if(event.key==='Escape'&&dragging){event.preventDefault();event.stopImmediatePropagation();$('#timeline-tracks')?.dispatchEvent(new Event('cancel-timeline-gesture'));return;}
     if(dragging){event.preventDefault();event.stopImmediatePropagation();return;}
     const mod=event.ctrlKey||event.metaKey,key=event.key.toLowerCase();let command;
+    if(mod&&['+','=','-','0'].includes(key)){event.preventDefault();event.stopImmediatePropagation();runTimelineCommand(key==='0'?'zoom-fit':key==='-'?'zoom-out':'zoom-in');return;}
+    if(event.target.closest('[data-production="event"],[data-score="prop-frame"]'))return;
 
     if(event.altKey&&event.key==='ArrowLeft')command='move-earlier';else if(event.altKey&&event.key==='ArrowRight')command='move-later';else if(mod&&key==='d')command='duplicate';else if(mod&&key==='c')command='copy';else if(mod&&key==='x')command='cut';else if(mod&&key==='v')command='paste';else if(!mod&&key==='s')command='split';else if(key==='delete'||key==='backspace')command='delete';
 
@@ -109,7 +113,7 @@ export function requestSequenceReorder(next,id,after){
 }
 
 export function runTimelineCommand(command,override){
-  gestureController?.cancel();
+  gestureController?.cancel();resizeController?.cancel();document.dispatchEvent(new Event('timeline-cancel-production'));
 
   if(override)rememberClipSelection(override.kind,override.id);
 
@@ -127,6 +131,8 @@ export function runTimelineCommand(command,override){
   if(command==='copy'){clipboard=copyTimelineItem(p,s.kind,s.id);api.toast('Clip copied inside this project. Paste at a free playhead time.');refreshTimelineTools();if($('#clip-select'))clipTools();return;}
 
   if(command==='cancel-remove'){pendingRemoval=null;api.close();return;}
+
+  if(command==='zoom-selection'){const item=timelineItem(p,s.kind,s.id),start=s.kind==='movement'?item.start:item.time,end=s.kind==='movement'?item.end:s.kind==='formation'?(p.formations[p.formations.indexOf(item)+1]?.time??p.duration):start+240/p.bpm;zoomController?.(p.duration/Math.max(.15,(end-start)*1.5),undefined,(start+Math.min(p.duration,end))/2);return;}
 
   if(command==='zoom-in'||command==='zoom-out'||command==='zoom-fit'){zoomController?.(command==='zoom-fit'?1:zoom*(command==='zoom-in'?1.5:1/1.5));return;}
 
@@ -179,17 +185,20 @@ export function bindEditorTimeline(){
 
   timeline.tabIndex=0;timeline.setAttribute('aria-description','Select a clip, then use clip tools or timeline keyboard shortcuts.');
 
-  const minimumHeight=innerWidth<=767?240:160,maximumHeight=Math.max(minimumHeight,innerHeight*.7);
+  const limits=()=>{const min=Math.min(innerWidth<=767?240:160,Math.max(120,innerHeight*.5));return {min,max:Math.max(min,innerHeight*.7)};},minimumHeight=limits().min,maximumHeight=limits().max;
   if(height!==null){const safe=clamp(height,minimumHeight,maximumHeight);timeline.style.setProperty('height',safe+'px','important');timeline.style.setProperty('min-height',safe+'px','important');timeline.classList.add('manually-sized');}
 
   const resize=document.createElement('div');resize.className='timeline-resizer';resize.title='Drag to resize timeline; double-click to reset';resize.setAttribute('role','separator');resize.setAttribute('aria-label','Resize timeline');resize.setAttribute('aria-orientation','horizontal');resize.tabIndex=0;timeline.prepend(resize);
 
   resize.setAttribute('aria-valuemin',String(minimumHeight));resize.setAttribute('aria-valuemax',String(Math.round(maximumHeight)));resize.setAttribute('aria-valuenow',String(timeline.clientHeight));
-  let resizing;resize.onpointerdown=event=>{if(event.button!==0)return;event.preventDefault();resize.setPointerCapture(event.pointerId);resizing={y:event.clientY,height:timeline.clientHeight};};resize.onpointermove=event=>{if(!resizing)return;height=clamp(resizing.height+resizing.y-event.clientY,minimumHeight,maximumHeight);timeline.style.setProperty('height',height+'px','important');timeline.style.setProperty('min-height',height+'px','important');timeline.classList.add('manually-sized');resize.setAttribute('aria-valuenow',String(Math.round(height)));};resize.onpointerup=()=>{if(resizing){resizing=null;api.setTimelineExpanded(true);api.render();}};resize.onpointercancel=()=>resizing=null;resize.ondblclick=()=>{height=null;api.setTimelineExpanded(false);api.render();};resize.onkeydown=event=>{if(['ArrowUp','ArrowDown','Home'].includes(event.key)){event.preventDefault();height=event.key==='Home'?null:clamp((height||timeline.clientHeight)+(event.key==='ArrowUp'?30:-30),minimumHeight,maximumHeight);api.setTimelineExpanded(event.key!=='Home');api.render();}};
+  uiNodes.push(resize);const initialHeight=timeline.style.height||'',initialMin=timeline.style.minHeight||'',initialManual=timeline.classList.contains('manually-sized'),initialHeightPriority=timeline.style.getPropertyPriority?.('height')||'',initialMinPriority=timeline.style.getPropertyPriority?.('min-height')||'';
+  resizeController=bindTimelineResizer(resize,{height:()=>timeline.clientHeight,limits,start:()=>gestureController?.cancel(),preview:value=>{timeline.style.setProperty('height',value+'px','important');timeline.style.setProperty('min-height',value+'px','important');timeline.classList.add('manually-sized');resize.setAttribute('aria-valuenow',String(Math.round(value)));},rollback:()=>{timeline.style.setProperty('height',initialHeight,initialHeightPriority);timeline.style.setProperty('min-height',initialMin,initialMinPriority);timeline.classList.toggle('manually-sized',initialManual);resize.setAttribute('aria-valuenow',String(timeline.clientHeight));},commit:value=>{height=value;api.setTimelineExpanded(true);api.render();},reset:()=>{height=null;api.setTimelineExpanded(false);api.render();}});
 
-  const controls=document.createElement('div');controls.className='timeline-editbar';controls.innerHTML=`<div class="timeline-primary"><span class="timeline-icon-tools" role="group" aria-label="Timeline editing commands">${timelineToolButtons()}</span><label class="drag-mode-label"><span>Drag</span><select id="timeline-drag-mode" aria-label="Formation drag mode"><option value="reorder" ${dragMode==='reorder'?'selected':''}>Reorder</option><option value="retime" ${dragMode==='retime'?'selected':''}>Retime</option></select></label><label><span>Snap</span><select id="timeline-snap" aria-label="Timeline snapping">${[['beat','Beat'],['half-beat','½ beat'],['second','Second'],['off','Off']].map(([v,l])=>`<option value="${v}" ${v===snap?'selected':''}>${l}</option>`).join('')}</select></label></div><div class="timeline-zoom"><button type="button" data-timeline-action="zoom-out" aria-label="Zoom timeline out" title="Zoom timeline out">${icon('minus')}</button><button type="button" data-timeline-action="zoom-fit" title="Fit entire performance" aria-label="Fit entire timeline">${Math.round(zoom*100)}%</button><button type="button" data-timeline-action="zoom-in" aria-label="Zoom timeline in" title="Zoom timeline in">${icon('plus')}</button></div>`;timeline.insertBefore(controls,$('.timeline-body'));
-  const status=document.createElement('div');status.className='timeline-feedback';status.setAttribute('role','status');status.setAttribute('aria-live','polite');status.setAttribute('aria-atomic','true');status.hidden=true;timeline.append(status);
+  const controls=document.createElement('div');controls.className='timeline-editbar';controls.innerHTML=`<div class="timeline-primary"><span class="timeline-icon-tools" role="group" aria-label="Timeline editing commands">${timelineToolButtons()}</span><label class="drag-mode-label"><span>Drag</span><select id="timeline-drag-mode" aria-label="Formation drag mode"><option value="reorder" ${dragMode==='reorder'?'selected':''}>Reorder</option><option value="retime" ${dragMode==='retime'?'selected':''}>Retime</option></select></label><label><span>Snap</span><select id="timeline-snap" aria-label="Timeline snapping">${[['beat','Beat'],['half-beat','½ beat'],['second','Second'],['off','Off']].map(([v,l])=>`<option value="${v}" ${v===snap?'selected':''}>${l}</option>`).join('')}</select></label></div><div class="timeline-zoom"><button type="button" data-timeline-action="zoom-out" aria-label="Zoom timeline out" title="Zoom timeline out">${icon('minus')}</button><button type="button" data-timeline-action="zoom-fit" title="Fit entire performance" aria-label="Fit entire timeline">${Math.round(zoom*100)}%</button><button type="button" data-timeline-action="zoom-in" aria-label="Zoom timeline in" title="Zoom timeline in">${icon('plus')}</button></div>`;timeline.insertBefore(controls,$('.timeline-body'));uiNodes.push(controls);
+  const more=controls.querySelector('.timeline-more');if(more)timelineListen(more,'toggle',()=>{if(!more.open)return;const menu=more.querySelector('.timeline-menu'),anchor=more.querySelector('summary').getBoundingClientRect(),max=Math.max(80,innerHeight-24),menuHeight=Math.min(menu.scrollHeight,max),left=clamp(anchor.left,12,Math.max(12,innerWidth-menu.offsetWidth-12)),top=anchor.top>=menuHeight+20?anchor.top-menuHeight-8:clamp(anchor.bottom+8,12,Math.max(12,innerHeight-menuHeight-12));Object.assign(menu.style,{position:'fixed',left:left+'px',top:top+'px',bottom:'auto',maxHeight:max+'px'});});
+  const status=document.createElement('div');status.className='timeline-feedback';status.setAttribute('role','status');status.setAttribute('aria-live','polite');status.setAttribute('aria-atomic','true');status.hidden=true;timeline.append(status);uiNodes.push(status);
   area.style.width=`${zoom*100}%`;area.style.minWidth='100%';area.style.setProperty('--beat-width',`${60/api.project().bpm/api.project().duration*100}%`);
+  area.querySelectorAll('.timeline-body-grip,.timeline-handle,.sequence-move-window,.cue-grip').forEach(node=>node.remove());
   area.querySelectorAll('.timeline-formation').forEach((el,index)=>{
     const p=api.project(),f=p.formations[index],to=p.formations[index+1];el.dataset.timelineKind='formation';el.dataset.timelineId=f.id;
     el.insertAdjacentHTML('afterbegin','<span class="timeline-body-grip" data-reorder-grip title="Drag sequence" aria-hidden="true">⠿</span>');
@@ -201,28 +210,28 @@ export function bindEditorTimeline(){
       if(to?.status!=='approved')el.insertAdjacentHTML('beforeend','<b class="timeline-handle end" data-drag-time="end" aria-hidden="true"></b>');
     }
   });
-  const packed=packMovementRows(api.project().actions),lane=$('.movement-lane'),label=$('.track-name.movement-track');if(lane){lane.style.setProperty('height',packed.count*34+'px','important');label?.style.setProperty('height',packed.count*34+'px','important');}
+  const rowHeight=globalThis.matchMedia?.('(pointer: coarse)')?.matches?50:34,packed=packMovementRows(api.project().actions),lane=$('.movement-lane'),label=$('.track-name.movement-track');if(lane){lane.style.setProperty('height',packed.count*rowHeight+'px','important');label?.style.setProperty('height',packed.count*rowHeight+'px','important');}
   area.querySelectorAll('.movement-lane>button').forEach(el=>{
-    el.dataset.timelineKind='movement';el.dataset.timelineId=el.dataset.id;el.style.top=`${5+(packed.rows.get(el.dataset.id)||0)*34}px`;
+    el.dataset.timelineKind='movement';el.dataset.timelineId=el.dataset.id;el.style.top=`${5+(packed.rows.get(el.dataset.id)||0)*rowHeight}px`;
     el.setAttribute('aria-label',el.title||el.textContent);
     el.insertAdjacentHTML('afterbegin','<span class="timeline-body-grip" data-reorder-grip title="Drag movement" aria-hidden="true">⠿</span>');
     if(!api.readOnly())el.insertAdjacentHTML('beforeend','<b class="timeline-handle start" data-drag-time="start" aria-hidden="true"></b><b class="timeline-handle end" data-drag-time="end" aria-hidden="true"></b>');
   });
   area.querySelectorAll('.cue-marker').forEach(el=>{el.dataset.timelineKind='cue';el.dataset.timelineId=el.dataset.cue;el.setAttribute('aria-label',el.title);el.insertAdjacentHTML('afterbegin','<span class="cue-grip" data-reorder-grip aria-hidden="true">⠿</span>');});
-  scroll.addEventListener('scroll',()=>{const labels=$('.track-labels');if(labels)labels.style.transform=`translateY(${-scroll.scrollTop}px)`;});
+  timelineListen(scroll,'scroll',()=>{const labels=$('.track-labels');if(labels)labels.style.transform=`translateY(${-scroll.scrollTop}px)`;});
   observer?.disconnect();const ruler=()=>{
     const width=area.clientWidth,p=api.project(),desired=p.duration/Math.max(1,width/65),step=[1,2,4,8,16,30,60,120,240,300,600,1200,3600].find(s=>s>=desired)||3600;
     $('#time-ruler').innerHTML=Array.from({length:Math.floor(p.duration/step)+1},(_,i)=>`<span style="left:${i*step/p.duration*100}%">${timecode(i*step)}</span>`).join('');$('#time-ruler').style.backgroundImage=width*60/p.bpm/p.duration<6?'none':'';
   };ruler();observer=observeSize(area,ruler);markSelection();
   let suppressUntil=0,floating,guide;
-  const blocks=new Map([...area.querySelectorAll('[data-timeline-id]')].map(el=>[el.dataset.timelineId,el]));
+  const blocks=new Map([...area.querySelectorAll('[data-timeline-id]')].map(el=>[el.dataset.timelineKind+'/'+el.dataset.timelineId,el]));
   const originals=new Map([...blocks].map(([id,el])=>[id,{left:el.style.left,width:el.style.width}]));
-  const labels=new Map(api.project().formations.map(f=>{const el=blocks.get(f.id),index=el.querySelector('.sequence-index'),duration=el.querySelector('.sequence-duration'),move=el.querySelector('.sequence-move-window');return [f.id,{index,duration,move,indexText:index?.textContent,durationText:duration?.textContent,moveWidth:move?.style.width}];}));
+  const labels=new Map(api.project().formations.map(f=>{const el=blocks.get('formation/'+f.id),index=el.querySelector('.sequence-index'),duration=el.querySelector('.sequence-duration'),move=el.querySelector('.sequence-move-window');return [f.id,{index,duration,move,indexText:index?.textContent,durationText:duration?.textContent,moveWidth:move?.style.width}];}));
   const restore=()=>{for(const [id,style] of originals){const el=blocks.get(id);el.style.left=style.left;el.style.width=style.width;el.classList.remove('timeline-dragging');el.removeAttribute('data-drop-slot');}for(const label of labels.values()){if(label.index)label.index.textContent=label.indexText;if(label.duration)label.duration.textContent=label.durationText;if(label.move)label.move.style.width=label.moveWidth;}};
   const feedback=(message,error=false)=>{if(status.textContent!==message)status.textContent=message;status.hidden=!message;status.classList.toggle('is-error',error);};
   const pointer=g=>{
     if(!floating){floating=document.createElement('div');floating.className='timeline-floating';floating.setAttribute('aria-hidden','true');floating.textContent=timelineItem(g.project,g.kind,g.id).name||timelineItem(g.project,g.kind,g.id).label;floating.style.top=Math.max(4,g.item.getBoundingClientRect().top-12)+'px';document.body.append(floating);guide=document.createElement('div');guide.className='timeline-drop-guide';guide.setAttribute('aria-hidden','true');area.append(guide);area.classList.add('gesture-active');area.classList.toggle('reordering',g.edge==='reorder');}
-    floating.style.transform=`translate3d(${Math.max(4,Math.min(innerWidth-194,g.clientX-60))}px,0,0)`;
+    floating.style.top=Math.max(4,Math.min(innerHeight-52,g.clientY-48))+'px';floating.style.transform=`translate3d(${Math.max(4,Math.min(innerWidth-194,g.clientX-60))}px,0,0)`;
   };
   const activate=(kind,id)=>{
     rememberClipSelection(kind,id);
@@ -231,16 +240,16 @@ export function bindEditorTimeline(){
   };
   gestureController=bindTimelineGestures(area,scroll,{
     project:()=>api.project(),time:()=>api.time(),readOnly:()=>api.readOnly(),pause:()=>api.pause(),snap:()=>snap,mode:()=>dragMode,
-    active:value=>dragging=value,
+    active:value=>{if(value){resizeController?.cancel();document.dispatchEvent(new Event('timeline-cancel-production'));}dragging=value;},
     select(kind,id){rememberClipSelection(kind,id);markSelection();focusTimeline();},pointer,
     suppressClick(){suppressUntil=performance.now()+350;lastTap=null;},
     tap(g){if(g.kind){suppressUntil=performance.now()+250;activate(g.kind,g.id);}else focusTimeline();},
     preview(g,{magnetic}){
-      const p=g.candidate,el=blocks.get(g.id);let at,end;
+      const p=g.candidate,el=blocks.get(g.kind+'/'+g.id);let at,end;
       syncRelatedTiming(p,g.project.duration);
       floating?.classList.remove('is-error');
       if(g.kind==='formation'){
-        p.formations.forEach((f,index)=>{const block=blocks.get(f.id),span=(p.formations[index+1]?.time??p.duration)-f.time,label=labels.get(f.id);if(block){block.style.left=`${f.time/g.project.duration*100}%`;block.style.width=`${span/g.project.duration*100}%`;}if(label?.index)label.index.textContent=String(index+1).padStart(2,'0');if(label?.duration)label.duration.textContent=`${+span.toFixed(3)}s`;if(label?.move)label.move.style.width=`${Math.min(f.transition?.duration??p.transitionDuration,span)/span*100}%`;});
+        p.formations.forEach((f,index)=>{const block=blocks.get('formation/'+f.id),span=(p.formations[index+1]?.time??p.duration)-f.time,label=labels.get(f.id);if(block){block.style.left=`${f.time/g.project.duration*100}%`;block.style.width=`${span/g.project.duration*100}%`;}if(label?.index)label.index.textContent=String(index+1).padStart(2,'0');if(label?.duration)label.duration.textContent=`${+span.toFixed(3)}s`;if(label?.move)label.move.style.width=`${Math.min(f.transition?.duration??p.transitionDuration,span)/span*100}%`;});
         const index=p.formations.findIndex(f=>f.id===g.id),f=p.formations[index];at=g.edge==='end'?(p.formations[index+1]?.time??p.duration):f.time;end=p.formations[index+1]?.time??p.duration;
         if(g.edge==='reorder'){el.dataset.dropSlot=String(index+1);const routes=reorderImpact(g.project,p).removedRoutes.length;feedback(`Drop as sequence ${index+1} of ${p.formations.length} · ${f.time.toFixed(3)}s${routes?' · '+routes+' custom routes need review':''}`);}
         else feedback(`${g.edge==='end'?'End':'Start'} ${at.toFixed(3)}s · interval ${(end-f.time).toFixed(3)}s · ${magnetic.label}`);
@@ -258,23 +267,23 @@ export function bindEditorTimeline(){
       api.replace(g.candidate,'Timeline edit saved. Undo is available.',{formationId:f?.id,time:f?.time});focusTimeline();
     },scrub:value=>api.seek(value,false)
   });
-  area.addEventListener('click',event=>{
+  timelineListen(area,'click',event=>{
     const item=event.target.closest('[data-timeline-kind]');if(!item)return;event.preventDefault();event.stopImmediatePropagation();
     if(performance.now()<suppressUntil)return;
     activate(item.dataset.timelineKind,item.dataset.timelineId);
   },true);
-  area.addEventListener('contextmenu',event=>{const item=event.target.closest('[data-timeline-kind]');if(!item)return;event.preventDefault();gestureController.cancel();rememberClipSelection(item.dataset.timelineKind,item.dataset.timelineId);markSelection();clipTools();});
-  zoomController=(value,clientX)=>{
+  timelineListen(area,'contextmenu',event=>{const item=event.target.closest('[data-timeline-kind]');if(!item)return;event.preventDefault();gestureController.cancel();rememberClipSelection(item.dataset.timelineKind,item.dataset.timelineId);markSelection();clipTools();});
+  zoomController=(value,clientX,centerTime)=>{
     const rect=scroll.getBoundingClientRect(),offset=clientX===undefined?scroll.clientWidth/2:clamp(clientX-rect.left,0,scroll.clientWidth),ratio=(scroll.scrollLeft+offset)/Math.max(1,area.offsetWidth);
-    zoom=clamp(value,1,32);area.style.width=`${zoom*100}%`;scroll.scrollLeft=ratio*area.offsetWidth-offset;ruler();
+    zoom=clamp(value,1,32);area.style.width=`${zoom*100}%`;scroll.scrollLeft=Number.isFinite(centerTime)?centerTime/api.project().duration*area.offsetWidth-scroll.clientWidth/2:ratio*area.offsetWidth-offset;ruler();
     controls.querySelector('[data-timeline-action="zoom-fit"]').textContent=`${Math.round(zoom*100)}%`;
     controls.querySelector('[data-timeline-action="zoom-out"]').disabled=zoom<=1;
     controls.querySelector('[data-timeline-action="zoom-in"]').disabled=zoom>=32;
   };
   zoomController(zoom);
-  area.addEventListener('wheel',event=>{
+  timelineListen(area,'wheel',event=>{
     const delta=wheelPixels(event,scroll.clientHeight);
-    if(event.ctrlKey||event.metaKey){event.preventDefault();if(!dragging)zoomController(zoom*Math.exp(clamp(-delta.y*.002,-.3,.3)),event.clientX);}
-    else if(event.shiftKey&&delta.y){event.preventDefault();if(!dragging)scroll.scrollLeft+=delta.y;}
+    if(event.ctrlKey||event.metaKey){event.preventDefault();if(!dragging&&!area.querySelector('.timeline-event-active'))zoomController(zoom*Math.exp(clamp(-delta.y*.002,-.3,.3)),event.clientX);}
+    else if(event.shiftKey&&delta.y){event.preventDefault();if(!dragging&&!area.querySelector('.timeline-event-active'))scroll.scrollLeft+=delta.y;}
   },{passive:false});
 }

@@ -1,17 +1,32 @@
 import {snappedTime} from './timeline-model.js';
 import {icon} from './icons.js';
-export function magneticTime(value,project,{snap='beat',playhead=0,pixelsPerSecond=1,exclude}={}){
+export function timelineSnapExclusions(project,key){
+ const group=project.production?.links?.find(group=>group.items.includes(key));return new Set([key,...(group?.items||[])]);
+}
+export function magneticTargets(project,exclude){
+ const omit=key=>exclude instanceof Set?exclude.has(key)||exclude.has(key.split('/').pop()):exclude===key||exclude===key.split('/').pop(),targets=[],add=(key,time,label)=>{if(!omit(key))targets.push({key,time,label});};
+ project.formations.forEach(f=>add('formation/'+f.id,f.time,f.name));
+ project.actions.forEach(a=>{add('movement/'+a.id,a.start,a.name+' start');add('movement/'+a.id,a.end,a.name+' end');});
+ (project.checkpoints||[]).forEach(c=>add('checkpoint/'+c.id,c.time,c.label||'Checkpoint'));
+ project.cues.forEach(c=>add('cue/'+c.id,c.time,c.label));
+ for(const [key,kind]of [['lights','light'],['appearances','appearance'],['cameras','camera']])for(const item of project.production?.[key]||[])add(kind+'/'+item.id,item.time,item.name||item.costume||'Camera key');
+ for(const prop of project.props||[])for(const frame of prop.keyframes||[])add('prop/'+prop.id+'/'+frame.id,frame.time,prop.name+' pose');
+ add('end',project.duration,'Performance end');return targets;
+}
+export function magneticTime(value,project,{snap='beat',playhead=0,pixelsPerSecond=1,exclude,targets,previous}={}){
  const grid=snappedTime(value,project.bpm,snap,project.music?.beatOffset||0);if(snap==='off')return {time:grid,label:'Exact'};
- const targets=[...project.formations.filter(f=>f.id!==exclude).map(f=>({time:f.time,label:f.name})),...project.actions.filter(a=>a.id!==exclude).flatMap(a=>[{time:a.start,label:a.name+' start'},{time:a.end,label:a.name+' end'}]),...(project.checkpoints||[]).map(c=>({time:c.time,label:c.label||'Checkpoint'})),...project.cues.filter(c=>c.id!==exclude).map(c=>({time:c.time,label:c.label})),{time:playhead,label:'Playhead'},{time:project.duration,label:'Performance end'}];
- for(const key of ['lights','appearances','cameras'])for(const item of project.production?.[key]||[])if(item.id!==exclude)targets.push({time:item.time,label:item.name||item.costume||'Camera key'});
- for(const prop of project.props||[])for(const frame of prop.keyframes||[])if(frame.id!==exclude)targets.push({time:frame.time,label:prop.name+' pose'});
- const nearest=targets.filter(t=>Math.abs(t.time-value)*pixelsPerSecond<=9).sort((a,b)=>Math.abs(a.time-value)-Math.abs(b.time-value))[0];return nearest||{time:grid,label:snap==='half-beat'?'Half beat':snap==='second'?'Second':'Beat'};
+ const choices=targets||magneticTargets(project,exclude),playheadTarget={key:'playhead',time:playhead,label:'Playhead'};
+ // Keep a captured magnet until the pointer leaves its slightly larger release radius.
+ const prior=previous?.key&&(previous.key==='playhead'?playheadTarget:choices.find(t=>t.key===previous.key&&t.time===previous.time));
+ if(prior&&Math.abs(prior.time-value)*pixelsPerSecond<=13)return prior;
+ let nearest,distance=Infinity;for(const target of choices){const pixels=Math.abs(target.time-value)*pixelsPerSecond;if(pixels<=9&&pixels<distance){nearest=target;distance=pixels;}}const playheadDistance=Math.abs(playhead-value)*pixelsPerSecond;if(playheadDistance<=9&&playheadDistance<distance)nearest=playheadTarget;
+ return nearest||{time:grid,label:snap==='half-beat'?'Half beat':snap==='second'?'Second':'Beat'};
 }
 export function reorderImpact(before,after){const kept=new Set(after.routes.map(r=>r.id));return {removedRoutes:before.routes.filter(r=>!kept.has(r.id)),changed:before.formations.some((f,i)=>f.id!==after.formations[i]?.id)};}
 export function timelineFingerprint(project){const {updatedAt,...authored}=project;return JSON.stringify(authored);}
 export function timelineToolButtons(){
  const primary=[['duplicate','copy','Duplicate','Ctrl/⌘ D'],['split','split','Split at playhead','S'],['delete','trash','Delete (confirmation required)','Delete']];
- const secondary=[['tools','settings','Clip inspector',''],['copy','copy','Copy','Ctrl/⌘ C'],['paste','paste','Paste at playhead','Ctrl/⌘ V'],['cut','cut','Cut (confirmation required)','Ctrl/⌘ X'],['trim-start','prev','Trim start',''],['trim-end','next','Trim end',''],['move-earlier','prev','Move sequence earlier','Alt ←'],['move-later','next','Move sequence later','Alt →'],['delete','trash','Delete (confirmation required)','Delete']];
+ const secondary=[['tools','settings','Clip inspector',''],['zoom-selection','target','Zoom to selected clip',''],['copy','copy','Copy','Ctrl/⌘ C'],['paste','paste','Paste at playhead','Ctrl/⌘ V'],['cut','cut','Cut (confirmation required)','Ctrl/⌘ X'],['trim-start','prev','Trim start',''],['trim-end','next','Trim end',''],['move-earlier','prev','Move sequence earlier','Alt ←'],['move-later','next','Move sequence later','Alt →'],['delete','trash','Delete (confirmation required)','Delete']];
  const button=([action,name,label,shortcut],text=false)=>`<button type="button" class="timeline-command timeline-quick" data-timeline-action="${action}" aria-label="${label}" title="${label}${shortcut?' · '+shortcut:''}">${icon(name)}${text?`<span>${label}</span>${shortcut?`<kbd>${shortcut}</kbd>`:''}`:''}</button>`;
  return primary.map(item=>button(item)).join('')+`<details class="timeline-more"><summary aria-label="More timeline tools" title="More timeline tools">${icon('dots')}</summary><div class="timeline-menu" role="group" aria-label="More timeline tools">${secondary.map(item=>button(item,true)).join('')}<hr><button type="button" data-power="sequence">${icon('layers')}<span>Formation sequence</span></button><button type="button" data-images="timeline">${icon('camera')}<span>Preview timeline images</span></button><button type="button" data-power="loop-range">${icon('loop')}<span>Rehearsal loop</span></button></div></details>`;
 }
@@ -35,7 +50,7 @@ export function timelineScrollVelocity(x,rect){
 }
 
 export function timelineCommandReason(project,selection,command,time,{readOnly=false,clipboard}={}){
- if(['tools','copy','details'].includes(command))return '';
+ if(command.startsWith('zoom-')||['tools','copy','details'].includes(command))return '';
  if(readOnly)return 'Read-only snapshot';
  const locked=project.production?.layers?.[{formation:'formations',movement:'movement',cue:'cues'}[command==='paste'?clipboard?.kind:selection.kind]]?.locked;if(locked)return 'Unlock the selected track first';
  if(command==='paste')return clipboard?.projectId===project.id?'':'Copy a clip in this project first';

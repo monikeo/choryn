@@ -1,4 +1,12 @@
-# CHORYN v0.16.0 production verification — 28 October 2026
+# CHORYN v0.17.0 timeline verification — 28 October 2026
+
+335 automated tests pass: the 313 earlier checks plus 22 new checks. All 63 syntax files and 176 relative module paths pass; the build retains 104 files and 105 integrity-checked offline entries.
+
+New evidence executes snap acquisition/release hysteresis, cached targets and typed/linked exclusions; vertical grip behavior, bounded edge scrolling, scroll refresh and cancellation across resize/fullscreen/second-touch events; pointer-safe coalesced timeline resizing and rollback; selected-clip zoom without stage rerendering; repeated binding without duplicate controls/wheel listeners; focused production-key routing; actual imported-ID collision previews; production no-op drops, controller teardown, confirmation and linked snapping; packed-row collapse; and the app's actual keyboard handler in 2D/3D and fullscreen contexts. The existing duplicate/split/paste/cut/delete/trim, ripple, linked, view capture, MP4 and PWA checks remain passing.
+
+Source/CSS review covers native touch scrolling, larger coarse-pointer clips/rows, label alignment, fullscreen hidden/collapsed layers, viewport-bounded menus and a compact short-landscape rail. Browser UI remains unavailable after the prior denial; no alternate browser-control path was used. This does not verify real-device touch, measured GPU/FPS, computed layout, screen readers, actual codec output or PWA installation.
+
+## Retained v0.16.0 evidence
 
 313 automated tests pass, including 15 additions and expanded 3D capture assertions. All 63 source/script/worker syntax checks pass; 176 relative module paths resolve. The build includes 104 files and 105 integrity-checked offline entries.
 

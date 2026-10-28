@@ -1,4 +1,18 @@
-# Timeline editing · v0.14.1
+# Timeline editing · v0.17.0
+
+## Precision and input refinements
+
+Magnetic targets are prepared once per gesture, with linked partners excluded because they move together. A captured magnet holds through a 13 px release radius instead of switching between nearby targets inside the 9 px acquisition radius. Off/Alt precision bypasses magnets. Horizontal motion starts a timing edit; purely vertical grip motion does not retime. Native scrolling refreshes the held preview. Edge scrolling stops scheduling work at its limit. Gesture previews remain immutable and a successful drop creates one history edit; returning a production key to its original time creates none.
+
+Select a clip and choose **More → Zoom to selected clip** to center and enlarge its interval. Ctrl/⌘ +/−/0 zooms/fits the timeline while it has focus; stage zoom retains those shortcuts outside the timeline. Zoom does not rerender the stage or edit project data. Clip inspector remains the precise alternative to small edges on a zoomed-out phone timeline. Touch bodies scroll, and grips/edges edit.
+
+Resize previews coalesce into animation frames and save the final matching pointer release once. Pointer cancellation, capture loss, Escape, resize/orientation, fullscreen changes, hidden documents and teardown restore the original height. Arrow Up/Down adjusts height by 30 px, Page Up/Down by 90 px, Home or double-click resets it. Rebinding removes prior controls/listeners, including production/prop drags, to avoid stale frames after 2D/3D/fullscreen changes.
+
+Timeline shortcuts cannot reach stage performer deletion, translation, selection tools or stage zoom. Native Space activation remains available to focused buttons. Focused production keys retain their own nudging; Delete on lighting, appearance or camera keys opens a removal confirmation, and prop-pose removal stays in its details. Escape cancels the application's active gesture before its fullscreen handler. A browser may reserve Escape for native fullscreen exit; fullscreen/resize events also cancel safely.
+
+Coarse-pointer formation clips and movement rows have more room; production labels match their lanes, including collapsed packed movements. Hidden/collapsed layers stay respected in fullscreen. More tools uses a viewport-positioned menu, and short landscape fullscreen uses a scrollable compact rail with visible track space. CSS review is not computed-layout or physical-device verification. The same command/gesture path serves both stage views.
+
+## Retained editing behavior
 
 Production workspace adds hide/collapse/lock controls for eight lanes, ripple retiming/trimming/deletion, linked event groups, and editable lighting/appearance/camera events. See PRODUCTION.md. The behavior below describes default editing with Ripple off and unlinked events; linked events follow their sequence during reorder. Ripple deletion explicitly confirms enclosed-event removal and the shortened performance.
 

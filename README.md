@@ -1,10 +1,14 @@
-# CHORYN Studio · 0.16.0
+# CHORYN Studio · 0.17.0
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 
 ## Run
 
 Node.js 20+; no npm dependencies. Direct Node commands also work if a system npm installation is unavailable: from `studio/`, run `node scripts/serve.mjs`, `node --test`, or `node scripts/build.mjs`. From the workspace root, run `npm run dev`, `npm test`, or `npm run build`. The app lives in `studio/`; its package exposes the same scripts. Preview the production build by running `node scripts/serve.mjs --built` from `studio/`.
+
+## Timeline precision in 0.17
+
+Dragging now holds magnetic targets steadily, prepares candidates once per gesture, excludes linked partners and stops edge-scroll frames at the viewport limit. More → Zoom to selected clip and focused Ctrl/⌘ +/−/0 improve precise mouse/touch work without rebuilding either stage. Timeline resizing coalesces previews, checks pointer identity and restores the previous layout on cancellation. Production/prop gestures dispose on view/layout changes, and event-focused keys cannot edit a formation or performer. Touch lanes are larger, collapsed/hidden layers remain consistent in fullscreen, and menus fit the viewport. Delete/Cut confirmations remain required. See TIMELINE.md and VERIFICATION.md for evidence and physical-device limits.
 
 ## Cross-view and touch workflows in 0.16
 

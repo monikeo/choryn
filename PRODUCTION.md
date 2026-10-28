@@ -1,4 +1,6 @@
-# Production workspace · v0.16.0
+# Production workspace · v0.17.0
+
+Production/prop timeline keys now share stable snap targets, linked-partner exclusions, bounded edge-scroll work and visible time/error feedback. Controllers and frames dispose during timeline rebuilds; Escape, viewport/fullscreen changes and a second touch cancel safely. Event keys keep keyboard focus separate from core formation commands, and lighting/appearance/camera Delete still asks for confirmation. Fullscreen layer visibility/collapse and touch label alignment have been corrected. See TIMELINE.md for the focused editing update.
 
 ## Cross-view and touch refinements
 
