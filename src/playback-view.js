@@ -45,7 +45,7 @@ export function createPlaybackView(root){
    attr(node,'transform',`translate(${(project.stage.width/2+p.x)*60} ${(project.stage.depth/2-p.z)*60})`);attr(facing,'transform',`rotate(${p.facing})`);
    const selected=state.selected.has(p.performerId);attr(ring,'opacity',selected?1:0);attr(node,'aria-pressed',selected);node.classList.toggle('is-selected',selected);
   }
-  for(const prop of project.props||[]){if(!prop.keyframes?.length&&!prop.attachments?.length)continue;const item=props.get(prop.id);if(!item)continue;const p=sampleAttachedProp(prop,time,positions),shape=item.shape;
+  for(const prop of project.props||[]){if(!prop.keyframes?.length&&!prop.attachments?.length)continue;const item=props.get(prop.id);if(!item)continue;const p=sampleAttachedProp(prop,time,positions,project),shape=item.shape;
    attr(item.node,'transform',`translate(${(project.stage.width/2+p.x)*60} ${(project.stage.depth/2-p.z)*60})`);attr(shape,'transform',`rotate(${p.rotation})`);attr(shape,'fill',p.color);attr(shape,'stroke',p.color);
    const tag={rectangle:'rect',ellipse:'ellipse',triangle:'path'}[p.shape];if(shape.firstElementChild?.tagName.toLowerCase()!==tag)shape.innerHTML=propShapeSVG(p);
    const geometry=shape.firstElementChild,w=p.width*60,d=p.depth*60;

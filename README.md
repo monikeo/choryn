@@ -1,4 +1,10 @@
-# CHORYN Studio · 0.17.1
+# CHORYN Studio · 0.18.0
+
+## Cast & show tools in 0.18
+
+Open **Cast & show** beside the stage view controls, use command search, or open Production workspace → Cast & show. Seven connected tools add minimum-travel cast assignment with locks/groups/roles; reversible missing-performer and understudy overlays; persistent mirror/equal-spacing rules; backstage reservations and overlap review; a fixed-eye audience camera and sampled sightline report; a read-only second-screen window; and local full-show setlists with routine trims, relinking, intermissions and automatic advancement.
+
+Formation changes preview before Apply and use project Undo. The tools share the desktop/tablet/phone/fullscreen dialog system and canonical playback/export samplers. Setlists save separately and export reference manifests; the rehearsal display connects windows in the same browser/origin, with audio in the visible editor. See ENSEMBLE.md for workflows, protection rules and practical limits; VERIFICATION.md records automated evidence and remaining device checks.
 
 A local-first formation and rehearsal studio. The interface keeps CHORYN’s quiet violet workspace, meter-based stage, and visible formation sequence while adapting navigation and controls to desktop, phone, and tablet.
 

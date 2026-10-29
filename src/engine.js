@@ -4,6 +4,7 @@ import {validateExtras,getRoute,routePosition} from './production-model.js';
 import {extraLayout} from './templates.js';
 import {validateProduction,motionProgress} from './production-schema.js';
 import {safetyIssues} from './production-next-model.js';
+import {validateEnsemble,applyAttendance} from './ensemble-schema.js';
 // Canonical coordinates are meters: x increases to audience-right, z upstage.
 // Every renderer and export samples this model, never screen coordinates.
 export const COLORS = ['#8465d6', '#3c9c96', '#d98970', '#c69d43'];
@@ -48,7 +49,8 @@ export function interpolatePosition(project,p,next,t,route){
   return {...p,...position,facing:p.facing+angle*t};
 }
 export function transitionSettings(project,formation){return {duration:formation?.transition?.duration??project.transitionDuration,easing:formation?.transition?.easing??project.easing,pathType:formation?.transition?.pathType??project.pathType};}
-export function samplePerformance(project, time) {
+export function samplePerformance(project,time){return applyAttendance(project,time,sampleAuthoredPerformance(project,time));}
+function sampleAuthoredPerformance(project, time) {
   const forms = project.formations.every((f,i,all)=>!i||f.time>=all[i-1].time)?project.formations:[...project.formations].sort((a,b)=>a.time-b.time);
   let index = lastIndex(forms,f => f.time <= time);
   if (index < 0) index = 0;
@@ -100,5 +102,6 @@ export function validateProject(input) {
   const cueIds=new Set();
   const cues=(Array.isArray(input.cues)?input.cues:[]).slice(0,100).filter(c=>c && str(c.label) && finite(c.time,0,input.duration)).map(c=>{const id=safeId(c.id)&&!cueIds.has(c.id)?c.id:uid();cueIds.add(id);return {id,label:c.label,time:c.time};});
   const base={schemaVersion:1,id:input.id,name:input.name,discipline:str(input.discipline)?input.discipline:'Dance',description:str(input.description)?input.description:'',updatedAt:finite(input.updatedAt,0,1e14)?input.updatedAt:Date.now(),stage:{width:input.stage.width,depth:input.stage.depth,grid:1},bpm:input.bpm,duration:input.duration,transitionDuration:input.transitionDuration,easing:input.easing==='linear'?'linear':'smooth',pathType:input.pathType==='curved'?'curved':'direct',notes:str(input.notes,10000)?input.notes:'',performers,formations,cues,audioName:str(input.audioName)?input.audioName:null};
-  return {...base,...validateExtras(input,base),production:validateProduction(input,base)};
+  const production=validateProduction(input,base);
+  return {...base,...validateExtras(input,base),production,ensemble:validateEnsemble(input.ensemble,{...base,production})};
 }

@@ -1,4 +1,12 @@
-# CHORYN v0.17.1 timeline verification — 28 October 2026
+# CHORYN v0.18.0 cast & show verification — 30 October 2026
+
+400 automated tests pass, including 49 additions. All 69 source/script syntax files and 207 relative module paths pass. Build `7e8d425e16d44ef4` contains 111 output files and 112 integrity-verified offline entries.
+
+New evidence includes assignment against exhaustive small matches and a 100-person cast; shape/identity preservation, restrictions and route locks; exact attendance boundaries, overlapping-role rejection and cache invalidation; inherited prop/appearance/instruction/export data; mirror/spacing movement and real save-path rollback; protected edits and dependent-record cleanup; opposing/queued backstage reservations and bounded busy-wing output; body/prop sightline samples and an explicit-eye WebGL matrix; read-only display clock/camera/session handling, stale messages and popup/channel cleanup; setlist storage conflicts, missing ranges, trims, relinking, intermission timers, pause/loading races and automatic sequencing. Actual UI event adapters exercise preview/apply, freshness, read-only protection and confirmed removals. Existing timeline/fullscreen, 2D/3D capture, MP4 and PWA checks remain passing.
+
+No browser UI test was attempted after the earlier denial. Computed responsive layout, physical desktop/iPad/mobile gestures, native popup/fullscreen/second-monitor behavior, real GPU occlusion/FPS, actual codec output and installation remain unverified. DOM/WebGL/media/cache doubles and VM execution are automated evidence only. ENSEMBLE.md documents capability boundaries and storage/export behavior.
+
+## Retained v0.17.1 evidence
 
 351 automated tests pass, including 16 additions. All 63 syntax files and 176 relative module paths pass. Build `c1dbb6f47e659f35` retains 104 output files and 105 integrity-checked offline entries.
 

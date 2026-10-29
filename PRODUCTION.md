@@ -1,4 +1,6 @@
-# Production workspace · v0.17.1
+# Production workspace · v0.18.0
+
+Production workspace → Cast & show opens the new cast assignment, attendance, live constraints, backstage, audience, second-screen and full-show panels. Stage toolbar and command search provide direct access in normal/fullscreen editing. See ENSEMBLE.md for their workflows, shared playback/export integration, local storage and practical limits.
 
 Timing relations now reuse freshly isolated internal candidates and keyed event lookups, avoiding redundant copies and repeated scans in preview work. Linked/ripple lock checks, validation and immutable source behavior remain covered by regression tests. See TIMELINE.md for split, duplicate and trim-dialog corrections.
 

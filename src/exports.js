@@ -1,7 +1,9 @@
 import {sampleProps,propShapeSVG} from './prop-motion.js';
 import {contrastText} from './colors.js';
+import {samplePerformance} from './engine.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function formationSVG(project,formation){
+  formation={...formation,positions:samplePerformance(project,formation.time)};
   const scale=Math.min(1020/project.stage.width,610/project.stage.depth);
   const width=project.stage.width*scale,depth=project.stage.depth*scale,left=(1200-width)/2,top=130+(610-depth)/2;
   const point=p=>({x:600+p.x*scale,y:top+depth/2-p.z*scale});
