@@ -1,4 +1,14 @@
-# Cast & show tools · v0.18.0
+# Cast & show tools · v0.18.1
+
+## Corrections in 0.18.1
+
+Splitting a formation or reconciling a pasted formation stores authored positions, then applies attendance once during playback and export. Covered-role movement paths use the visible cover's identity and retain their original geometry; these overlay paths cannot edit the saved role. Assignment evaluates the actual neighboring attendance endpoints.
+
+Opening Export, Preferences or another editor dialog pauses an intermission. The shared Play control pauses/resumes intermissions in normal and fullscreen workspaces; automatic routine loading and seeking retain their show context. Error recovery disarms the show and cancels pending setlist imports. A late file read cannot overwrite recovered state.
+
+The second screen reconnects after cached-page return, releases hidden-page resources and falls back to 2D after live WebGL interruption. Paused intermissions retain their remaining time. Fullscreen failures stay local to the display. View/camera changes send lightweight transport messages; full scores send after authoring changes, project switches or connection handshakes. Replacing an audience preview releases its renderer immediately, and comparison SVG identities cannot interfere with the main stage. Phone/tablet touch targets and viewport-height fallbacks are retained.
+
+Attendance/prop/appearance sampling reuses role context, validation computes coverage windows once per entry, and backstage suggestions stop inspecting zones after the output budget. These are CPU-work reductions; no physical-device FPS guarantee is made.
 
 Open **Cast & show** in the stage toolbar, including fullscreen, or use any of the seven named commands in command search. Production workspace also links to every panel. These tools keep the existing violet stage workstation, typography, neutral surfaces and native form controls. Tabs scroll horizontally; cast pickers and lists scroll within bounded panels; comparison cards stack on narrow screens. New compact controls have explicit names, status feedback and touch target rules. Physical-device layout remains unverified.
 
@@ -50,4 +60,4 @@ Routine changes load/decode locally; this is not gapless show audio or a merged 
 
 ## Verification
 
-400 automated tests pass, including 49 additions covering these workflows, real event/save handlers in DOM/VM doubles, matching against exhaustive small assignments, 100-person matching, cache invalidation, protected edits, bounded busy wings, canonical video-frame data, explicit-eye WebGL calls, second-screen protocol/error cleanup and setlist lifecycle. These checks do not establish computed layout, physical touch, native popup/fullscreen/monitor behavior, real GPU occlusion/frame rate, actual MP4 codec output or PWA installation. Browser UI remains unavailable after the earlier denial; no workaround was attempted.
+423 automated tests pass: the original 400 plus 23 audit regressions. They cover authored split/paste under attendance, role-cache isolation, covered paths, assignment endpoints, 2D export/3D scene consistency at landscape/tablet/portrait aspect ratios, bounded traffic work, actual shared editor/show transport adapters in normal/fullscreen contexts, synchronous GPU cleanup, recovery races, cached display return, live WebGL fallback, paused countdowns and local fullscreen errors. Earlier assignment, live-rule, sightline, media, timeline and PWA checks remain passing. DOM/WebGL/media/cache doubles do not establish computed layout, physical touch, native popup/fullscreen/monitor behavior, real GPU occlusion/frame rate, actual MP4 codec output or PWA installation. Browser UI remains unavailable after the earlier denial; no workaround was attempted.

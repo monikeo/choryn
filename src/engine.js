@@ -50,7 +50,7 @@ export function interpolatePosition(project,p,next,t,route){
 }
 export function transitionSettings(project,formation){return {duration:formation?.transition?.duration??project.transitionDuration,easing:formation?.transition?.easing??project.easing,pathType:formation?.transition?.pathType??project.pathType};}
 export function samplePerformance(project,time){return applyAttendance(project,time,sampleAuthoredPerformance(project,time));}
-function sampleAuthoredPerformance(project, time) {
+export function sampleAuthoredPerformance(project, time) {
   const forms = project.formations.every((f,i,all)=>!i||f.time>=all[i-1].time)?project.formations:[...project.formations].sort((a,b)=>a.time-b.time);
   let index = lastIndex(forms,f => f.time <= time);
   if (index < 0) index = 0;

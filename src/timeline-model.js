@@ -1,4 +1,4 @@
-import {clone,clamp,uid,samplePerformance} from './engine.js';
+import {clone,clamp,uid,sampleAuthoredPerformance} from './engine.js';
 import {applyTimingRelations,applyReorderRelations,assertTrackUnlocked,cleanLinks,rippleRemoveFormation} from './production-timing.js';
 
 export const roundTime=value=>Math.round(value*1000)/1000;
@@ -59,7 +59,7 @@ export function pasteTimelineItem(project,clipboard,time){
   const next=clone(project),kind=clipboard.kind,key=keyFor(kind),limit={formation:100,movement:300,cue:100}[kind];
   if(!key||next[key].length>=limit)throw Error(`This track supports up to ${limit||0} items.`);
   time=roundTime(time);const item=clone(clipboard.item);item.id=uid();
-  if(kind==='formation'){freeFormationTime(next,time);const base=samplePerformance(project,time);item.positions=next.performers.map(person=>clone(item.positions.find(p=>p.performerId===person.id)||base.find(p=>p.performerId===person.id)));item.time=time;item.status='draft';item.name=namedCopy(item.name,' — copy');}
+  if(kind==='formation'){freeFormationTime(next,time);const base=sampleAuthoredPerformance(project,time);item.positions=next.performers.map(person=>clone(item.positions.find(p=>p.performerId===person.id)||base.find(p=>p.performerId===person.id)));item.time=time;item.status='draft';item.name=namedCopy(item.name,' — copy');}
   if(kind==='movement'){const length=item.end-item.start;if(time<0||time+length>next.duration+.0001)throw Error('The copied movement does not fit here. Move the playhead earlier or extend the performance.');item.performerIds=item.performerIds.filter(id=>next.performers.some(p=>p.id===id));item.start=time;item.end=roundTime(time+length);item.name=namedCopy(item.name,' — copy');}
   if(kind==='cue'){if(time<0||time>next.duration)throw Error('Place this cue inside the performance.');item.time=time;item.label=namedCopy(item.label,' — copy');}
   next[key].push(item);if(kind!=='movement')next[key].sort((a,b)=>a.time-b.time);if(kind==='formation')pruneRoutes(next);
@@ -81,7 +81,7 @@ export function splitTimelineItem(project,kind,id,time){
   const end=kind==='formation'?(project.formations[project.formations.indexOf(original)+1]?.time??project.duration):original.end,start=kind==='formation'?original.time:original.start;
   if(time-start<.0999||end-time<.0999)throw Error('Place the playhead inside the selected clip, at least 0.1 seconds from either edge.');
   const item=clone(source);item.id=uid();item.name=namedCopy(item.name,' · part 2');
-  if(kind==='formation'){if(source.status==='approved')throw Error('Unlock this formation before splitting.');item.time=time;item.status='draft';item.positions=samplePerformance(project,time);next.formations.push(item);next.formations.sort((a,b)=>a.time-b.time);pruneRoutes(next);}
+  if(kind==='formation'){if(source.status==='approved')throw Error('Unlock this formation before splitting.');item.time=time;item.status='draft';item.positions=sampleAuthoredPerformance(project,time);next.formations.push(item);next.formations.sort((a,b)=>a.time-b.time);pruneRoutes(next);}
   else{source.end=time;item.start=time;next.actions.push(item);}
   return {project:next,item,kind};
 }

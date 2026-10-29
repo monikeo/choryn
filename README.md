@@ -1,4 +1,8 @@
-# CHORYN Studio · 0.18.0
+# CHORYN Studio · 0.18.1
+
+## Cast & show corrections in 0.18.1
+
+Attendance overlays now remain reversible when splitting or pasting formations, and covered movement paths follow the correct role. Opening export or another editor dialog pauses an intermission; the shared Play control resumes it in normal and fullscreen workspaces. Second-screen displays recover after cached-page return, fall back to 2D after WebGL interruption and avoid repeatedly sending large scores when view controls change. Audience previews release GPU resources immediately when replaced. Attendance sampling and large backstage reports do less repeated work; coarse-pointer controls retain 44 px targets. Automated checks cover shared 2D/3D export data and transport adapters; real-device layout, GPU smoothness and codec output remain unverified.
 
 ## Cast & show tools in 0.18
 

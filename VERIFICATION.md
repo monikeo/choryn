@@ -1,4 +1,14 @@
-# CHORYN v0.18.0 cast & show verification — 30 October 2026
+# CHORYN v0.18.1 cast & show audit — 30 October 2026
+
+423 automated tests pass, including 23 audit additions. All 69 source/script syntax files and 210 relative module paths pass. Build `8bfec0dc4dbd74f1` contains 111 output files and 112 integrity-verified offline entries. Git whitespace/error checks pass.
+
+New evidence executes authored split/paste under attendance; immutable attendance snapshots and reused role contexts; covered-route rendering and editing protection; assignment after a neighboring attendance range ends; matching cover/prop data in 2D video-frame SVG and canonical 3D scenes at desktop/tablet/portrait aspect ratios; and bounded zone work after the 600-window traffic limit. Actual editor/show adapters exercise dialog/export pause, native Play intermission resume, automatic routine switching/trim boundaries and recovery cancellation in normal/fullscreen 2D/3D contexts. Display tests execute cached-page return, one-channel/heartbeat restoration, renderer disposal, late messages, interrupted WebGL fallback, paused countdowns and rejected/synchronous fullscreen failures. Preview tests verify isolated SVG identities, immediate GPU cleanup and cancellation of pending scene/setlist work. Existing timeline, live-constraint, capture, MP4 negotiation and PWA regressions remain passing.
+
+A Node CPU fixture uses 100 performers, 100 formations and a 1 MB floor-plan payload. Separate phases exercise 100 attendance windows, 50 active covers with 100 carried props, and 100 wing zones with repeated visibility changes. Observed median times before → after were validation 4.51 → 2.66 ms, scene sampling 1.28 → 0.60 ms and traffic planning 95.71 → 13.81 ms. Validation/scene medians use 30 measured iterations after five warmups; traffic uses five after two warmups. These single execution-host comparisons measure model CPU work, without a browser or GPU; they are not measured device FPS or hardware guarantees. A regression test bounds zone reads after the displayed-window limit, and a display test verifies repeated view binding does not resend a 1 MB score.
+
+Source/CSS review retains viewport-height fallbacks and 44 px coarse-pointer controls for tablet/phone displays. Browser UI remains unavailable following the earlier denial; no alternative browser-control path was used. DOM/WebGL/media/cache doubles do not establish computed responsive layout, physical desktop/iPad/mobile gestures, native popup/fullscreen/monitor behavior, real GPU output/occlusion/FPS, actual MP4 encoding or PWA installation. ENSEMBLE.md documents workflows and practical boundaries.
+
+## Retained v0.18.0 evidence
 
 400 automated tests pass, including 49 additions. All 69 source/script syntax files and 207 relative module paths pass. Build `7e8d425e16d44ef4` contains 111 output files and 112 integrity-verified offline entries.
 
