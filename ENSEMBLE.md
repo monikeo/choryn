@@ -1,4 +1,12 @@
-# Cast & show tools · v0.18.1
+# Cast & show tools · v0.18.2
+
+## Fullscreen and capture corrections in 0.18.2
+
+Export current view retains the shared attendance, appearance and prop samplers. Automated graphics checks compare the live and exported 3D camera matrix, follow target and covered-performer labels at 1280×800, 1920×1080, 1024×768 and 390×660 source viewports; 2D frames retain the same cast and role appearance. These are explicit viewport fixtures, not computed browser layouts.
+
+Create video accepts one pending/exporting job. Closing or replacing its dialog cancels work immediately; stale probes and render failures cannot overwrite the next tool. Cancel during music preparation returns to settings. Completed previews release their URL when closed or replaced, and an unexpected non-MP4 result cannot be shown as a successful MP4 export. Browser recording avoids rendering on every high-refresh callback when a lower export FPS is selected. Rendered MP4 retains explicit timestamps.
+
+Fullscreen requests cannot overlap, and a rejected native exit retains the focus workspace with a local instruction. Phone focus mode works without a native fullscreen API. Second-screen cameras now preserve the editor's full 0.12–1.45-radian pitch range. A stable 100-person hold performs no repeated label writes or shader-attribute lookups in the regression harness; moving labels and changed names/colors still update.
 
 ## Corrections in 0.18.1
 
@@ -60,4 +68,4 @@ Routine changes load/decode locally; this is not gapless show audio or a merged 
 
 ## Verification
 
-423 automated tests pass: the original 400 plus 23 audit regressions. They cover authored split/paste under attendance, role-cache isolation, covered paths, assignment endpoints, 2D export/3D scene consistency at landscape/tablet/portrait aspect ratios, bounded traffic work, actual shared editor/show transport adapters in normal/fullscreen contexts, synchronous GPU cleanup, recovery races, cached display return, live WebGL fallback, paused countdowns and local fullscreen errors. Earlier assignment, live-rule, sightline, media, timeline and PWA checks remain passing. DOM/WebGL/media/cache doubles do not establish computed layout, physical touch, native popup/fullscreen/monitor behavior, real GPU occlusion/frame rate, actual MP4 codec output or PWA installation. Browser UI remains unavailable after the earlier denial; no workaround was attempted.
+439 automated tests pass: the previous 423 plus 16 fullscreen/export audit regressions. New checks cover duplicate/stale exports, cancellation while music prepares, MP4 result type, URL cleanup, serialized/rejected fullscreen operations, second-screen pitch, stable 100-person 3D labels, selected-FPS recording, live/export camera and attendance labels at desktop/fullscreen/tablet/phone viewport fixtures, and invariant 3D projection from 480p through 1440p. Production draw/capture and MP4-loop code runs with DOM/WebGL/encoder doubles; the bundled muxer's real AVC-container/parser roundtrip remains passing. Earlier assignment, live-rule, prop/appearance, show, timeline, image and PWA checks remain passing. These do not establish computed layout, physical touch, native popup/fullscreen/monitor behavior, real GPU occlusion/frame rate, actual device MP4 encoding or PWA installation. Browser UI remains unavailable after the earlier denial; no workaround was attempted.

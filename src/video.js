@@ -57,16 +57,17 @@ export async function recordVideo(project,settings,{mime,audioBuffer,signal,fram
   const stop=reason=>{stopReason=reason;aborted=!!reason;if(recorder?.state==='recording')recorder.stop();};
   const abort=()=>stop('Video export cancelled.');
   try{
-    if(signal?.aborted)throw Error('Video export cancelled.');
-    if(frameRenderer)await frameRenderer.draw(ctx,settings.start);else drawVideoFrame(ctx,project,settings.start,settings);stream=canvas.captureStream(settings.fps);
+    if(signal?.aborted)throw Error('Video export cancelled.');if(document.hidden)throw Error('Export stopped because the studio was hidden. Keep this tab visible while recording.');
+    if(frameRenderer)await frameRenderer.draw(ctx,settings.start);else drawVideoFrame(ctx,project,settings.start,settings);if(signal?.aborted)throw Error('Video export cancelled.');if(document.hidden)throw Error('Export stopped because the studio was hidden. Keep this tab visible while recording.');stream=canvas.captureStream(settings.fps);
     if(audioBuffer){audioContext=createAudioContext();await audioContext.resume();const destination=audioContext.createMediaStreamDestination(),gain=audioContext.createGain();gain.gain.value=.65;gain.connect(destination);source=audioContext.createBufferSource();source.buffer=audioBuffer;source.connect(gain);destination.stream.getAudioTracks().forEach(track=>stream.addTrack(track));}
-    if(signal?.aborted)throw Error('Video export cancelled.');
+    if(signal?.aborted)throw Error('Video export cancelled.');if(document.hidden)throw Error('Export stopped because the studio was hidden. Keep this tab visible while recording.');
     recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:settings.bitrate,audioBitsPerSecond:192000});
     const result=new Promise((resolve,reject)=>{recorder.ondataavailable=e=>{if(e.data.size){chunks.push(e.data);bytes+=e.data.size;if(bytes>450*1024*1024)stop('The recording exceeded the device memory limit. Export a shorter clip.');}};recorder.onerror=e=>reject(e.error||Error('The video encoder failed. Try a lower quality.'));recorder.onstop=()=>aborted?reject(Error(stopReason)):resolve(new Blob(chunks,{type:recorder.mimeType}));});
     visibilityHandler=()=>{if(document.hidden)stop('Export stopped because the studio was hidden. Keep this tab visible while recording.');};document.addEventListener('visibilitychange',visibilityHandler);signal?.addEventListener('abort',abort,{once:true});
+    let nextDraw=1/settings.fps;
     const duration=settings.end-settings.start,clock=()=>audioContext?audioContext.currentTime:performance.now()/1000;
     recorder.start(500);const started=clock();if(source){const slice=audioSlice(project,audioBuffer.duration,settings.start,settings.end);if(slice)source.start(audioContext.currentTime+slice.delay,slice.offset,slice.duration);}
-    const draw=async()=>{try{const elapsed=Math.max(0,clock()-started);if(frameRenderer)await frameRenderer.draw(ctx,Math.min(settings.end,settings.start+elapsed));else drawVideoFrame(ctx,project,Math.min(settings.end,settings.start+elapsed),settings);if(aborted)return;onProgress(Math.min(1,elapsed/duration),canvas);if(elapsed>=duration){stop('');return;}frame=requestAnimationFrame(draw);}catch(error){stop(error.message||'Video rendering failed.');}};
+    const draw=async()=>{try{if(aborted||recorder.state!=='recording')return;const elapsed=Math.max(0,clock()-started);if(elapsed<duration&&elapsed+1e-6<nextDraw){frame=requestAnimationFrame(draw);return;}nextDraw=(Math.floor((elapsed+1e-6)*settings.fps)+1)/settings.fps;if(frameRenderer)await frameRenderer.draw(ctx,Math.min(settings.end,settings.start+elapsed));else drawVideoFrame(ctx,project,Math.min(settings.end,settings.start+elapsed),settings);if(aborted)return;onProgress(Math.min(1,elapsed/duration),canvas);if(elapsed>=duration){stop('');return;}frame=requestAnimationFrame(draw);}catch(error){stop(error.message||'Video rendering failed.');}};
     draw();timer=setTimeout(()=>{if(recorder.state==='recording')stop('Recording stalled. Keep this tab active and try a lower resolution.');},(duration+15)*1000);
 
     const blob=await result;if(!blob.size)throw Error('The video encoder returned an empty file.');return blob;

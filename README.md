@@ -1,4 +1,8 @@
-# CHORYN Studio · 0.18.1
+# CHORYN Studio · 0.18.2
+
+## Fullscreen and video corrections in 0.18.2
+
+Video exports now allow one job at a time, cancel when their dialog is replaced and return to settings after cancellation during music preparation. Old probes/jobs cannot overwrite another tool or a newer export. MP4 previews reject an unexpected container type. Fullscreen requests are serialized, failed exits preserve the focus workspace and second screens retain the editor's complete camera pitch range. Stable 3D frames reuse label content and shader attribute locations; browser recording paces drawing to the selected FPS. Tests compare live/export 3D camera matrices and cast labels across desktop/fullscreen/tablet/phone viewport fixtures. Physical-device layout, native fullscreen and actual codec output remain unverified.
 
 ## Cast & show corrections in 0.18.1
 

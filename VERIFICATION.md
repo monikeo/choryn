@@ -1,4 +1,16 @@
-# CHORYN v0.18.1 cast & show audit — 30 October 2026
+# CHORYN v0.18.2 fullscreen and MP4 audit — 30 October 2026
+
+439 automated tests pass, including 16 new regressions. All 69 source/script syntax files and 210 relative module paths resolve. Build `175c8ec3e1728d7d` contains 111 output files and 112 integrity-verified offline entries.
+
+Actual video-dialog/start handlers execute with the app's shared dialog open/close functions. Evidence covers one-job submission gating, view snapshots at desktop/fullscreen/tablet/phone dimensions, stale probes and rejected renders, dialog replacement during music preparation, cancellation/retry, newer-job ownership, expected MP4 result type and URL release. Actual fullscreen functions reject overlapping requests, retain focus mode after a failed native exit and provide phone focus mode without a native API. Second-screen camera tests retain the editor's complete pitch range.
+
+Production 3D draw/capture and current-view export code runs with DOM/WebGL doubles at 1280×800, 1920×1080, 1024×768 and 390×660 source viewports. Live/export camera matrices match under performer follow and active attendance; visible cover identities and role appearance remain consistent with 2D frame SVG. A new portrait-quality regression reproduced projection drift at 480p before the fix. Projection now uses the CSS viewport ratio, independently of rounded render-buffer/encoder dimensions, and matches from 480p through 1440p.
+
+A 100-performer hold executes 20 additional stable frames with zero performer-label writes, no further shader-attribute queries and no geometry reupload. Name/color changes still update. A simulated 120 Hz callback loop for a 30 FPS native recording draws at most 32 frames over a one-second clip, including initial/final frames. Native hidden-export tests allocate no capture/audio resources. These are bounded work checks, not measured hardware FPS. An MP4-loop integration drives the production 3D renderer into a mocked encoder sink with explicit zero-based timestamps; the earlier real bundled AVC MP4-container/parser roundtrip remains passing.
+
+The 423 earlier tests remain passing, including cast assignment, constraints, backstage, sightlines, show transport, props/appearance, timeline/fullscreen editing, image exports, soundtrack timing, codec negotiation and PWA integrity. Browser UI remains unavailable following the earlier denial; no alternative browser-control path was used. Viewport fixtures and DOM/WebGL/media doubles do not establish computed responsive layout, physical desktop/iPad/mobile gestures, native fullscreen/popups/monitor behavior, real GPU output/FPS or actual device MP4 encoding/decoding and installation.
+
+## Retained v0.18.1 evidence
 
 423 automated tests pass, including 23 audit additions. All 69 source/script syntax files and 210 relative module paths pass. Build `8bfec0dc4dbd74f1` contains 111 output files and 112 integrity-verified offline entries. Git whitespace/error checks pass.
 

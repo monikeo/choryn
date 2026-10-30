@@ -80,9 +80,10 @@ export function mountStage3D(host,project,positions,options={}){
   const camera=options.camera||{};Object.assign(camera,safeCamera(camera));let yaw=camera.yaw,pitch=camera.pitch,disposed=false,contextLost=false;
   let currentShowGrid=options.showGrid!==false,currentLabels=options.labels===true;
   let current=project,currentPositions=positions,currentGhosts=options.ghosts||[],currentAnalysis=options.analysis,vertices,dirty=true,frame=0,fitKey='',fitDistance=0,sceneKey=stageSceneKey(project,positions,options.selected?.()||new Set())+JSON.stringify(options.ghosts||[]);
-  let cast=new Map(project.performers.map(p=>[p.id,p]));const labelNodes=new Map(),ghostNodes=new Map();
+  let cast=new Map(project.performers.map(p=>[p.id,p]));const labelNodes=new Map(),labelColors=new Map(),ghostNodes=new Map();
   const matrixLocation=gl.getUniformLocation(program,'matrix');
-  gl.bindBuffer(gl.ARRAY_BUFFER,buffer);for(const [name,offset] of [['position',0],['normal',12],['color',24]]){const loc=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,3,gl.FLOAT,false,36,offset);}
+  const attributes=[['position',0],['normal',12],['color',24]].map(([name,offset])=>({location:gl.getAttribLocation(program,name),offset}));
+  gl.bindBuffer(gl.ARRAY_BUFFER,buffer);for(const {location,offset} of attributes){gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,3,gl.FLOAT,false,36,offset);}
   const ghostLabels=document.createElement('div');ghostLabels.className='stage3d-labels stage3d-ghosts';host.append(ghostLabels);
   const analysisLabels=document.createElement('div');analysisLabels.className='stage3d-labels analysis-labels';host.append(analysisLabels);const analysisLabel=document.createElement('span');analysisLabels.append(analysisLabel);
   const labels=document.createElement('div');labels.className='stage3d-labels';host.append(labels);
@@ -90,13 +91,14 @@ export function mountStage3D(host,project,positions,options={}){
   function requestDraw(){if(!disposed&&!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
   function draw(){
     if(disposed||contextLost)return;
-    caption.textContent=floor.error?'Floor plan unavailable · the 3D stage remains usable. Reimport the image to include it in exports.':'Drag orbit · Right/middle drag pan · Wheel/pinch zoom · View controls above';
+    const captionText=floor.error?'Floor plan unavailable · the 3D stage remains usable. Reimport the image to include it in exports.':'Drag orbit · Right/middle drag pan · Wheel/pinch zoom · View controls above';if(caption.textContent!==captionText)caption.textContent=captionText;
     yaw=camera.yaw;pitch=camera.pitch;const started=performance.now();
     const rect=host.getBoundingClientRect();if(rect.width<1||rect.height<1)return;
     const dpr=options.pixelRatio?Math.max(.25,Math.min(32,options.pixelRatio)):Math.min(window.devicePixelRatio||1,matchMedia('(pointer: coarse)').matches?1:1.5);
     const width=Math.max(1,Math.floor(rect.width*dpr)),height=Math.max(1,Math.floor(rect.height*dpr));if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
     gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(.94,.925,.955,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.useProgram(program);
-    const aspect=canvas.width/canvas.height;
+    // Encoder dimensions are rounded; keep the camera tied to the visible CSS viewport.
+    const aspect=rect.width/rect.height;
     const key=[current.stage.width,current.stage.depth,aspect,yaw,pitch].join('/');
     if(key!==fitKey){
     const horizontal=current.stage.width*Math.abs(Math.cos(yaw))+current.stage.depth*Math.abs(Math.sin(yaw));
@@ -107,21 +109,25 @@ export function mountStage3D(host,project,positions,options={}){
     fitKey=key;fitDistance=fitted;}
     const distance=fitDistance/camera.zoom,target=camera.target||[0,.2,0];
     const eye=Array.isArray(options.eye)&&options.eye.length===3&&options.eye.every(Number.isFinite)?options.eye:[target[0]+Math.sin(yaw)*Math.cos(pitch)*distance,target[1]+Math.sin(pitch)*distance,target[2]+Math.cos(yaw)*Math.cos(pitch)*distance];
-    const matrix=cameraMatrix(eye,target,canvas.width/canvas.height);
-    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);for(const [name,offset] of [['position',0],['normal',12],['color',24]]){const location=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,3,gl.FLOAT,false,36,offset);}
+    const matrix=cameraMatrix(eye,target,aspect);
+    gl.bindBuffer(gl.ARRAY_BUFFER,buffer);for(const {location,offset} of attributes){gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,3,gl.FLOAT,false,36,offset);}
     gl.uniformMatrix4fv(matrixLocation,false,matrix);
     if(dirty){vertices=geometry(current,currentPositions,options.selected?.()||new Set(),currentGhosts,currentAnalysis,currentShowGrid);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);dirty=false;}
     gl.drawArrays(gl.TRIANGLES,0,vertices.length/9);
     floor.draw(matrix,current.production?.stage.image);
-    for(const node of labelNodes.values())node.hidden=true;
+    const visibleLabels=new Set();
     for(const p of currentPositions){
       if(p.visible===false)continue;const pos=projectPoint(matrix,[p.x,1.95,-p.z]);if(!pos||Math.abs(pos[0])>1||Math.abs(pos[1])>1)continue;
-      const person=cast.get(p.performerId);if(!person)continue;let label=labelNodes.get(p.performerId);if(!label){label=document.createElement('button');label.onclick=options.interactive===false?null:()=>options.onSelect?.(p.performerId);labels.append(label);labelNodes.set(p.performerId,label);}label.hidden=false;label.textContent=String(person.number).padStart(2,'0')+(currentLabels?' · '+person.name:'');label.title=person.name+(person.costume?' · '+person.costume:'');label.tabIndex=options.interactive===false?-1:0;label.setAttribute('role',options.interactive===false?'img':'button');label.setAttribute('aria-label',`${options.interactive===false?'Performer':'Select'} ${person.name} in 3D`);label.style.left=`${(pos[0]*.5+.5)*100}%`;label.style.top=`${(-pos[1]*.5+.5)*100}%`;label.style.color='var(--text)';label.style.borderColor=person.color;
+      const person=cast.get(p.performerId);if(!person)continue;let label=labelNodes.get(p.performerId);if(!label){label=document.createElement('button');label.onclick=options.interactive===false?null:()=>options.onSelect?.(p.performerId);label.tabIndex=options.interactive===false?-1:0;label.setAttribute('role',options.interactive===false?'img':'button');label.style.color='var(--text)';labels.append(label);labelNodes.set(p.performerId,label);}
+      visibleLabels.add(p.performerId);if(label.hidden)label.hidden=false;
+      const text=String(person.number).padStart(2,'0')+(currentLabels?' · '+person.name:''),title=person.name+(person.costume?' · '+person.costume:''),aria=`${options.interactive===false?'Performer':'Select'} ${person.name} in 3D`,left=`${(pos[0]*.5+.5)*100}%`,top=`${(-pos[1]*.5+.5)*100}%`;
+      if(label.textContent!==text)label.textContent=text;if(label.title!==title){label.title=title;label.setAttribute('aria-label',aria);}if(label.style.left!==left)label.style.left=left;if(label.style.top!==top)label.style.top=top;if(labelColors.get(p.performerId)!==person.color){label.style.borderColor=person.color;labelColors.set(p.performerId,person.color);}
     }
+    for(const [id,node] of labelNodes)if(!visibleLabels.has(id)&&!node.hidden)node.hidden=true;
     const liveGhosts=new Set();for(const ghost of currentGhosts)for(const p of ghost.positions){const pos=projectPoint(matrix,[p.x,.2,-p.z]);if(!pos||Math.abs(pos[0])>1||Math.abs(pos[1])>1)continue;const person=cast.get(p.performerId),key=`${ghost.time}/${p.performerId}`;liveGhosts.add(key);let label=ghostNodes.get(key);if(!label){label=document.createElement('span');ghostLabels.append(label);ghostNodes.set(key,label);}const text=`${ghost.label} · ${person?.number||''}`;if(label.textContent!==text)label.textContent=text;label.style.left=`${(pos[0]*.5+.5)*100}%`;label.style.top=`${(-pos[1]*.5+.5)*100}%`;}
     for(const [key,label] of ghostNodes)if(!liveGhosts.has(key)){label.remove();ghostNodes.delete(key);}
 
-    analysisLabel.hidden=!currentAnalysis?.summary;analysisLabel.textContent=currentAnalysis?.summary||'';
+    const summary=currentAnalysis?.summary||'',hideSummary=!summary;if(analysisLabel.hidden!==hideSummary)analysisLabel.hidden=hideSummary;if(analysisLabel.textContent!==summary)analysisLabel.textContent=summary;
     options.onRenderCost?.(performance.now()-started);
   }
   let navigation=options.navigationMode==='pan'?'pan':'orbit';host.dataset.navigation=navigation;
