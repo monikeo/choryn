@@ -1,3 +1,33 @@
+# CHORYN v0.19.2 reliability audit — 1 November 2026
+
+478 automated tests and both application/worker TypeScript checks pass. Production build `7d0de51d3f2472eb` contains 70 output files and 65 integrity-checked offline entries. Next.js emits static application routes and lazy 3D/media bundles. The build required normal Windows filesystem access after the sandbox denied creation of a generated `.next` folder; it then completed. Next.js also reports an ignored unrelated parent-directory lockfile. Neither message is an application runtime error.
+
+## Corrections
+
+- Split, duplicate, paste, delete and reorder cannot silently discard locked routes. The shared replacement/save boundary enforces the same route and production-track locks. Unlocking a route is allowed; editing its formation endpoints remains allowed. Unrelated sequences remain editable.
+- Ripple deletion cleans attendance and live-constraint references anchored to the removed formation before validating the remaining project.
+- Shared saves validate the complete project before scheduling storage, reject oversized notes without truncating them, and restore history on failure. Undo/Redo validate saved snapshots without applying current authoring locks or recomputing live constraints. Music replacement/reset checks its track lock before touching stored audio; an upload that would extend a locked formation track is rejected before storage.
+- Count labels round into the next count and phrase instead of producing an invalid `+1` suffix.
+- Curved route sampling caches cumulative arc lengths and uses a binary search. Weak entries can be collected with abandoned projects/previews. Coordinate fingerprints invalidate in-place waypoint/endpoint changes; callers cannot mutate cached geometry through `routePoints`.
+- A rejected initial boot chunk displays a reload recovery state. Strict Mode cleanup prevents detached state updates and duplicate boot imports.
+- Native fullscreen requests have a bounded wait. Focus view can exit immediately while native entry is pending, and late entry respects the current focus state. Native exit failures retain consistent controls and explain how to exit.
+
+## Browser and media evidence
+
+An isolated local QA score exercised locked-route rejection in normal and fullscreen 2D/3D, permitted duplication, Undo and deletion confirmation. The final focus-exit revision was exercised with rapid enter/exit on build `119c15dda9f5bd52`; the subsequent music-lock-only build is `7d0de51d3f2472eb`. Desktop Chromium viewport checks at 390×844 and 1024×768 had matching document/viewport widths, usable phone timeline/3D focus controls and a tablet WebGL canvas. No captured browser warning/error logs were recorded. The production host also returned no recent worker errors at audit time.
+
+Two actual silent H.264 MP4s were rendered during the audit from 12–14 seconds using the release's unchanged export renderer: 2D at 2954×480 (197,763 bytes) and fullscreen-source 3D at 1638×480 (239,960 bytes). Each decoded in the browser with readyState 4 and no media error. The bundled parser confirms AVC, two seconds, 60 packets, timestamps from 0 to 1.9666667 with uniform 1/30-second spacing, and no audio track. These dimensions preserve the different captured stage aspect ratios. Automated export tests cover camera/view parity, attendance, props, quality, cancellation and resource cleanup; these do not establish pixel-perfect GPU equivalence on every device.
+
+Screenshots, both MP4s, parsed metadata and benchmark receipts are retained outside Git in the workspace's `docs/reliability-qa-2026-11-01/` directory. No personal browser projects or media are included in source publication.
+
+## Performance measurement and limits
+
+The direct Node sampler benchmark used 600 frames × 100 routes × 12 smooth waypoints (60,000 positions per run). Warm optimized runs were about 73–79 ms versus 671–724 ms in typical baseline runs, with larger baseline outliers. A separate alternating-order VM benchmark recorded medians of 4,874.9 ms versus 203.7 ms; VM overhead makes that ratio unsuitable as a browser speed claim. Numeric parity tests cover 1,202 route samples within 1e-9, exact endpoints, repeated points and cache invalidation. These are CPU sampler measurements, not GPU frame-rate or whole-app speed guarantees.
+
+Physical phones/iPads, other browser engines, OS installation, AAC/music export and long-duration/high-resolution encoder stress were not exercised in this audit. Browser/codec support remains capability-dependent. The audit provides regression evidence for the checked workflows, not a guarantee of zero defects on every device.
+
+## Previous release evidence
+
 # CHORYN v0.19.1 Next.js and TypeScript — 1 November 2026
 
 455 tests and both TypeScript checks pass. Build `38b8e51d0ccb4798` contains 70 output files and 65 offline entries. It keeps every Next.js runtime bundle, app document, icon and media notice in the offline shell while omitting six unused generated error-route files.

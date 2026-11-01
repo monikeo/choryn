@@ -1,6 +1,7 @@
 import type {Project} from './types.js';
 import {clone,clamp,uid,sampleAuthoredPerformance} from './engine.js';
-import {applyTimingRelations,applyReorderRelations,assertTrackUnlocked,cleanLinks,rippleRemoveFormation} from './production-timing.js';
+import {applyTimingRelations,applyReorderRelations,assertTrackUnlocked,assertRouteEdits,cleanLinks,rippleRemoveFormation} from './production-timing.js';
+import {cleanEnsemble} from './ensemble-schema.js';
 
 export const roundTime=value=>Math.round(value*1000)/1000;
 const namedCopy=(name,suffix)=>name.slice(0,200-suffix.length)+suffix;
@@ -64,7 +65,7 @@ export function pasteTimelineItem(project: Project,clipboard,time){
   if(kind==='movement'){const length=item.end-item.start;if(time<0||time+length>next.duration+.0001)throw Error('The copied movement does not fit here. Move the playhead earlier or extend the performance.');item.performerIds=item.performerIds.filter(id=>next.performers.some(p=>p.id===id));item.start=time;item.end=roundTime(time+length);item.name=namedCopy(item.name,' — copy');}
   if(kind==='cue'){if(time<0||time>next.duration)throw Error('Place this cue inside the performance.');item.time=time;item.label=namedCopy(item.label,' — copy');}
   next[key].push(item);if(kind!=='movement')next[key].sort((a,b)=>a.time-b.time);if(kind==='formation')pruneRoutes(next);
-  return {project:next,item,kind};
+  assertRouteEdits(project,next);return {project:next,item,kind};
 }
 export function duplicateTimelineItem(project: Project,kind,id){
   const item=timelineItem(project,kind,id);let time;
@@ -84,7 +85,7 @@ export function splitTimelineItem(project: Project,kind,id,time){
   const item=clone(source);item.id=uid();item.name=namedCopy(item.name,' · part 2');
   if(kind==='formation'){if(source.status==='approved')throw Error('Unlock this formation before splitting.');item.time=time;item.status='draft';item.positions=sampleAuthoredPerformance(project,time);next.formations.push(item);next.formations.sort((a,b)=>a.time-b.time);pruneRoutes(next);}
   else{source.end=time;item.start=time;next.actions.push(item);}
-  return {project:next,item,kind};
+  assertRouteEdits(project,next);return {project:next,item,kind};
 }
 export function removeTimelineItem(project: Project,kind,id){
   assertTrackUnlocked(project,kind,id);
@@ -95,6 +96,7 @@ export function removeTimelineItem(project: Project,kind,id){
     next.routes=next.routes.filter(r=>r.fromId!==id&&r.toId!==id);
   }
   next[key]=next[key].filter(item=>item.id!==id);if(kind==='cue')next.cueLog=next.cueLog.filter(c=>c.cueId!==id);
+  assertRouteEdits(project,next);cleanEnsemble(next);
   return kind==='formation'&&project.production?.ripple?rippleRemoveFormation(project,next,id):cleanLinks(next);
 }
 export function packMovementRows(actions){
@@ -112,7 +114,7 @@ export function reorderFormation(project: Project,id,targetIndex){
   next.formations.splice(targetIndex,0,item);next.formations.forEach((f,i)=>f.time=times[i]);
   const adjacent=new Set(next.formations.slice(0,-1).map((f,i)=>`${f.id}/${next.formations[i+1].id}`));
   next.routes=next.routes.filter(r=>adjacent.has(`${r.fromId}/${r.toId}`));
-  return applyReorderRelations(project,next,{copy:false});
+  assertRouteEdits(project,next);return applyReorderRelations(project,next,{copy:false});
 }
 
 export function setFormationTransition(project: Project,id,settings){

@@ -54,27 +54,35 @@ export function safeReference(value) {
   try { const u=new URL(value); return u.protocol==='https:' && !u.username && !u.password ? u.href.slice(0,2000) : ''; } catch { return ''; }
 }
 export function getRoute(project: Project,fromId,toId,performerId){return (project.routes||[]).find(r=>r.fromId===fromId&&r.toId===toId&&r.performerId===performerId);}
+// Geometry and arc lengths share a weak entry: abandoned projects and drag
+// previews can be collected. Coordinates in the key catch in-place path edits.
 const curveCache=new WeakMap();
+function routeGeometry(from,to,waypoints,curve){
+ const key=`${curve}/${from.x},${from.z}/${to.x},${to.z}/`+waypoints.map(p=>`${p.x},${p.z}`).join('/'),cached=curveCache.get(waypoints);if(cached?.key===key)return cached;
+ const raw=[from,...waypoints,to],points=[{x:from.x,z:from.z}];
+ if(curve!=='smooth')points.push(...raw.slice(1).map(p=>({x:p.x,z:p.z})));
+ else for(let i=0;i<raw.length-1;i++){const a=raw[Math.max(0,i-1)],b=raw[i],c=raw[i+1],d=raw[Math.min(raw.length-1,i+2)];for(let j=1;j<=24;j++){const u=j/24,point={} as import("./types.js").Point;for(const axis of ['x','z'])point[axis]=.5*((2*b[axis])+(-a[axis]+c[axis])*u+(2*a[axis]-5*b[axis]+4*c[axis]-d[axis])*u*u+(-a[axis]+3*b[axis]-3*c[axis]+d[axis])*u*u*u);points.push(point);}}
+ const cumulative=[0];for(let i=1;i<points.length;i++)cumulative.push(cumulative[i-1]+Math.hypot(points[i].x-points[i-1].x,points[i].z-points[i-1].z));
+ const geometry={key,points,cumulative,total:cumulative.at(-1)};curveCache.set(waypoints,geometry);return geometry;
+}
 export function routePoints(from,to,waypoints=[],curve='linear'){
- const raw=[from,...waypoints,to];if(curve!=='smooth'||!waypoints.length)return raw;
- const key=raw.map(p=>`${p.x},${p.z}`).join('/'),cached=curveCache.get(waypoints);if(cached?.key===key)return cached.points;
- const points=[{x:from.x,z:from.z}];for(let i=0;i<raw.length-1;i++){const a=raw[Math.max(0,i-1)],b=raw[i],c=raw[i+1],d=raw[Math.min(raw.length-1,i+2)];for(let j=1;j<=24;j++){const u=j/24,point={} as import("./types.js").Point;for(const axis of ['x','z'])point[axis]=.5*((2*b[axis])+(-a[axis]+c[axis])*u+(2*a[axis]-5*b[axis]+4*c[axis]-d[axis])*u*u+(-a[axis]+3*b[axis]-3*c[axis]+d[axis])*u*u*u);points.push(point);}}
- curveCache.set(waypoints,{key,points});return points;
+ if(!waypoints.length)return [{x:from.x,z:from.z},{x:to.x,z:to.z}];
+ return routeGeometry(from,to,waypoints,curve).points.map(p=>({...p}));
 }
 export function routePosition(from,to,t,waypoints,curve='linear'){
-  const points=routePoints(from,to,waypoints,curve);
-  const lengths=points.slice(1).map((p,i)=>Math.hypot(p.x-points[i].x,p.z-points[i].z));
-  const total=lengths.reduce((a,b)=>a+b,0);
+  t=Math.max(0,Math.min(1,t));
+  if(!waypoints?.length)return {x:from.x+(to.x-from.x)*t,z:from.z+(to.z-from.z)*t};
+  const {points,cumulative,total}=routeGeometry(from,to,waypoints,curve);
   if(total<1e-9)return {x:from.x,z:from.z};
-  let distance=t*total;
-  for(let i=0;i<lengths.length;i++){
-    if(distance<=lengths[i]||i===lengths.length-1){const u=lengths[i]<1e-9?0:Math.max(0,Math.min(1,distance/lengths[i]));return {x:points[i].x+(points[i+1].x-points[i].x)*u,z:points[i].z+(points[i+1].z-points[i].z)*u};}
-    distance-=lengths[i];
-  }
+  if(t===0)return {x:from.x,z:from.z};if(t===1)return {x:to.x,z:to.z};
+  const distance=t*total;let lo=1,hi=cumulative.length-1;
+  while(lo<hi){const mid=(lo+hi)>>>1;if(cumulative[mid]<distance)lo=mid+1;else hi=mid;}
+  const i=lo-1,length=cumulative[lo]-cumulative[i],u=length<1e-9?0:(distance-cumulative[i])/length;
+  return {x:points[i].x+(points[lo].x-points[i].x)*u,z:points[i].z+(points[lo].z-points[i].z)*u};
 }
 export function routeDistance(from,to,route){
-  const points=routePoints(from,to,route?.waypoints||[],route?.curve);
-  return points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-points[i].x,p.z-points[i].z),0);
+  if(!route?.waypoints?.length)return Math.hypot(to.x-from.x,to.z-from.z);
+  return routeGeometry(from,to,route.waypoints,route.curve||'linear').total;
 }
 export function newStageObject(kind='prop'){return {id:id(),name:kind==='platform'?'Center riser':kind==='restricted'?'Keep clear':'Stage prop',kind,x:0,z:0,width:2,depth:1.2,height:kind==='platform'?.4:kind==='restricted'?0:1,color:kind==='restricted'?'#c86c79':'#9c8fb4',shape:'rectangle',rotation:0,keyframes:[],attachments:[],locked:false};}
 export function csvCell(value){let s=String(value??'');if(/^[=+\-@\t\r\n]/.test(s)||/^\s+[=+\-@]/.test(s))s=`'${s}`;return `"${s.replaceAll('"','""')}"`;}

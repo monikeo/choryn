@@ -1,4 +1,12 @@
-# Timeline editing · v0.17.1
+# Timeline editing · v0.19.2
+
+## Locked routes and reliable edits
+
+Split, duplicate, paste, delete and reorder reject an edit that would remove a locked custom route. Unlock the affected route in **Edit individual routes** first. Other sequences remain editable. A locked movement track also protects its custom routes. Route endpoints still follow their formation positions; locking preserves authored waypoints and route timing.
+
+Ripple deletion clears attendance and constraint references anchored to a removed formation before validating the remaining score. Shared saves validate the project and roll back rejected edits. Undo and Redo restore validated snapshots without reapplying live authoring rules. Fine count labels carry correctly into the next count or phrase when rounded.
+
+Fullscreen focus view can close while a native browser request is pending. An unavailable or unresponsive native API does not need to finish before you return to the workstation.
 
 ## Remaining-edge corrections
 

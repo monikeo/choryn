@@ -85,9 +85,26 @@ export function setupPower(adapter){
   document.addEventListener('fullscreenchange',()=>{if(nativeFull&&!document.fullscreenElement){full=false;nativeFull=false;syncFullscreen();if(!fullscreenPending)api.render();}});
 }
 async function toggleFullscreen(){
- if(fullscreenPending)return;fullscreenPending=true;full=!full;syncFullscreen();
- try{if(full&&matchMedia('(min-width:1024px)').matches&&!document.fullscreenElement&&document.documentElement.requestFullscreen){try{await document.documentElement.requestFullscreen();nativeFull=!!document.fullscreenElement;}catch{api.toast('Stage focus view opened. Browser fullscreen is unavailable here.');}}else if(!full&&document.fullscreenElement){try{await document.exitFullscreen();nativeFull=false;}catch{full=true;nativeFull=true;api.toast('Use the browser fullscreen control to exit.');}}}
- finally{fullscreenPending=false;syncFullscreen();api.render();}
+ if(fullscreenPending){if(full&&!document.fullscreenElement){full=false;syncFullscreen();api.render();}return;}
+ fullscreenPending=true;full=!full;syncFullscreen();
+ // Embedded browsers can leave native fullscreen promises unsettled. Never let
+ // that lock focus-view controls, and dismiss an obsolete late native entry.
+ const bounded=operation=>new Promise<boolean>((resolve,reject)=>{
+  const timer=setTimeout(()=>resolve(false),1500);
+  try{Promise.resolve(operation()).then(()=>{clearTimeout(timer);resolve(true);},error=>{clearTimeout(timer);reject(error);});}catch(error){clearTimeout(timer);reject(error);}
+ });
+ try{
+  if(full&&matchMedia('(min-width:1024px)').matches&&!document.fullscreenElement&&document.documentElement.requestFullscreen){
+   try{const completed=await bounded(()=>Promise.resolve(document.documentElement.requestFullscreen()).then(()=>{
+    if(!full){if(document.fullscreenElement)try{void Promise.resolve(document.exitFullscreen()).catch(()=>{});}catch{};return;}
+    nativeFull=!!document.fullscreenElement;
+   }));if(!completed||!nativeFull)api.toast('Stage focus view opened. Browser fullscreen is unavailable here.');}
+   catch{api.toast('Stage focus view opened. Browser fullscreen is unavailable here.');}
+  }else if(!full&&document.fullscreenElement){
+   try{await bounded(()=>document.exitFullscreen());nativeFull=!!document.fullscreenElement;if(nativeFull){full=true;api.toast('Use the browser fullscreen control to exit.');}}
+   catch{full=true;nativeFull=true;api.toast('Use the browser fullscreen control to exit.');}
+  }
+ }finally{fullscreenPending=false;syncFullscreen();api.render();}
 }
 function syncFullscreen(){document.body.classList.toggle('stage-fullscreen',full);document.body.classList.toggle('fullscreen-with-timeline',full&&fullTimeline);}
 export function bindPowerTimeline(){bindEditorTimeline();syncFullscreen();document.querySelectorAll<HTMLElement>('[data-power="fullscreen-timeline"]').forEach(button=>{button.textContent=fullTimeline?'Hide timeline':'Show timeline';button.setAttribute('aria-label',`${fullTimeline?'Hide':'Show'} performance timeline`);button.setAttribute('aria-expanded',String(fullTimeline));});timelineObserver?.disconnect();if(full&&fullTimeline){const timeline=$('.timeline'),update=()=>document.documentElement.style.setProperty('--fullscreen-timeline-height',`${timeline.getBoundingClientRect().height}px`);timelineObserver=observeSize(timeline,update);update();}}

@@ -11,7 +11,14 @@ export function timedItems(project: Project){
 }
 export function assertTrackUnlocked(project: Project,kind,id?){const key=track[kind]||kind;if(project.production?.layers?.[key]?.locked)throw Error('Unlock the '+key+' track before editing.');if(kind==='formation'&&project.formations.find(f=>f.id===id)?.status==='approved')throw Error('Unlock the formation first.');}
 export function cleanLinks(project: Project){if(!project.production)return project;const existing=new Set(timedItems(project).map(v=>v.key));project.production.links=project.production.links.map(g=>({...g,items:g.items.filter(k=>existing.has(k))})).filter(g=>g.items.length>=2);return project;}
+export function assertRouteEdits(before: Project,after: Project){
+ const shape=r=>JSON.stringify([r.fromId,r.toId,r.performerId,r.duration,r.delay,r.easing,r.curve||'linear',r.timingCurve||null,r.waypoints?.map(p=>[p.x,p.z])||[]]);
+ const routes=new Map((after.routes||[]).map(r=>[r.id,r]));
+ for(const route of before.routes||[])if(route.locked){const next=routes.get(route.id);if(!next||shape(route)!==shape(next))throw Error('Unlock the affected custom route before changing or removing it.');}
+ if(before.production?.layers.movement.locked&&JSON.stringify(before.routes)!==JSON.stringify(after.routes))throw Error('Unlock the movement track before changing its custom routes.');
+}
 export function assertProductionLocks(before,after){
+ assertRouteEdits(before,after);
  const p=before.production;if(!p)return;const values=(project: Project)=>({music:[project.music,project.audioName,project.bpm],formations:[project.formations,project.routes,project.duration,project.ensemble?.attendance,project.ensemble?.constraints],movement:project.actions,cues:project.cues,props:[project.props,project.stage,project.production?.stage,project.production?.zones],lighting:project.production?.lights,appearance:project.production?.appearances,camera:project.production?.cameras}),a=values(before),b=values(after);
  for(const key of Object.keys(a))if(p.layers[key]?.locked&&JSON.stringify(a[key])!==JSON.stringify(b[key]))throw Error('Unlock the '+key+' track before changing its contents.');
 }
