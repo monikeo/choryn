@@ -15,8 +15,24 @@ export function snappedTime(value,bpm,snap='beat',offset=0){
 }
 // Return a complete candidate so a rejected gesture cannot partially mutate the score.
 export function editTimeline(project: Project,operation){const {kind,id,edge='move'}=operation;assertTrackUnlocked(project,kind,id);return applyTimingRelations(project,editTimelineBase(project,operation),{kind,id,edge,copy:false});}
+// Share effective limits with pointer previews so a held trim at its boundary
+// does not clone and redraw the same candidate on every animation frame.
+export function timelineEditBounds(project: Project,{kind,id,edge='move'}){
+ const item=timelineItem(project,kind,id);
+ if(kind==='cue')return {min:0,max:project.duration};
+ if(kind==='movement')return edge==='start'?{min:0,max:item.end-.1}:edge==='end'?{min:item.start+.1,max:project.duration}:{min:0,max:project.duration-(item.end-item.start)};
+ const index=project.formations.indexOf(item),next=project.formations[index+1],ripple=project.production?.ripple;
+ if(edge==='end'){
+  if(next)return {min:item.time+.1,max:ripple?3600-project.duration+next.time:(project.formations[index+2]?.time??project.duration)-.1};
+  const events=[...project.actions.map(a=>a.end),...project.cues.map(c=>c.time),...project.comments.map(c=>c.time),...project.props.flatMap(p=>[...(p.keyframes||[]),...(p.attachments||[])].map(f=>f.time)),...(project.checkpoints||[]).map(c=>c.time),...(project.ensemble?.traffic||[]).map(v=>v.end),project.referenceVideo?.start||0,...['lights','appearances','cameras'].flatMap(key=>(project.production?.[key]||[]).map(v=>v.time))];
+  return {min:Math.max(1,item.time+.1,...events.filter(at=>!ripple||at<project.duration-.0001)),max:3600};
+ }
+ return index?{min:project.formations[index-1].time+.1,max:ripple?3600-project.duration+item.time:(next?.time??project.duration)-.1}:{min:0,max:0};
+}
 function editTimelineBase(project: Project,{kind,id,edge='move',value}){
   if(!Number.isFinite(value))throw Error('Enter a valid time.');
+  const bounds=timelineEditBounds(project,{kind,id,edge});if(bounds.max<bounds.min)throw Error('This interval is too short to trim.');
+  value=roundTime(clamp(value,bounds.min,bounds.max));
   const next=clone(project),forms=next.formations;
   if(kind==='formation'){
     const index=forms.findIndex(f=>f.id===id),f=forms[index];
@@ -24,16 +40,13 @@ function editTimelineBase(project: Project,{kind,id,edge='move',value}){
     if(edge==='end'){
       if(forms[index+1]){
         const target=forms[index+1];if(target.status==='approved')throw Error('Unlock the next formation before moving this shared boundary.');
-        const min=f.time+.1,max=project.production?.ripple?Math.min(3600,next.duration+value-target.time):(forms[index+2]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to trim.');
-        target.time=roundTime(clamp(value,min,max));
+        target.time=value;
       }else{
-        const events=[...next.actions.map(a=>a.end),...next.cues.map(c=>c.time),...next.comments.map(c=>c.time),...next.props.flatMap(p=>[...(p.keyframes||[]),...(p.attachments||[])].map(f=>f.time)),...(next.checkpoints||[]).map(c=>c.time),next.referenceVideo?.start||0,...['lights','appearances','cameras'].flatMap(key=>(next.production?.[key]||[]).map(v=>v.time))],minimum=Math.max(1,f.time+.1,...events.filter(at=>!project.production?.ripple||at<project.duration-.0001));
-        next.duration=roundTime(clamp(value,minimum,3600));
+        next.duration=value;
       }
     }else{
       if(index===0)throw Error('The opening time stays at zero. Trim its right edge instead.');
-      const min=forms[index-1].time+.1,max=project.production?.ripple?3600:(forms[index+1]?.time??next.duration)-.1;if(max<min)throw Error('This interval is too short to retime.');
-      f.time=roundTime(clamp(value,min,max));
+      f.time=value;
     }
   }else if(kind==='cue'){
     const cue=next.cues.find(c=>c.id===id);if(!cue)throw Error('Cue no longer exists.');

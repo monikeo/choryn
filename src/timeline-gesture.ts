@@ -1,5 +1,5 @@
 import {clone} from './engine.js';
-import {editTimeline,reorderFormation,timelineItem} from './timeline-model.js';
+import {editTimeline,reorderFormation,timelineItem,timelineEditBounds,roundTime} from './timeline-model.js';
 import {magneticTime,sequenceDropIndex,timelineFingerprint,timelineScrollVelocity,magneticTargets,timelineSnapExclusions} from './timeline-tools.js';
 
 // Keep document changes out of pointer movement. A completed drag commits once.
@@ -37,7 +37,7 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
   const raw=g.base+delta;
   const target=g.edge==='reorder'?sequenceDropIndex(g.project,g.id,raw,g.target,pixels):null;
   const snap=g.altKey?'off':options.snap();if(g.snapMode!==snap){g.magnet=null;g.snapMode=snap;}const magnetic=g.edge==='reorder'?null:magneticTime(raw,g.project,{snap,playhead:g.playhead,pixelsPerSecond:pixels,targets:g.snapTargets,previous:g.magnet});g.magnet=magnetic?.key?magnetic:null;
-  const token=target??magnetic.time;
+  const token=target??roundTime(Math.max(g.bounds.min,Math.min(g.bounds.max,magnetic.time)));
   if(g.lastToken===token)return;
   g.lastToken=token;
   try{
@@ -66,12 +66,12 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
   if(event.pointerType==='touch'&&item&&!event.target.closest('[data-reorder-grip],[data-drag-time]'))return;
   if(event.pointerType==='touch'&&!item&&!event.target.closest('.time-ruler'))return;
   const edge=handle?.dataset.dragTime||(kind==='formation'&&options.mode()==='reorder'?'reorder':'move');
-  const p=options.project();if(kind){try{timelineItem(p,kind,id);}catch{options.cancel?.({kind,id},'This clip is no longer available. Select a current clip and try again.');return;}}const project=clone(p),value=kind?timelineItem(project,kind,id):null,index=kind==='formation'?project.formations.findIndex(f=>f.id===id):-1;
+  const p=options.project();if(kind){try{timelineItem(p,kind,id);}catch{options.cancel?.({kind,id},'This clip is no longer available. Select a current clip and try again.');return;}}const project=kind?clone(p):p,value=kind?timelineItem(project,kind,id):null,index=kind==='formation'?project.formations.findIndex(f=>f.id===id):-1;
   const start=kind==='movement'?value.start:value?.time||0,end=kind==='formation'?(project.formations[index+1]?.time??project.duration):value?.end;
   const base=edge==='reorder'?(start+end)/2:edge==='end'?end:start;
   const editable=!options.readOnly()&&!(kind==='formation'&&(value.status==='approved'||index===0&&edge!=='end'&&edge!=='reorder'));
   const exclude=kind==='formation'&&edge==='end'?project.formations[index+1]?.id:id;
-  gesture={item,kind,id,edge,project,start,end,base,exclude,editable,playhead:options.time(),fingerprint:timelineFingerprint(p),pointerId:event.pointerId,x:event.clientX,y:event.clientY,clientX:event.clientX,clientY:event.clientY,at:0,target:index,lastToken:undefined,moved:false,dirty:false,altKey:!!event.altKey};
+  gesture={item,kind,id,edge,project,start,end,base,exclude,editable,playhead:options.time(),bounds:kind&&edge!=='reorder'?timelineEditBounds(project,{kind,id,edge}):null,fingerprint:kind?timelineFingerprint(p):null,pointerId:event.pointerId,x:event.clientX,y:event.clientY,clientX:event.clientX,clientY:event.clientY,at:0,target:index,lastToken:undefined,moved:false,dirty:false,altKey:!!event.altKey};
   gesture.snapTargets=kind?magneticTargets(project,timelineSnapExclusions(project,kind==='formation'&&edge==='end'&&!exclude?'end':kind+'/'+exclude)):null;gesture.at=timeAt(event.clientX,gesture);options.pause();options.active?.(true);
   if(item){options.select?.(kind,id);event.preventDefault();}else{gesture.dirty=true;schedule();}
   try{area.setPointerCapture(event.pointerId);}catch{finish(true);}
