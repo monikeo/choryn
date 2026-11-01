@@ -19,7 +19,9 @@ await rm(dist,{recursive:true,force:true});await cp(resolve(root,'out'),dist,{re
 await mkdir(resolve(dist,'src'),{recursive:true});
 for(const file of ['mediabunny.NOTICE.txt','mediabunny.LICENSE.txt'])await cp(resolve(root,'src',file),resolve(dist,'src',file));
 const offline=resolve(dist,'offline.html');await writeFile(offline,(await readFile(offline,'utf8')).replaceAll('__BUILD_VERSION__',version));
-const files=await walk(dist),paths=['/','/index.html','/offline',...files.map(file=>'/'+relative(dist,file).split(sep).join('/'))].filter((path,index,list)=>list.indexOf(path)===index);
+// Sites canonicalizes generated error-page URLs. Those pages are never needed
+// to launch the editor offline; precache the app routes and runtime assets.
+const files=await walk(dist),paths=['/','/index.html','/offline',...files.map(file=>'/'+relative(dist,file).split(sep).join('/'))].filter((path,index,list)=>list.indexOf(path)===index&&!/^\/(?:404|_not-found)(?:[/.]|$)/.test(path));
 const integrity={};for(const path of paths){const file=path==='/'?resolve(dist,'index.html'):path==='/offline'?offline:resolve(dist,'.'+path);integrity[path]=createHash('sha256').update(await readFile(file)).digest('hex');}
 const worker=stripTypeScriptTypes(await readFile(resolve(root,'sw.ts'),'utf8'),{mode:'strip',disableExperimentalWarning:true}).replaceAll('__BUILD_VERSION__',version).replace('__SHELL_PATHS__',JSON.stringify(paths)).replace('__SHELL_INTEGRITY__',JSON.stringify(integrity));
 await writeFile(resolve(dist,'sw.js'),worker);

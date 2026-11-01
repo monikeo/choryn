@@ -1,4 +1,10 @@
-# CHORYN v0.19.0 Next.js and TypeScript — 1 November 2026
+# CHORYN v0.19.1 Next.js and TypeScript — 1 November 2026
+
+455 tests and both TypeScript checks pass. Build `38b8e51d0ccb4798` contains 70 output files and 65 offline entries. It keeps every Next.js runtime bundle, app document, icon and media notice in the offline shell while omitting six unused generated error-route files.
+
+The first production HTTP audit found that hosting canonicalizes `/_not-found.html`. Including that unused page made the worker's atomic installer reject the release, leaving the earlier cache intact. The cache list now excludes generated 404/not-found documents and their route payloads. The framework worker test simulates those host redirects and still installs the complete runtime shell and serves all Next.js script bundles offline. This correction changes caching, not project data or editor behavior.
+
+## Retained v0.19.0 migration evidence
 
 455 tests pass: the previous 451 plus four checks against the actual Next.js export. Application and service-worker TypeScript checks pass, and `next build --webpack` produces static application and not-found routes. Build `ccc8289b503336fd` contains 70 output files and 71 integrity-checked offline entries. The production entry loads Next.js hydration bundles, rather than `/src/boot.js`.
 

@@ -30,6 +30,8 @@ Relative `.js` module specifiers in editor source resolve to `.ts` through TypeS
 
 The compiled service worker verifies asset hashes and the HTML build marker before caching a release. Installation is atomic, and update activation uses the existing save/update flow. An incomplete or unauthenticated response cannot replace a good cached release. The cache list is generated from Next.js output, so it does not depend on the old standalone module URLs.
 
+Generated 404/not-found documents and their route payloads are served online but excluded from the offline shell. The host canonicalizes their HTML URLs; they are not needed to launch the editor offline. Runtime bundles, including the error boundary, remain cached.
+
 `npm run dev` serves Next.js development output. `npm start` serves the built static export. Test production caching in the built preview, and use a separate origin or port if an older installed worker controls your development URL.
 
 ## Local data

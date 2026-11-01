@@ -25,9 +25,10 @@ test('the production entry is Next.js output with CHORYN metadata, hydration and
  assert.doesNotMatch(html,/src="\/src\/boot\.js"/);
 });
 
-test('the generated offline manifest includes and hashes every exported Next.js asset and lazy chunk',async()=>{
+test('the generated offline manifest hashes runtime assets and lazy chunks without unused error routes',async()=>{
  for(const file of await walk(dist)){
   const path='/'+relative(dist,file).split(sep).join('/');if(path==='/sw.js')continue;
+  if(/^\/(?:404|_not-found)(?:[/.]|$)/.test(path)){assert.equal(shell.includes(path),false);continue;}
   assert.ok(shell.includes(path),'Not cached: '+path);
   assert.equal(createHash('sha256').update(await readFile(file)).digest('hex'),integrity[path],path);
  }
@@ -45,7 +46,7 @@ test('the actual Next.js worker installs its complete build and serves root and 
  try{
   const caches={async open(key){if(!stores.has(key))stores.set(key,new Map());const entries=stores.get(key);return {async keys(){return [...entries.keys()].map(p=>new Request(origin+p));},async match(p){return entries.get(typeof p==='string'?p:new URL(p.url).pathname)?.clone();},async put(p,response){entries.set(typeof p==='string'?p:new URL(p.url).pathname,response.clone());}};},async keys(){return [...stores.keys()];},async delete(key){return stores.delete(key);}};
   class RelativeRequest extends Request{constructor(input,options){super(new URL(typeof input==='string'?input:input.url,origin),options);}}
-  const fetch=async request=>{assert.equal(offline,false,'Attempted network while offline');const url=new URL(request.url),type=url.pathname.endsWith('.js')?'application/javascript':url.pathname.endsWith('.css')?'text/css':['/','/index.html','/offline.html','/offline'].includes(url.pathname)?'text/html':'application/octet-stream',response=new Response(await readFile(local(url.pathname)),{headers:{'content-type':type}});Object.defineProperty(response,'url',{value:url.href});return response;};
+  const fetch=async request=>{assert.equal(offline,false,'Attempted network while offline');const url=new URL(request.url);if(/^\/(?:404|_not-found)(?:[/.]|$)/.test(url.pathname))return new Response('Canonical error route',{status:307,headers:{location:origin+'/_not-found'}});const type=url.pathname.endsWith('.js')?'application/javascript':url.pathname.endsWith('.css')?'text/css':['/','/index.html','/offline.html','/offline'].includes(url.pathname)?'text/html':'application/octet-stream',response=new Response(await readFile(local(url.pathname)),{headers:{'content-type':type}});Object.defineProperty(response,'url',{value:url.href});return response;};
   vm.runInNewContext(worker,{self:{location:new URL(origin),addEventListener:(type,handler)=>events[type]=handler,clients:{claim:async()=>{},matchAll:async()=>[{url:origin+'/'}]},skipWaiting(){}},caches,Request:RelativeRequest,Response,URL,crypto:webcrypto,fetch,Set,Promise});
   let installing;events.install({waitUntil:p=>installing=p});await installing;
   assert.equal([...stores.values()][0].size,shell.length);offline=true;
