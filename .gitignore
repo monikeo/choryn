@@ -1,4 +1,8 @@
 node_modules/
 dist/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
 *.tar.gz
 .openai/local/

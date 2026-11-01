@@ -1,19 +1,27 @@
-import { cp, mkdir, rm, readFile, writeFile, readdir } from 'node:fs/promises';
+import {cp,mkdir,rm,readFile,writeFile,readdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {resolve,sep} from 'node:path';
+import {resolve,relative,sep} from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {stripTypeScriptTypes} from 'node:module';
+
 const root=fileURLToPath(new URL('../',import.meta.url)),dist=resolve(root,'dist');
-if(!dist.startsWith(resolve(root)+sep))throw new Error('Unsafe build output path.');
-await rm(dist, { recursive: true, force: true });
-await mkdir(new URL('../dist', import.meta.url));
-for (const file of ['index.html', 'favicon.svg','favicon.ico','apple-touch-icon.png', 'src','icons','manifest.json','offline.html']) {
-  await cp(new URL(`../${file}`, import.meta.url), new URL(`../dist/${file}`, import.meta.url), { recursive: true });
-}
-const hash=createHash('sha256');
-for(const file of ['index.html','favicon.svg','favicon.ico','apple-touch-icon.png','manifest.json','offline.html','sw.js',...(await readdir(new URL('../icons/',import.meta.url))).sort().map(f=>`icons/${f}`),...(await readdir(new URL('../src/',import.meta.url))).sort().map(f=>`src/${f}`)])hash.update(await readFile(new URL(`../${file}`,import.meta.url)));
+const walk=async dir=>(await Promise.all((await readdir(dir,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name)).map(e=>e.isDirectory()?walk(resolve(dir,e.name)):[resolve(dir,e.name)]))).flat();
+if(!dist.startsWith(resolve(root)+sep))throw Error('Invalid build output path.');
+const inputs=[...await walk(resolve(root,'src')),...await walk(resolve(root,'app')),...await walk(resolve(root,'public')),resolve(root,'package-lock.json'),resolve(root,'package.json'),resolve(root,'next.config.ts'),resolve(root,'tsconfig.json'),resolve(root,'tsconfig.worker.json'),resolve(root,'sw.ts'),fileURLToPath(import.meta.url)];
+const hash=createHash('sha256');for(const file of inputs.sort()){hash.update(relative(root,file));hash.update(await readFile(file));}
 const version=hash.digest('hex').slice(0,16);
-for(const file of ['index.html','offline.html'])await writeFile(new URL(`../dist/${file}`,import.meta.url),(await readFile(new URL(`../${file}`,import.meta.url),'utf8')).replaceAll('__BUILD_VERSION__',version));
-const worker=await readFile(new URL('../sw.js',import.meta.url),'utf8'),shell=worker.match(/const SHELL=(\[[\s\S]*?\]);/)[1],integrity={};
-for(const [,path] of shell.matchAll(/'([^']+)'/g))integrity[path]=createHash('sha256').update(await readFile(new URL(`../dist${path==='/'?'/index.html':path==='/offline'?'/offline.html':path}`,import.meta.url))).digest('hex');
-await writeFile(new URL('../dist/sw.js',import.meta.url),worker.replaceAll('__BUILD_VERSION__',version).replace('__SHELL_INTEGRITY__',JSON.stringify(integrity)));
-console.log('CHORYN Studio built → dist/');
+const run=(args)=>{const r=spawnSync(process.execPath,args,{cwd:root,stdio:'inherit',env:{...process.env,NEXT_TELEMETRY_DISABLED:'1',CHORYN_BUILD:version}});if(r.status!==0)process.exit(r.status??1);};
+run(['node_modules/typescript/bin/tsc','--noEmit']);
+run(['node_modules/typescript/bin/tsc','-p','tsconfig.worker.json']);
+run(['node_modules/next/dist/bin/next','build','--webpack']);
+await rm(dist,{recursive:true,force:true});await cp(resolve(root,'out'),dist,{recursive:true});
+await mkdir(resolve(dist,'src'),{recursive:true});
+for(const file of ['mediabunny.NOTICE.txt','mediabunny.LICENSE.txt'])await cp(resolve(root,'src',file),resolve(dist,'src',file));
+const offline=resolve(dist,'offline.html');await writeFile(offline,(await readFile(offline,'utf8')).replaceAll('__BUILD_VERSION__',version));
+const files=await walk(dist),paths=['/','/index.html','/offline',...files.map(file=>'/'+relative(dist,file).split(sep).join('/'))].filter((path,index,list)=>list.indexOf(path)===index);
+const integrity={};for(const path of paths){const file=path==='/'?resolve(dist,'index.html'):path==='/offline'?offline:resolve(dist,'.'+path);integrity[path]=createHash('sha256').update(await readFile(file)).digest('hex');}
+const worker=stripTypeScriptTypes(await readFile(resolve(root,'sw.ts'),'utf8'),{mode:'strip',disableExperimentalWarning:true}).replaceAll('__BUILD_VERSION__',version).replace('__SHELL_PATHS__',JSON.stringify(paths)).replace('__SHELL_INTEGRITY__',JSON.stringify(integrity));
+await writeFile(resolve(dist,'sw.js'),worker);
+await mkdir(resolve(root,'.openai/local'),{recursive:true});await writeFile(resolve(root,'.openai/local/next-build.json'),JSON.stringify({version,output:'Next.js static export',files:files.length+1,offlineEntries:paths.length},null,2));
+console.log('CHORYN Next.js build '+version+' → dist/ · '+paths.length+' verified offline entries');

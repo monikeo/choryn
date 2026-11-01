@@ -2,8 +2,9 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import {fileURLToPath} from 'node:url';
-const built=process.argv.includes('--built');
-const root = resolve(fileURLToPath(new URL('../',import.meta.url)),built?'dist':'.');
+// This server previews the exported Next.js site. Use npm run dev for HMR.
+const built=true;
+const root = resolve(fileURLToPath(new URL('../',import.meta.url)),'dist');
 const port = Number(process.env.PORT || 4173);
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.png':'image/png', '.ico':'image/x-icon' };
 http.createServer(async (req, res) => {

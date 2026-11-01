@@ -1,14 +1,27 @@
 {
   "name": "choryn-studio",
-  "version": "0.18.3",
+  "version": "0.19.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/serve.mjs",
+    "dev": "next dev --webpack --hostname 127.0.0.1 --port 4173",
     "build": "node scripts/build.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "start": "node scripts/serve.mjs --built",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json",
+    "test": "node scripts/test.mjs"
+  },
+  "dependencies": {
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "5.9.3"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18.0"
   }
 }

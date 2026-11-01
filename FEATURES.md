@@ -215,15 +215,15 @@ Project backups remain important because browser storage is local and can be cle
 
 | Area | Main modules |
 | --- | --- |
-| Project validation and sampling | `engine.js`, `ensemble-schema.js`, `prop-motion.js` |
-| Shared authoring boundary | `app.js`, `ensemble-model.js`, `production-timing.js` |
-| Timeline commands and gestures | `timeline-model.js`, `timeline-ui.js`, `timeline-gesture.js` |
-| Cast and shows | `ensemble-tools.js`, `setlists.js`, `presentation.js`, `rehearsal-display.js` |
-| Stage views | `stage2d.js`, `stage3d.js`, `playback-view.js` |
-| Stage and production data | `production-model.js`, `production-next-model.js`, `production-next.js` |
-| Capture and media | `view-video.js`, `view-image.js`, `mp4-export.js`, `video.js` |
-| Persistence and recovery | `backups.js`, `revisions.js`, `reference-store.js`, `errors.js` |
-| Offline app shell | `pwa.js`, `pwa-ui.js`, `sw.js` |
+| Project validation and sampling | `engine.ts`, `ensemble-schema.ts`, `prop-motion.ts` |
+| Shared authoring boundary | `app.ts`, `ensemble-model.ts`, `production-timing.ts` |
+| Timeline commands and gestures | `timeline-model.ts`, `timeline-ui.ts`, `timeline-gesture.ts` |
+| Cast and shows | `ensemble-tools.ts`, `setlists.ts`, `presentation.ts`, `rehearsal-display.ts` |
+| Stage views | `stage2d.ts`, `stage3d.ts`, `playback-view.ts` |
+| Stage and production data | `production-model.ts`, `production-next-model.ts`, `production-next.ts` |
+| Capture and media | `view-video.ts`, `view-image.ts`, `mp4-export.ts`, `video.ts` |
+| Persistence and recovery | `backups.ts`, `revisions.ts`, `reference-store.ts`, `errors.ts` |
+| Offline app shell | `pwa.ts`, `pwa-ui.ts`, `sw.ts` |
 
 All module names in this table are under `src/`, except the root service worker.
 

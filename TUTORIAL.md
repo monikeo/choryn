@@ -2,6 +2,8 @@
 
 This guide follows a complete rehearsal workflow: create a project, arrange a cast, edit transitions, add production details, rehearse and export. You can use a hosted CHORYN installation or the local server described in the [README](README.md).
 
+For a local checkout, install dependencies with `npm ci`, then use `npm run dev`. To rehearse against the production PWA, run `npm run build` followed by `npm start`. Existing project and backup formats are unchanged in the Next.js release.
+
 ## Contents
 
 1. [Create a project](#1-create-a-project)

@@ -6,6 +6,8 @@ CHORYN is a formation and rehearsal studio for choreographers, performers and st
 
 Projects stay in the browser. You can export a portable backup, preview images before downloading them, or render a performance video from the stage view you're working with.
 
+The application runs on **Next.js App Router and React**, with TypeScript application modules and a TypeScript service worker. Next.js builds the workstation and its lazy 3D/media bundles into a static export. The current release remains local-first.
+
 ## What you can do
 
 - Build formations by hand or start with one of 36 templates.
@@ -30,16 +32,18 @@ CHORYN adapts its workspace to desktop, tablet and phone widths. It is a browser
 - [Timeline editing reference](TIMELINE.md)
 - [Stage and production reference](PRODUCTION.md)
 - [Verification record](VERIFICATION.md)
+- [Next.js and TypeScript architecture](ARCHITECTURE.md)
 - [Suggested repository description](GITHUB_DESCRIPTION.md)
 
 ## Run locally
 
-Use Node.js 20 or later. There is no dependency installation step; the application uses browser modules and includes its pinned media library.
+Use Node.js 22.18 or later and npm. Install the versions recorded in the lockfile before starting the Next.js development server.
 
 ```sh
 git clone https://github.com/monikeo/choryn.git
 cd choryn
-node scripts/serve.mjs
+npm ci
+npm run dev
 ```
 
 Open [localhost:4173](http://127.0.0.1:4173). Keep the terminal open while using the local server.
@@ -47,22 +51,23 @@ Open [localhost:4173](http://127.0.0.1:4173). Keep the terminal open while using
 To build and preview the production files:
 
 ```sh
-node scripts/build.mjs
-node scripts/serve.mjs --built
+npm run build
+npm start
 ```
 
-Stop the first server before starting another on the same port. The development server deliberately disables its service worker. Use the built preview to check offline caching.
+Stop the development server before starting the production preview on the same port. Use the production preview to check the generated offline shell. If an earlier CHORYN worker controls that local origin, use its **Save and update** action or use a separate development port.
 
-The package also provides `npm run dev`, `npm run build` and `npm test` as shortcuts.
+`npm run build` checks application and worker types, runs `next build`, and prepares `dist/` with checksums for all exported bundles and assets. `npm start` serves that export; it does not require a running Next.js server.
 
 ## Check the source
 
 ```sh
-node --test tests/*.test.mjs
-node scripts/build.mjs
+npm run typecheck
+npm run build
+npm test
 ```
 
-The tests exercise formation sampling, attendance protection, editing, persistence, capture and media workflows. Some browser and graphics tests use controlled DOM, WebGL and encoder doubles. See [VERIFICATION.md](VERIFICATION.md) for the distinction between those checks and interactive browser evidence.
+The tests exercise formation sampling, attendance protection, editing, persistence, capture and media workflows. The runner creates ignored JavaScript fixtures from the checked TypeScript modules for the existing Node/VM tests; production uses the Next.js bundles. Framework checks verify the actual exported HTML, lazy chunks and offline worker. Build before testing. See [VERIFICATION.md](VERIFICATION.md) for the distinction between controlled doubles and interactive browser evidence.
 
 ## A typical session
 
@@ -99,15 +104,17 @@ The tracked `.openai/hosting.json` belongs to the existing hosted CHORYN deploym
 
 | Path | Purpose |
 | --- | --- |
-| `src/app.js` | Editor shell, shared save/undo flow and transport |
-| `src/engine.js` | Project model, validation and performance sampling |
-| `src/timeline-*.js` | Timeline editing, selection, timing and gestures |
-| `src/ensemble-*.js` | Cast assignment, attendance, constraints and show tools |
-| `src/stage2d.js`, `src/stage3d.js` | SVG and WebGL stage renderers |
-| `src/production-*.js` | Stage, lighting, appearance, camera and production tools |
-| `src/view-video.js`, `src/mp4-export.js` | Matching-view capture and MP4 export |
-| `src/image-exports.js` | Image previews and batch downloads |
-| `src/pwa.js`, `sw.js` | Installation, updates and offline files |
+| `app/layout.tsx`, `app/page.tsx`, `app/studio-client.tsx` | Next.js metadata, application route and client host |
+| `src/types.ts` | Shared score, pose, production, view and export contracts |
+| `src/app.ts` | Editor shell, shared save/undo flow and transport |
+| `src/engine.ts` | Project model, validation and performance sampling |
+| `src/timeline-*.ts` | Timeline editing, selection, timing and gestures |
+| `src/ensemble-*.ts` | Cast assignment, attendance, constraints and show tools |
+| `src/stage2d.ts`, `src/stage3d.ts` | SVG and WebGL stage renderers |
+| `src/production-*.ts` | Stage, lighting, appearance, camera and production tools |
+| `src/view-video.ts`, `src/mp4-export.ts` | Matching-view capture and MP4 export |
+| `src/image-exports.ts` | Image previews and batch downloads |
+| `src/pwa.ts`, `sw.ts` | Installation, updates and offline files |
 | `tests/` | Model, workflow and regression checks |
 | `scripts/` | Local server and static build |
 
@@ -121,4 +128,4 @@ Browser capabilities vary. Physical iPad and phone testing requires access to th
 
 ## Third-party code
 
-The bundled Mediabunny distribution is unmodified and licensed under MPL-2.0. Its [notice](src/mediabunny.NOTICE.txt) and [license](src/mediabunny.LICENSE.txt) are included with the source. No project-wide license has been declared.
+The bundled Mediabunny JavaScript distribution is unmodified and licensed under MPL-2.0; its matching upstream TypeScript declarations are included. Its [notice](src/mediabunny.NOTICE.txt) and [license](src/mediabunny.LICENSE.txt) are included with the source and deployment. Framework packages retain their own licenses. No project-wide license has been declared.

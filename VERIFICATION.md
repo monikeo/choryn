@@ -1,4 +1,20 @@
-# CHORYN v0.18.3 attendance protection — 1 November 2026
+# CHORYN v0.19.0 Next.js and TypeScript — 1 November 2026
+
+455 tests pass: the previous 451 plus four checks against the actual Next.js export. Application and service-worker TypeScript checks pass, and `next build --webpack` produces static application and not-found routes. Build `ccc8289b503336fd` contains 70 output files and 71 integrity-checked offline entries. The production entry loads Next.js hydration bundles, rather than `/src/boot.js`.
+
+The runtime modules, TSX application host, configuration and worker are TypeScript. The pinned third-party Mediabunny JavaScript distribution remains unmodified with matching upstream declarations. The existing editor uses `strict: false`; compiler errors are not ignored. ARCHITECTURE.md describes this boundary and the isolated JavaScript/legacy-shell fixtures used by the Node regression suite.
+
+New framework tests verify generated HTML/metadata/icons, all exported checksums, lazy 3D/media chunks and actual compiled-worker installation. With network access disabled in the Node cache harness, the root and every Next.js script are served from the installed build. Existing attendance protection, timeline/fullscreen, cast, production, image, media, storage and recovery checks remain passing.
+
+## Interactive migration check
+
+The supported in-app desktop browser initially opened an older cached v0.6 preview on port 4174. Its normal **Save and update** action loaded the Next.js build and retained the existing project. The DOM then showed build `ccc8289b503336fd` and generated `/_next/static/chunks/` script URLs. The offline panel reported **71 / 71 app files verified**. This demonstrates browser worker upgrade/readiness, not OS-level PWA installation.
+
+A separate four-person QA project exercised creation, timeline split at eight seconds, duplicate, Undo, 2D view, fullscreen 3D playback and the fullscreen timeline toggle. A real silent 3D H.264 MP4 from 12–14 seconds rendered through the bundled media code and decoded with readyState 4 and no media error. The downloaded file is 1638×480, 236,016 bytes, with 60 packets over two seconds, zero-based 1/30-second timestamps and no audio.
+
+Desktop Chromium viewport checks covered 390×844 phone and 1024×768 tablet layouts. The phone document and viewport were both 390 pixels wide. Screenshots and parsed media metadata are retained in the workspace's `docs/nextjs-qa-2026-11-01/` directory, outside the source repository. No warning/error browser logs were recorded. Physical device touch, other-browser codecs, AAC export and OS installation were not tested in this migration run. The temporary viewport override was reset.
+
+## Retained v0.18.3 attendance protection evidence
 
 451 automated tests pass, including 12 new regressions. All 69 source/script syntax checks and 210 relative module paths pass. Build `f8f39203d1786f66` contains 111 output files and 112 integrity-checked offline entries. Local Markdown links and Git whitespace checks pass.
 
