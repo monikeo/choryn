@@ -5,8 +5,16 @@ import {sampleProps} from './prop-motion.js';
 const round=n=>Math.round(n*1000)/1000,dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const angle=n=>((n+540)%360)-180;
 function editable(project,formation){if(!formation||formation.status==='approved'||project.production?.layers.formations.locked)throw Error('Unlock the affected formation and its track first.');}
+const attendanceRoleIds=(project,time)=>new Set(coverageAt(project,time).flatMap(e=>[e.absentId,e.coverId]).filter(Boolean));
+const attendancePoseError=()=>Error('Attendance protects these saved roles. Disable the affected attendance entry before editing their poses or live constraints.');
+function assertAttendancePoses(project,formation,positions,previous){
+ const protectedIds=attendanceRoleIds(project,formation.time);if(!protectedIds.size)return;
+ const old=new Map(previous.map(p=>[p.performerId,p])),next=new Map(positions.map(p=>[p.performerId,p]));
+ for(const id of protectedIds){const a=old.get(id),b=next.get(id);if(a&&(!b||a.x!==b.x||a.z!==b.z||a.facing!==b.facing||(a.visible!==false)!==(b.visible!==false)))throw attendancePoseError();}
+}
 export function assertEnsembleEdits(before,after){
  if(!before.ensemble||!after.ensemble)return;
+ const forms=new Map(before.formations.map(f=>[f.id,f]));for(const f of after.formations){const previous=forms.get(f.id);if(previous)assertAttendancePoses(after,f,f.positions,previous.positions);}
  const changed=JSON.stringify(before.ensemble.attendance)!==JSON.stringify(after.ensemble.attendance);
  for(const f of before.formations.filter(f=>f.status==='approved')){
   if(changed){const affected=(project)=>project.ensemble.attendance.filter(e=>{const w=coverageWindow(project,e);return e.enabled&&w.valid&&f.time>=w.start&&f.time<w.end;});if(JSON.stringify(affected(before))!==JSON.stringify(affected(after)))throw Error('Unlock the approved formations before changing attendance.');}
@@ -46,11 +54,13 @@ export function constrainedPositions(project,formationId,positions,previous=posi
  return positions.map(p=>points.get(p.performerId));
 }
 export function enforceConstraints(project,previous=project){
- if(!project.ensemble?.constraints.length)return project;const before=new Map(previous.formations.map(f=>[f.id,f]));
- for(const f of project.formations){const proposed=constrainedPositions(project,f.id,f.positions,before.get(f.id)?.positions||f.positions);if(proposed.some((p,i)=>dist(p,f.positions[i])>.00001||p.facing!==f.positions[i].facing)){editable(project,f);f.positions=proposed;}}
+ if(!project.ensemble?.constraints.length)return project;const before=new Map(previous.formations.map(f=>[f.id,f])),updates=[];
+ for(const f of project.formations){const original=before.get(f.id)?.positions||f.positions,proposed=constrainedPositions(project,f.id,f.positions,original);assertAttendancePoses(project,f,proposed,original);if(proposed.some((p,i)=>dist(p,f.positions[i])>.00001||p.facing!==f.positions[i].facing)){editable(project,f);updates.push([f,proposed]);}}
+ for(const [f,positions]of updates)f.positions=positions;
  return project;
 }
 export function addConstraint(project,formationId,type,members,value){
+ const current=project.formations.find(f=>f.id===formationId);editable(project,current);const protectedIds=attendanceRoleIds(project,current.time);if(members.some(id=>protectedIds.has(id)))throw attendancePoseError();
  const next=clone(project),f=next.formations.find(f=>f.id===formationId);editable(project,f);const axis=type.endsWith('x')?'x':'z';members=[...new Set(members)];if(type.startsWith('space'))members.sort((a,b)=>f.positions.find(p=>p.performerId===a)?.[axis]-f.positions.find(p=>p.performerId===b)?.[axis]);
  next.ensemble.constraints.push({id:uid(),formationId,type,members,value});validateProject(next);enforceConstraints(next,project);return validateProject(next);
 }

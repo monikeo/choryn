@@ -1,4 +1,20 @@
-# CHORYN v0.18.2 fullscreen and MP4 audit — 30 October 2026
+# CHORYN v0.18.3 attendance protection — 1 November 2026
+
+451 automated tests pass, including 12 new regressions. All 69 source/script syntax checks and 210 relative module paths pass. Build `f8f39203d1786f66` contains 111 output files and 112 integrity-checked offline entries. Local Markdown links and Git whitespace checks pass.
+
+New checks reject all four live-rule types involving an active missing role or cover, verify every saved pose field, block indirect propagation through older rules, and prove multi-formation enforcement is atomic. The actual shared save/commit path restores history and avoids persistence on failure. UI event tests cover eligible default members, unaffected-cast Apply and removal of stale Apply previews. A blocked rule reads no embedded 1 MB floor-plan payload. Shared 2D frames and canonical 3D scenes retain cover identity across desktop/fullscreen/tablet/phone viewport fixtures. The production 3D draw/capture MP4 integration checks unchanged authored poses after rejection and export with controlled WebGL/encoder doubles.
+
+## Interactive desktop check, 1 November
+
+The supported in-app Chromium browser ran the built local preview. A separate four-person QA score used Sofia as missing and Oliver as cover over all formations. The initial rule selection chose Amara and Noah; that unaffected pair produced a valid preview. Selecting Sofia and Oliver instead rejected the rule and removed the earlier Apply action. The same rejection worked from fullscreen 2D and normal 3D. The covered performer's position, facing and visibility controls were disabled, and fullscreen showed the attendance-specific stage hint. Fullscreen retained the timeline toggle and Cast & show tools. Previewing attendance disabled restored Sofia at X −5.79/Z −3.2 and Oliver at X 5.09/Z −3.2, matching the original poses. No application warning/error logs were recorded.
+
+Two actual H.264 MP4s were rendered from 12–14 seconds with attendance active and decoded in the browser with readyState 4 and no media error. The 2D sample was 2954×480, 187,045 bytes; the fullscreen-source 3D sample was 1638×480, 206,743 bytes. Each contains 60 video packets over two seconds with 1/30-second timestamp spacing and no audio. The visible 3D preview retained Oliver, Amara and Noah, with Sofia absent, using the current stage camera. A bundled-parser inspection confirmed AVC tracks, dimensions, duration and packet timing. These are real desktop encoder/decoder checks; they do not establish AAC/music export on this run or other devices' capabilities.
+
+Screenshots, the two sample files and parsed metadata are retained in the workspace's `docs/browser-qa-2026-11-01/` directory, outside the source repository. Browser QA used the supported in-app browser only. The first local preview attempt timed out under restricted socket access; the authorized portable server was restarted with network access and returned HTTP 200 before the successful browser run. No native Firefox automation was used.
+
+There are no physical iPad, tablet or phone sessions available. Automated viewport fixtures and prior desktop viewport checks do not establish physical touch gestures, all browsers, native platform fullscreen behavior, device GPU frame rates or PWA installation.
+
+## Retained v0.18.2 evidence — 30 October 2026
 
 439 automated tests pass, including 16 new regressions. All 69 source/script syntax files and 210 relative module paths resolve. Build `175c8ec3e1728d7d` contains 111 output files and 112 integrity-verified offline entries.
 

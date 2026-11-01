@@ -1,4 +1,12 @@
-# Cast & show tools · v0.18.2
+# Cast & show tools · v0.18.3
+
+## Attendance-safe live constraints in 0.18.3
+
+Active attendance protects both the missing role and the cover's original saved pose at each affected formation. New live rules involving either role are rejected. Existing rules cannot move a protected role indirectly through another member. Shared saves also check X/Z position, facing and visibility, so opening the tools from 2D, 3D or fullscreen does not bypass protection. Constraint enforcement plans every formation before applying changes; a rejected operation does not partially update earlier formations.
+
+The initial constraint selection skips active attendance roles and existing rule members. A rejected preview clears any previous Apply action. Unaffected cast and formations outside the attendance range remain editable. To edit an original role, disable its attendance entry, preview and apply that change, then edit the pose. Re-enable attendance to rehearse the cover again. The stage hint identifies attendance protection separately from approval or a track lock.
+
+The 1 November desktop browser check used a separate four-person score. Protected previews were rejected in normal 2D, fullscreen 2D and 3D; an unaffected pair could preview normally. Disabling attendance in preview restored both original positions. Actual silent 2D and fullscreen-source 3D MP4 exports decoded without errors and retained the visible cover. See VERIFICATION.md for evidence and device limits.
 
 ## Fullscreen and capture corrections in 0.18.2
 
@@ -68,4 +76,4 @@ Routine changes load/decode locally; this is not gapless show audio or a merged 
 
 ## Verification
 
-439 automated tests pass: the previous 423 plus 16 fullscreen/export audit regressions. New checks cover duplicate/stale exports, cancellation while music prepares, MP4 result type, URL cleanup, serialized/rejected fullscreen operations, second-screen pitch, stable 100-person 3D labels, selected-FPS recording, live/export camera and attendance labels at desktop/fullscreen/tablet/phone viewport fixtures, and invariant 3D projection from 480p through 1440p. Production draw/capture and MP4-loop code runs with DOM/WebGL/encoder doubles; the bundled muxer's real AVC-container/parser roundtrip remains passing. Earlier assignment, live-rule, prop/appearance, show, timeline, image and PWA checks remain passing. These do not establish computed layout, physical touch, native popup/fullscreen/monitor behavior, real GPU occlusion/frame rate, actual device MP4 encoding or PWA installation. Browser UI remains unavailable after the earlier denial; no workaround was attempted.
+451 automated tests pass, including 12 attendance-protection regressions added to the previous 439. They cover all four rule types, direct and propagated pose changes, atomic enforcement, shared-save rollback, eligible default selections, stale previews and retained 2D/3D/export identities. The production MP4-loop integration also checks that active attendance and a rejected constraint leave authored poses unchanged. Existing fullscreen, media, timeline, cast, prop/appearance, show and PWA checks remain passing. Interactive desktop evidence is recorded separately in VERIFICATION.md. Physical iPad/phone behavior, every browser's codec/fullscreen support and installed PWA behavior remain unverified.

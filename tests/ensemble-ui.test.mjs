@@ -3,6 +3,22 @@ import assert from 'node:assert/strict';
 import {createProject,validateProject,clone,samplePerformance} from '../src/engine.js';
 import {setupEnsembleTools,openEnsembleTools} from '../src/ensemble-tools.js';
 import {SETLIST_KEY} from '../src/setlists.js';
+test('constraint defaults skip active missing/cover roles and rejected previews cannot leave an old Apply action',()=>{
+ const f=fixture();try{
+  const p=f.project,[a,b,c,d]=p.performers;p.ensemble.attendance.push({id:'active-cover',absentId:a.id,coverId:b.id,fromId:p.formations[1].id,toId:p.formations[2].id,enabled:true});
+  openEnsembleTools('constraints');const checked=[...f.html.matchAll(/name="members" value="([^"]+)" checked/g)].map(v=>v[1]);assert.deepEqual(checked,[c.id,d.id]);
+  f.submit('constraint',{formationId:p.formations[1].id,type:'mirror-x',members:[c.id,d.id],value:'0'});assert.match(f.preview.innerHTML,/Apply preview/);
+  const before=clone(p);f.submit('constraint',{formationId:p.formations[1].id,type:'mirror-x',members:[a.id,b.id],value:'0'});
+  assert.match(f.status.textContent,/Attendance protects/);assert.equal(f.preview.innerHTML,'');assert.equal(f.writes,0);assert.deepEqual(f.project,before);
+ }finally{f.cleanup();}
+});
+test('unaffected constraint previews still apply while an attendance overlay is active',()=>{
+ const f=fixture();try{
+  const p=f.project,[a,b,c,d]=p.performers;p.ensemble.attendance.push({id:'active-cover',absentId:a.id,coverId:b.id,fromId:p.formations[1].id,toId:p.formations[2].id,enabled:true});const before=clone(p.formations[1].positions.slice(0,2));
+  openEnsembleTools('constraints');f.submit('constraint',{formationId:p.formations[1].id,type:'mirror-x',members:[c.id,d.id],value:'0'});
+  const token=f.preview.innerHTML.match(/data-token="([^"]+)"/)[1];f.click('apply',{token});assert.equal(f.writes,1);assert.deepEqual(f.project.formations[1].positions.slice(0,2),before);
+ }finally{f.cleanup();}
+});
 function fixture({readOnly=false}={}){
  const names=['document','window','localStorage','FormData'],original=Object.fromEntries(names.map(k=>[k,globalThis[k]])),document=new EventTarget(),window=new EventTarget(),map=new Map(),dialog=new EventTarget(),preview={innerHTML:'',replaceChildren(){this.innerHTML='';}},sightlines={innerHTML:''},status={textContent:''},downloads=[];let project=createProject('Cast UI',4),html='',writes=0,importInput;
  project.performers.forEach(v=>{v.group='A';v.role='Ensemble';});project.formations[0].positions.forEach((v,i)=>Object.assign(v,{x:i*2-3,z:0}));project.formations[1].positions.forEach((v,i)=>Object.assign(v,{x:3-i*2,z:0}));dialog.open=true;
