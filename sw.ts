@@ -7,26 +7,34 @@ const CACHE='choryn-shell-__BUILD_VERSION__';
 const SHELL=__SHELL_PATHS__;
 const EXPECTED=__SHELL_INTEGRITY__;
 const allowed=new Set(SHELL);
-async function acceptable(response,path){
- if(!response.ok||!response.url||!EXPECTED[path])return false;
+const HTML_PATHS=['/','/index.html','/offline.html','/offline'];
+// `make` returns a new response for each caller. Verified bodies are read
+// exactly once and replayed from memory, so caching and responding never
+// depend on tee'd clones (which some runtimes cancel during collection).
+type Checked={ok:boolean;make:()=>Response};
+async function verify(response:Response,path:string):Promise<Checked>{
+ const untouched={ok:false,make:()=>response};
+ if(!response.ok||!response.url||!EXPECTED[path])return untouched;
  const finalURL=new URL(response.url);
- if(finalURL.origin!==worker.location.origin||response.redirected&&!(finalURL.pathname===({'/index.html':'/','/offline.html':'/offline'})[path]&&!finalURL.search))return false;
- const type=response.headers.get('content-type')||'';
+ if(finalURL.origin!==worker.location.origin||response.redirected&&!(finalURL.pathname===({'/index.html':'/','/offline.html':'/offline'})[path]&&!finalURL.search))return untouched;
+ const type=response.headers.get('content-type')||'',html=HTML_PATHS.includes(path);
+ if(html&&!/text\/html/.test(type))return untouched;
+ if(path.endsWith('.js')&&!/javascript/.test(type)||path.endsWith('.css')&&!/text\/css/.test(type))return untouched;
+ const bytes=await response.arrayBuffer(),init={status:response.status,statusText:response.statusText,headers:response.headers};
+ const make=()=>new Response(bytes.slice(0),init);
  // Hosting adds request-specific security scripts to HTML. Preserve those
  // responses unchanged and verify our build tag; keep exact hashes for assets.
- if(['/','/index.html','/offline.html','/offline'].includes(path)){
-  if(!/text\/html/.test(type))return false;
-  const html=await response.clone().text(),version=CACHE.replace('choryn-shell-','');
-  return html.includes('name="application-name" content="CHORYN"')&&html.includes(`name="choryn-build" content="${version}"`);
+ if(html){
+  const text=await make().text(),version=CACHE.replace('choryn-shell-','');
+  return {ok:text.includes('name="application-name" content="CHORYN"')&&text.includes(`name="choryn-build" content="${version}"`),make};
  }
- if(path.endsWith('.js')&&!/javascript/.test(type)||path.endsWith('.css')&&!/text\/css/.test(type))return false;
- const bytes=await response.clone().arrayBuffer(),digest=await crypto.subtle.digest('SHA-256',bytes);
- return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')===EXPECTED[path];
+ const digest=await crypto.subtle.digest('SHA-256',bytes);
+ return {ok:Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')===EXPECTED[path],make};
 }
 async function cachedPaths(cache){return new Set((await cache.keys()).map(request=>new URL(request.url,worker.location.origin).pathname));}
 async function prepare(paths){
- const results=new Map();let cursor=0,failure;
- await Promise.all(Array.from({length:Math.min(6,paths.length)},async()=>{while(cursor<paths.length){const path=paths[cursor++];try{const response=await fetch(new Request(path,{credentials:'same-origin',cache:'reload'}));if(!await acceptable(response,path))throw Error('The online application changed or requires sign-in. Check for updates while online.');results.set(path,response);}catch(error){failure||=error;}}}));
+ const results=new Map<string,Response>();let cursor=0,failure;
+ await Promise.all(Array.from({length:Math.min(6,paths.length)},async()=>{while(cursor<paths.length){const path=paths[cursor++];try{const checked=await verify(await fetch(new Request(path,{credentials:'same-origin',cache:'reload'})),path);if(!checked.ok)throw Error('The online application changed or requires sign-in. Check for updates while online.');results.set(path,checked.make());}catch(error){failure||=error;}}}));
  if(failure)throw failure;return results;
 }
 worker.addEventListener('install',event=>{event.waitUntil((async()=>{
@@ -57,8 +65,8 @@ worker.addEventListener('fetch',event=>{
  if(event.request.method!=='GET'||url.origin!==worker.location.origin||!allowed.has(url.pathname)||url.search)return;
  event.respondWith((async()=>{
   let cache;try{cache=await caches.open(CACHE);const cached=await cache.match(url.pathname);if(cached)return cached;}catch{}
-  try{const response=await fetch(event.request);if(await acceptable(response,url.pathname)){try{await cache?.put(url.pathname,response.clone());}catch{}return response;}
-   if(event.request.mode==='navigate')return response;
+  try{const checked=await verify(await fetch(event.request),url.pathname);if(checked.ok){try{await cache?.put(url.pathname,checked.make());}catch{}return checked.make();}
+   if(event.request.mode==='navigate')return checked.make();
    return new Response('This app asset does not match the installed version. Reconnect and check for updates.',{status:503});
   }catch{return event.request.mode==='navigate'?(await cache?.match('/offline.html'))||new Response('Open CHORYN online once to prepare offline rehearsal.',{status:503}):new Response('Asset unavailable offline',{status:503});}
  })());

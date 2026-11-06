@@ -2,6 +2,11 @@ import {cp,mkdir,readFile,readdir,rm,writeFile} from 'node:fs/promises';
 import {resolve,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {stripTypeScriptTypes} from 'node:module';
+
+// Node 22 labels type stripping experimental and has no option to silence it;
+// the runner relies only on its stable "strip" mode.
+const emitWarning=process.emitWarning;
+process.emitWarning=(warning,...rest)=>String(warning?.message??warning).includes('stripTypeScriptTypes')?undefined:emitWarning.call(process,warning,...rest);
 import {spawnSync} from 'node:child_process';
 
 // Keep the regression suite's executable JavaScript/VM fixtures isolated from

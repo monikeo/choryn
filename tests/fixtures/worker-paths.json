@@ -22,6 +22,8 @@
   "/src/camera-controls.js",
   "/src/navigation-dock.js",
   "/src/navigation.css",
+  "/src/sheet-gesture.js",
+  "/src/responsive.css",
   "/src/branding.css",
   "/icons/choryn-mark-light.svg",
   "/icons/choryn-mark-dark.svg",

@@ -12,6 +12,15 @@ The workstation still uses named views and URL hashes within one application rou
 
 The high-frequency editor has not been rewritten as a tree of React controls. It is part of the Next.js module graph and production bundles, rather than a separate HTML application inside an iframe. The former root HTML document is retained only as an isolated regression fixture under `tests/fixtures/`.
 
+## Form factors
+
+One DOM serves three layouts. `src/responsive.css` is imported last in `app/layout.tsx` and resolves the breakpoint conflicts that earlier per-release stylesheets accumulated:
+
+- **Desktop (≥1200px)**: rail, tabs, three resizable panes and a status bar. The timeline height follows the window height.
+- **Tablet (768–1199px)**: rail and tabs with a stage-first canvas. Landscape tablets up to 940px tall use a single-line heading and a height-aware timeline. The inspector opens as a sheet.
+- **Phone (<768px)**: compact header, bottom tab bar (More is highlighted for overflow workspaces), and dialogs as bottom sheets anchored to the visible viewport, so they sit above the on-screen keyboard. Drag a sheet's header down to dismiss it (`src/sheet-gesture.ts`). Phones up to 700px tall and feature pages show the timeline transport only; Edit expands the full timeline.
+- **Phone landscape (≤500px tall, ≤1023px wide)**: navigation moves to a side rail. The workbench actions move into the canvas toolbar, and the zoom controls dock beside the stage.
+
 ## TypeScript boundaries
 
 All 63 application runtime modules under `src/` are TypeScript. `src/types.ts` adds shared contracts for performers, poses, formations, props, attendance, tracks, cues, cameras, views and exports. Browser-only declarations document optional platform APIs. Imported project data continues through the existing runtime validators; compile-time types do not replace validation.

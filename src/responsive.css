@@ -1,0 +1,260 @@
+/* =========================================================================
+   Responsive layer — loaded last, after every feature stylesheet.
+
+   Three form factors share one DOM:
+     Desktop  ≥1200px        rail · header · tabs · three panes · status bar
+     Tablet   768–1199px     rail · header · tabs · stage-first canvas, sheets
+     Phone    <768px         compact header · bottom tab bar · bottom sheets
+     Phone landscape         (short landscape ≤500px tall, ≤1023px wide)
+                             side navigation rail · transport-only timeline
+
+   Earlier stylesheets tuned each release separately; the rules below resolve
+   their conflicts in one place. Manual timeline sizes (inline !important,
+   `.manually-sized`) always win over these defaults.
+   ========================================================================= */
+
+:root{
+ --safe-left:env(safe-area-inset-left,0px);
+ --safe-right:env(safe-area-inset-right,0px);
+ --phone-rail:calc(72px + var(--safe-left));
+}
+
+/* -------------------------------------------------------------------------
+   Shared
+   ------------------------------------------------------------------------- */
+
+/* Compact stage navigation: a single icon until opened, so the floating
+   control never covers performers on narrower canvases. */
+@media (max-width:1199px),(pointer:coarse){
+ .viewport-navigation:not([open]){border-radius:12px;overflow:visible}
+ .viewport-navigation:not([open])>summary{display:grid;place-items:center;width:40px;height:40px;min-height:40px;padding:0;font-size:0;line-height:0;list-style:none;border-radius:12px}
+ .viewport-navigation:not([open])>summary::-webkit-details-marker{display:none}
+ .viewport-navigation:not([open])>summary::before{content:'';display:block;width:19px;height:19px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20'/%3E%3C/svg%3E") center/contain no-repeat}
+}
+@media (pointer:coarse){.viewport-navigation:not([open])>summary{width:44px;height:44px;min-height:44px}}
+
+/* Stage captions flow beneath the floor instead of floating at per-breakpoint
+   offsets, so they can never sit on the SVG's own axis labels. The space they
+   take replaces the bottom padding that previously reserved room for them. */
+.stage-viewport>.audience-label,.stage-viewport>.canvas-hint{position:static;left:auto;right:auto;bottom:auto;transform:none;flex-shrink:0;max-width:100%}
+.stage-viewport>.audience-label{margin-top:6px;width:auto}
+.stage-viewport>.canvas-hint{margin-top:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.stage-viewport:not(:has(.webgl-stage)){padding-bottom:10px}
+
+@keyframes choryn-sheet-in{from{transform:translateY(calc(-100% + 32px));opacity:.4}to{transform:translateY(-100%);opacity:1}}
+
+/* The workspace sheet marks where you are, like a native tab overflow. */
+.workspace-menu>button[aria-current=page]{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+
+/* Canvas toolbar inside narrower stage panes (e.g. a 1280px laptop with both
+   side panels open): first collapse the labelled cast button to its icon,
+   then wrap. Previously the 651–740px range overflowed under the inspector. */
+@container stagepanel (max-width:800px){
+ .canvas-toolbar{gap:6px;padding-inline:12px}
+ .canvas-toolbar .ensemble-open{font-size:0;gap:0;width:34px;min-width:34px;padding:0;justify-content:center}
+ .canvas-toolbar .ensemble-open>span{display:none}
+ .canvas-toolbar .tool-separator{margin-inline:3px}
+}
+@container stagepanel (max-width:700px){
+ .canvas-toolbar{flex-wrap:wrap;height:auto;min-height:46px;padding-block:6px}
+ .canvas-toolbar .view-controls{margin-left:auto}
+}
+
+/* The rail scrolls instead of clipping its lower actions on short windows. */
+@media (min-width:768px) and (max-height:640px){
+ .app-rail{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+ .app-rail::-webkit-scrollbar{display:none}
+ .rail-top{gap:6px}
+}
+
+/* -------------------------------------------------------------------------
+   Desktop (≥1200px)
+   ------------------------------------------------------------------------- */
+@media (min-width:1200px){
+ /* The timeline follows the window height so the stage keeps priority on
+    laptops and grows on tall monitors. */
+ .timeline:not(.expanded):not(.manually-sized){height:clamp(196px,27vh,300px);min-height:196px}
+ .timeline.has-movement:not(.expanded):not(.manually-sized),
+ .timeline.has-prop-frames:not(.expanded):not(.manually-sized){height:clamp(220px,30vh,330px);min-height:220px}
+ .timeline.expanded:not(.manually-sized){height:clamp(300px,42vh,480px);min-height:300px}
+}
+
+/* -------------------------------------------------------------------------
+   Tablet (768–1199px)
+   ------------------------------------------------------------------------- */
+
+/* Landscape tablets and installed tablet apps between 801 and 940px tall:
+   a single-line heading and a height-aware timeline give the stage roughly
+   twice the room it had. (≤800px is already compact.) */
+@media (min-width:768px) and (max-width:1199px) and (min-height:801px) and (max-height:940px){
+ .canvas-heading{display:flex;align-items:center;justify-content:space-between;margin:8px 20px 0;min-height:37px}
+ .canvas-heading h1{font-size:22px;margin:0}
+ .canvas-heading .eyebrow,.canvas-subtitle,.canvas-hint{display:none}
+ .stage-viewport{min-height:0;padding:18px 22px 28px}
+ .audience-label{bottom:8px}
+ .canvas-bottom{min-height:46px;padding:4px 14px}
+}
+@media (min-width:768px) and (max-width:1199px) and (max-height:940px){
+ /* 214px = transport + edit bar + ruler + compact music + formation lane. */
+ .timeline:not(.expanded):not(.manually-sized){height:clamp(214px,27vh,240px);min-height:214px}
+ .timeline.has-movement:not(.expanded):not(.manually-sized),
+ .timeline.has-prop-frames:not(.expanded):not(.manually-sized){height:clamp(248px,31vh,276px);min-height:248px}
+ .timeline .transport{height:50px;min-height:50px}
+ .timeline:not(.expanded) .track-name.music-track{height:44px}
+ .timeline:not(.expanded) .audio-lane{height:36px;margin-top:4px;margin-bottom:4px}
+ .timeline:not(.expanded) .audio-lane>svg{height:24px}
+}
+
+/* -------------------------------------------------------------------------
+   Phone portrait (<768px)
+   ------------------------------------------------------------------------- */
+@media (max-width:767px){
+ /* Header: an icon-only export button keeps the title readable; the label
+    remains the accessible name. */
+ .header-actions>.button.primary{font-size:0;gap:0;padding:0;justify-content:center;flex-shrink:0}
+ .header-actions>.button.primary>.icon:last-child{display:none}
+ .project-title{min-height:44px;align-items:center}
+ .workbench-bar button[data-workbench=commands]{min-width:44px;justify-content:center}
+
+ /* Feature pages (production, analysis, review…) keep a transport bar only;
+    Edit expands the full timeline when needed. */
+ .feature-mode+.timeline:not(.expanded):not(.manually-sized){height:auto;min-height:0}
+ .feature-mode+.timeline:not(.expanded):not(.manually-sized) .timeline-body,
+ .feature-mode+.timeline:not(.expanded):not(.manually-sized) .timeline-editbar{display:none!important}
+
+ /* Native bottom sheet. compat.css pinned phone dialogs to the top of the
+    visible viewport (so the keyboard can't cover inputs), which left short
+    sheets floating mid-screen. Anchoring the sheet's bottom edge to the
+    bottom of the *visible* viewport keeps that keyboard guarantee: with the
+    keyboard open the sheet rides directly above it. */
+ dialog[open]{inset:auto 0;top:calc(var(--visible-top,0px) + var(--visible-height,100vh));transform:translateY(calc(-100% + var(--sheet-drag,0px)));
+  margin:0;width:100%;max-width:100%;max-height:calc(var(--visible-height,100vh) - 12px);
+  border-radius:21px 21px 0 0;padding-bottom:var(--safe-bottom);overflow:auto;overscroll-behavior:contain;
+  animation:choryn-sheet-in .24s cubic-bezier(.2,.8,.2,1)}
+ dialog.wide{width:100%;max-width:100%}
+ dialog::backdrop{background:rgba(20,14,32,.38)}
+ /* Drag-to-dismiss starts from the header (see sheet-gesture.ts). */
+ dialog .modal-header{touch-action:none}
+ dialog.sheet-dragging{user-select:none;-webkit-user-select:none}
+
+ /* Bottom sheets and the tab bar respect landscape notches too. */
+ .native-nav{padding-left:calc(5px + var(--safe-left));padding-right:calc(5px + var(--safe-right))}
+ .native-nav>button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+ /* The toolbar scrolls sideways rather than wrapping (which costs stage
+    height) or clipping a tool on narrow phones. */
+ .canvas-toolbar{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+ .canvas-toolbar::-webkit-scrollbar{display:none}
+ .canvas-toolbar .toolbar-tools{flex-shrink:0;min-width:max-content}
+}
+@media (max-width:359px){
+ .toolbar-tools>.icon-button{width:34px}
+ .toolbar-tools .tool-separator{margin:0 2px}
+ .view-switch button{min-width:30px;padding-inline:4px}
+}
+
+/* Short phones (≤700px tall: SE-class devices, and most phones inside Safari
+   once its toolbars take their share): the collapsed timeline shows its
+   transport only — as native.css intended before adaptive.css overrode it —
+   so the stage roughly doubles. The formation chips still switch formations
+   and Edit expands the full timeline. */
+@media (max-width:767px) and (max-height:700px){
+ .timeline:not(.expanded):not(.manually-sized){height:auto;min-height:0}
+ .timeline:not(.expanded):not(.manually-sized) .timeline-body,
+ .timeline:not(.expanded):not(.manually-sized) .timeline-editbar{display:none!important}
+ /* While editing the timeline, the heading and zoom bar step aside so the
+    stage preview keeps useful height. */
+ .timeline.expanded:not(.manually-sized){height:clamp(240px,42vh,300px);min-height:240px}
+ .timeline-open .canvas-heading,.timeline-open .canvas-bottom{display:none}
+}
+
+/* -------------------------------------------------------------------------
+   Phone landscape (short landscape screens, ≤1023px wide)
+   Bottom bars would leave almost no stage, so navigation becomes a side rail
+   (as native phone apps do in landscape) and the timeline shows its
+   transport only until Edit expands it.
+   ------------------------------------------------------------------------- */
+@media (orientation:landscape) and (max-height:500px) and (max-width:1023px){
+ #app{padding-left:var(--phone-rail);padding-right:var(--safe-right)}
+ .app-rail{display:none}
+
+ .native-nav{display:flex;position:fixed;z-index:30;left:0;top:0;bottom:0;width:var(--phone-rail);min-height:0;
+  flex-direction:column;justify-content:center;gap:4px;
+  padding:calc(6px + var(--safe-top)) 6px calc(6px + var(--safe-bottom)) calc(6px + var(--safe-left));
+  border-top:0;border-right:1px solid var(--border);overflow-y:auto;scrollbar-width:none}
+ .native-nav::-webkit-scrollbar{display:none}
+ .native-nav{background:var(--surface)}
+ .native-nav>button{display:flex;align-items:center;justify-content:center;flex:0 0 auto;flex-direction:column;width:100%;min-width:0;min-height:50px;gap:3px;font-size:9px;font-weight:500;line-height:1.2;padding:5px 2px;border-radius:10px;color:var(--secondary)}
+ .native-nav>button>.icon{width:20px;height:20px;stroke-width:1.7}
+ .native-nav>button.active{color:var(--accent);background:var(--accent-soft)}
+
+ /* Toolbar: the cast button collapses to its icon so every tool fits;
+    anything still too wide scrolls rather than clipping. */
+ .canvas-toolbar{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+ .canvas-toolbar::-webkit-scrollbar{display:none}
+ .canvas-toolbar .toolbar-tools,.canvas-toolbar .view-controls{flex-shrink:0}
+ .canvas-toolbar .ensemble-open{font-size:0;gap:0;width:38px;min-width:38px;padding:0;justify-content:center}
+ .canvas-toolbar .ensemble-open>span{display:none}
+
+ /* The canvas toolbar carries compare and command search as icons; "More"
+    in the rail replaces the toolbar's duplicate all-tools button. */
+ .workbench-bar{display:none}
+ .canvas-toolbar .fullscreen-workbench{display:inline-flex!important}
+ .canvas-toolbar .landscape-tools{display:none}
+ .canvas-heading{display:none}
+
+ /* Zoom and view options dock as a small grid in the free margin beside
+    the (wider-than-tall) stage instead of covering the floor. */
+ .canvas-bottom{position:absolute;left:auto;top:auto;right:calc(8px + var(--safe-right));bottom:8px;z-index:3;padding:0;min-height:0;background:none;border:0}
+ .canvas-options{display:grid;grid-template-columns:repeat(2,40px);grid-auto-rows:40px;gap:4px;padding:4px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
+ .canvas-options>.tool-separator,
+ .canvas-options>.icon-button[data-action=snap],
+ .canvas-options>.icon-button[data-action=zoom-selection]{display:none}
+ .canvas-options>.icon-button{width:40px;min-width:0;height:40px}
+ .canvas-options>[data-action=zoom-in]{order:1}.canvas-options>[data-action=zoom-out]{order:2}
+ .canvas-options>[data-action=fit]{order:3}.canvas-options>.fullscreen-button{order:4}
+ .canvas-options>[data-action=grid]{order:5}
+ .canvas-options>.zoom-label{order:6;width:40px;min-width:0;height:40px;font-size:10px;display:grid;place-items:center;padding:0}
+ .stage-fullscreen .canvas-bottom{position:absolute}
+
+ /* Header: compact, with an icon-only export action. */
+ .app-header{height:44px;min-height:44px;padding-top:0}
+ .header-actions>.button.primary{width:44px;min-width:44px;height:40px;min-height:40px;font-size:0;gap:0;padding:0;justify-content:center;flex-shrink:0}
+ .header-actions>.button.primary>.icon:last-child{display:none}
+
+ /* Collapsed timeline = transport only, with no empty band beneath it. */
+ .timeline:not(.expanded):not(.manually-sized),
+ .feature-mode+.timeline:not(.expanded):not(.manually-sized),
+ .timeline.has-movement:not(.expanded):not(.manually-sized),
+ .timeline.has-prop-frames:not(.expanded):not(.manually-sized){height:auto;min-height:0}
+ .timeline:not(.expanded):not(.manually-sized) .timeline-body,
+ .timeline:not(.expanded):not(.manually-sized) .timeline-editbar{display:none!important}
+ .timeline .transport{height:48px;min-height:48px}
+ /* Expanded: timeline.css's portrait minimum (300px) filled the whole screen
+    here; cap it so a strip of stage stays visible above the tracks. */
+ .timeline.expanded:not(.manually-sized){height:clamp(180px,56vh,240px);min-height:0}
+ .timeline-open .canvas-bottom{display:none}
+ /* One scrolling row of edit tools (instead of the phone's two-row grid)
+    keeps the formation lane in view. */
+ /* (timeline.css forces a phone grid with !important, hence the override.) */
+ .timeline.expanded .timeline-editbar,.timeline.manually-sized .timeline-editbar{display:flex!important;flex-wrap:nowrap;align-items:center;gap:10px;min-height:44px;padding:0 8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+ .timeline.expanded .timeline-editbar::-webkit-scrollbar,.timeline.manually-sized .timeline-editbar::-webkit-scrollbar{display:none}
+ .timeline.expanded .timeline-editbar>*,.timeline.manually-sized .timeline-editbar>*{flex:0 0 auto;grid-area:auto}
+ .timeline.expanded .timeline-editbar>.timeline-primary,.timeline.manually-sized .timeline-editbar>.timeline-primary{flex-wrap:nowrap}
+ .timeline.expanded .timeline-editbar>.score-bar,.timeline.manually-sized .timeline-editbar>.score-bar{min-width:300px}
+ .timeline.expanded .track-name.music-track{height:42px}
+ .timeline.expanded .audio-lane{height:34px;margin-top:4px;margin-bottom:4px}
+ .timeline.expanded .audio-lane>svg{height:22px}
+ .transport-right>.timeline-expand{display:flex;width:auto;min-width:54px;height:40px;gap:4px;border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--accent);padding:0 8px;border-radius:8px}
+ .timeline-expand>span{display:inline;font-size:11px;font-weight:600}
+
+ #toast{bottom:calc(60px + var(--safe-bottom))}
+ .stage-fullscreen .canvas-panel{padding-left:var(--safe-left);padding-right:var(--safe-right)}
+}
+/* Very short landscape (≤360px tall): a wider, two-row zoom grid keeps clear
+   of the view-controls button above it. */
+@media (orientation:landscape) and (max-height:360px) and (max-width:1023px){
+ .canvas-options{grid-template-columns:repeat(3,40px)}
+}

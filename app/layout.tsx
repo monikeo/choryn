@@ -17,6 +17,7 @@ import '../src/branding.css';
 import '../src/pwa.css';
 import '../src/navigation.css';
 import '../src/production-next.css';
+import '../src/responsive.css';
 
 export const metadata: Metadata = {
   title: 'CHORYN Studio — From first count to final cue.',
