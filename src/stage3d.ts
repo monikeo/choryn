@@ -533,7 +533,7 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
   const resize=observeSize(host,requestDraw);requestDraw();
   return {camera,get available(){return !disposed&&!contextLost;},get ready(){return floor.ready;},
    /** Last frame: GPU calls, drawing-buffer size, whether instancing and a cached shadow map were used. */
-   get stats(){return {drawCalls,instanced:instancing,indexed,width:canvas.width,height:canvas.height,shadows:!!shadow,shadowReused,renderer:rendererName(),gpuMs:timer&&gpuSamples?gpuMs:null,adaptive:!!timer,scale:quality};},
+   get stats(){return {drawCalls,instanced:instancing,indexed,width:canvas.width,height:canvas.height,shadows:!!shadow,shadowReused,renderer:rendererName(),gpuMs:timer&&gpuMs>0?gpuMs:null,adaptive:!!timer,scale:quality};},
    update(project: Project,positions: Pose[],extras:StageOptions={}){
     if(disposed||contextLost)return;
     const grid=extras.showGrid??currentShowGrid;if(grid!==currentShowGrid){currentShowGrid=grid;dirty=true;}currentLabels=extras.labels??currentLabels;
