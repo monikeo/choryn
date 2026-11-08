@@ -1,6 +1,8 @@
 import type {Project} from './types.js';
 const MAGIC=new TextEncoder().encode('CHORYN2\n');
 const MAX_HEADER=5*1024*1024,MAX_MEDIA=50*1024*1024;
+// Damaged or unrelated files must explain themselves instead of surfacing a raw parser error.
+const parseJSON=(text:string,message:string)=>{try{return JSON.parse(text);}catch{throw new Error(message);}};
 const digest=async blob=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join('');
 export async function packBackup(project: Project,audio){
   if(audio&&audio.size>MAX_MEDIA)throw new Error('Audio exceeds the 50 MB backup limit.');
@@ -14,12 +16,12 @@ export async function unpackBackup(file,validate){
   const prefix=new Uint8Array(await file.slice(0,12).arrayBuffer());
   if(!MAGIC.every((v,i)=>prefix[i]===v)){
     if(file.size>MAX_HEADER)throw new Error('JSON backup is too large.');
-    return {project:validate(JSON.parse(await file.text())),audio:null};
+    return {project:validate(parseJSON(await file.text(),'This file is not a CHORYN project backup. Choose a .choryn file exported from CHORYN.')),audio:null};
   }
   if(prefix.length<12)throw new Error('Backup header is incomplete.');
   const length=new DataView(prefix.buffer).getUint32(8,true);
   if(length<2||length>MAX_HEADER||12+length>file.size)throw new Error('Backup header is invalid.');
-  const header=JSON.parse(await file.slice(12,12+length).text());
+  const header=parseJSON(await file.slice(12,12+length).text(),'Backup header is damaged. Export a new backup from the original device.');
   if(header.format!=='choryn-bundle'||header.version!==1)throw new Error('Unsupported backup version.');
   const project=validate(header.project);
   let audio=null;

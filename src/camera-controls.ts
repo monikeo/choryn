@@ -1,4 +1,5 @@
 import type {Camera,CameraControlsOptions} from './types.js';
+import {createWheelClassifier,bindGesturePinch} from './input-gestures.js';
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const finite=(value,fallback=0)=>Number.isFinite(value)?value:fallback;
 export function safeCamera(camera:Partial<Camera>={}){return {yaw:finite(camera.yaw,.15),pitch:clamp(finite(camera.pitch,.68),.12,1.45),zoom:clamp(finite(camera.zoom,1),.5,3),target:[0,.2,0].map((v,i)=>clamp(finite(camera.target?.[i],v),-200,200))};}
@@ -23,7 +24,11 @@ export function bindCameraControls(canvas,{camera,metrics,changed,mode=()=> 'orb
  },{signal});
  canvas.addEventListener('pointerup',event=>{if(!pointers.has(event.pointerId))return;pointers.delete(event.pointerId);pair=null;panStarted=false;if(!pointers.size)canvas.classList?.remove('camera-dragging');},{signal});
  canvas.addEventListener('pointercancel',event=>{if(pointers.has(event.pointerId))stop();},{signal});canvas.addEventListener('lostpointercapture',event=>{if(pointers.has(event.pointerId))stop();},{signal});
- canvas.addEventListener('wheel',event=>{event.preventDefault();if(pointers.size)return;const delta=wheelPixels(event,metrics().height);panStarted=false;if(!event.ctrlKey&&!event.metaKey&&(event.shiftKey||mode()==='pan'))pan(-delta.x,-delta.y);else apply(zoomCamera(camera,Math.exp(-delta.y*(event.ctrlKey ? .01 : .0015)),following()?null:point(event.clientX,event.clientY),metrics()));},{signal,passive:false});
+ // Mouse wheel zooms at the pointer; a trackpad swipe pans and a pinch zooms
+ // (Ctrl+wheel in Chromium/Firefox, gesture events in Safari).
+ const trackpad=createWheelClassifier(()=>environment.performance?.now?.()??Date.now());
+ canvas.addEventListener('wheel',event=>{event.preventDefault();if(pointers.size)return;const delta=wheelPixels(event,metrics().height);panStarted=false;if(!event.ctrlKey&&!event.metaKey&&(event.shiftKey||mode()==='pan'||trackpad(event)))pan(-delta.x,-delta.y);else apply(zoomCamera(camera,Math.exp(-delta.y*(event.ctrlKey ? .01 : .0015)),following()?null:point(event.clientX,event.clientY),metrics()));},{signal,passive:false});
+ bindGesturePinch(canvas,(factor,clientX,clientY)=>{if(!pointers.size)apply(zoomCamera(camera,factor,following()?null:point(clientX,clientY),metrics()));},{signal});
  canvas.addEventListener('contextmenu',event=>event.preventDefault(),{signal});canvas.addEventListener('dblclick',event=>{event.preventDefault();stop();reset();},{signal});
  canvas.addEventListener('keydown',event=>{let dx=0,dy=0;if(event.key==='ArrowLeft')dx=-24;else if(event.key==='ArrowRight')dx=24;else if(event.key==='ArrowUp')dy=-24;else if(event.key==='ArrowDown')dy=24;else if(event.key==='+'||event.key==='='){apply(zoomCamera(camera,1.1));}else if(event.key==='-'){apply(zoomCamera(camera,1/1.1));}else if(event.key==='Home'){reset();}else if(event.key==='Escape'){stop();}else return;if(dx||dy){panStarted=false;if(event.shiftKey||mode()==='pan')pan(-dx,-dy);else apply(orbitCamera(camera,dx,dy,metrics()));}event.preventDefault();event.stopPropagation();},{signal});
  environment.addEventListener?.('blur',stop,{signal});environment.document?.addEventListener('studio-recover',stop,{signal});environment.document?.addEventListener('visibilitychange',()=>{if(environment.document.visibilityState==='hidden')stop();},{signal});signal?.addEventListener('abort',stop,{once:true});

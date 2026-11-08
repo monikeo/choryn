@@ -7,6 +7,9 @@ const config: NextConfig = {
   devIndicators: false,
   generateBuildId: async()=>process.env.CHORYN_BUILD || 'development',
   images: {unoptimized: true},
+  // npm scripts run from this folder; pin the root so a stray lockfile in a
+  // parent directory is never treated as the workspace root.
+  outputFileTracingRoot: process.cwd(),
   webpack(config) {
     config.resolve.extensionAlias = {'.js': ['.ts', '.tsx', '.js'], '.mjs': ['.mts', '.mjs']};
     return config;

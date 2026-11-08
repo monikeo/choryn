@@ -4,13 +4,13 @@
 .timeline .timeline-editbar>.timeline-primary{flex:0 1 auto;overflow:visible;gap:10px;min-width:0}
 .timeline .timeline-icon-tools{gap:2px;border-right:1px solid var(--border);padding-right:8px;overflow:visible}
 .timeline .timeline-icon-tools .timeline-quick{background:transparent;color:var(--secondary);display:inline-flex!important}
-.timeline .timeline-icon-tools button:hover:not(:disabled),.timeline-more>summary:hover{color:var(--accent);background:var(--accent-soft)}
+@media(any-hover:hover){.timeline .timeline-icon-tools button:hover:not(:disabled),.timeline-more>summary:hover{color:var(--accent);background:var(--accent-soft)}}
 .timeline .timeline-icon-tools [data-timeline-action=delete]{color:var(--danger);margin:0}
 .timeline .timeline-editbar button:disabled{opacity:.35;cursor:default}
 .timeline .timeline-editbar button,.timeline-more>summary{min-width:32px;min-height:32px;border-radius:5px}
 .timeline .timeline-editbar label{gap:4px;color:var(--secondary);font-size:10px}
 .timeline .timeline-editbar select{background:transparent;border-color:transparent;max-width:85px;padding:4px;min-height:32px}
-.timeline .timeline-editbar select:hover{border-color:var(--border)}
+@media(any-hover:hover){.timeline .timeline-editbar select:hover{border-color:var(--border)}}
 .timeline .timeline-editbar>.timeline-zoom{display:flex;flex:0 0 auto;gap:0;margin-left:auto}
 .timeline .timeline-zoom [data-timeline-action=zoom-fit]{min-width:48px;color:var(--secondary);font-size:10px;font-variant-numeric:tabular-nums}
 .timeline .timeline-more{position:relative;flex:none}
@@ -40,7 +40,7 @@
 .timeline .timeline-body-grip{left:3px;top:2px;bottom:2px;width:22px;z-index:6;font-size:20px;opacity:.55}
 .timeline .timeline-handle.start{left:26px;width:7px;opacity:0;background:var(--accent-line)}
 .timeline .timeline-handle.end{width:10px;opacity:0;background:var(--accent-line)}
-.timeline .timeline-formation:hover .timeline-handle,.timeline .clip-selected .timeline-handle,.timeline .movement-lane>button:hover .timeline-handle{opacity:1}
+.timeline .clip-selected .timeline-handle{opacity:1}@media(any-hover:hover){.timeline .timeline-formation:hover .timeline-handle,.timeline .movement-lane>button:hover .timeline-handle{opacity:1}}
 .timeline .movement-lane>button>.timeline-handle.start{left:0;width:10px}
 .timeline .movement-lane>button{padding-left:31px;touch-action:pan-x pan-y}
 .timeline .cue-marker{touch-action:pan-x pan-y}

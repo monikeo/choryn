@@ -63,13 +63,15 @@ export function setupPower(adapter){
     }catch(error){api.toast(error.message);}
   },true);
   document.addEventListener('dragstart',event=>{const row=(event.target as HTMLElement).closest<HTMLElement>('[data-sequence-row]');if(!row)return;sequenceDragged=row.dataset.sequenceRow;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',sequenceDragged);row.classList.add('dragging');});
-  document.addEventListener('dragover',event=>{if(sequenceDragged&&(event.target as HTMLElement).closest<HTMLElement>('[data-sequence-row]')){event.preventDefault();event.dataTransfer.dropEffect='move';}});
-  document.addEventListener('drop',event=>{const row=(event.target as HTMLElement).closest<HTMLElement>('[data-sequence-row]');if(!row||!sequenceDragged)return;event.preventDefault();try{requestSequenceReorder(reorderFormation(api.project(),sequenceDragged,Number(row.dataset.index)),sequenceDragged,sequenceDialog);}catch(error){api.toast(error.message);}sequenceDragged=null;});
-  document.addEventListener('dragend',()=>{sequenceDragged=null;document.querySelectorAll<HTMLElement>('.dragging').forEach(el=>el.classList.remove('dragging'));});
+  // Mouse drag shows the landing row the same way the touch grip does.
+  const markDropRow=(row?:HTMLElement|null)=>document.querySelectorAll<HTMLElement>('[data-sequence-row]').forEach(item=>item.classList.toggle('sequence-drop-target',item===row&&item.dataset.sequenceRow!==sequenceDragged));
+  document.addEventListener('dragover',event=>{const row=(event.target as HTMLElement).closest<HTMLElement>('[data-sequence-row]');if(sequenceDragged&&row){event.preventDefault();event.dataTransfer.dropEffect='move';markDropRow(row);}});
+  document.addEventListener('drop',event=>{const row=(event.target as HTMLElement).closest<HTMLElement>('[data-sequence-row]');if(!row||!sequenceDragged)return;event.preventDefault();markDropRow(null);const id=sequenceDragged;sequenceDragged=null;if(row.dataset.sequenceRow===id)return;try{requestSequenceReorder(reorderFormation(api.project(),id,Number(row.dataset.index)),id,sequenceDialog);}catch(error){api.toast(error.message);}});
+  document.addEventListener('dragend',()=>{sequenceDragged=null;markDropRow(null);document.querySelectorAll<HTMLElement>('.dragging').forEach(el=>el.classList.remove('dragging'));});
   document.addEventListener('pointerdown',event=>{
     const grip=(event.target as HTMLElement).closest<HTMLElement>('.sequence-grip'),row=grip?.closest<HTMLElement>('[data-sequence-row]');
     if(!row||api.readOnly()||event.button!==0)return;
-    event.preventDefault();row.setPointerCapture(event.pointerId);sequencePointer={id:row.dataset.sequenceRow,y:event.clientY,index:Number(row.dataset.index),moved:false};
+    event.preventDefault();sequencePointer={id:row.dataset.sequenceRow,y:event.clientY,index:Number(row.dataset.index),moved:false};try{row.setPointerCapture(event.pointerId);}catch{}
   });
   document.addEventListener('pointermove',event=>{
     if(!sequencePointer)return;event.preventDefault();if(Math.abs(event.clientY-sequencePointer.y)<5&&!sequencePointer.moved)return;
@@ -80,8 +82,11 @@ export function setupPower(adapter){
   },{passive:false});
   const finishSequence=cancel=>{if(!sequencePointer)return;const gesture=sequencePointer;sequencePointer=null;document.querySelectorAll<HTMLElement>('.sequence-drop-target').forEach(el=>el.classList.remove('sequence-drop-target'));if(cancel||!gesture.moved)return;try{requestSequenceReorder(reorderFormation(api.project(),gesture.id,gesture.index),gesture.id,sequenceDialog);}catch(error){api.toast(error.message);}};
   document.addEventListener('pointerup',()=>finishSequence(false));document.addEventListener('pointercancel',()=>finishSequence(true));
+  // A re-rendered list or Escape abandons a grip drag without reordering.
+  document.addEventListener('lostpointercapture',()=>finishSequence(true));
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&sequencePointer){event.preventDefault();event.stopImmediatePropagation();finishSequence(true);}},true);
   $('#dialog').addEventListener('close',()=>{if(!$('#dialog').open)releasePowerExport();});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&full&&!$('#dialog').open){event.preventDefault();toggleFullscreen();}if(event.key.toLowerCase()==='f'&&!event.ctrlKey&&!event.metaKey&&!(event.target as HTMLElement).matches('input,textarea,select')&&!$('#dialog').open)toggleFullscreen();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&full&&!$('#dialog').open){event.preventDefault();toggleFullscreen();}if(event.key.toLowerCase()==='f'&&!event.ctrlKey&&!event.metaKey&&!(event.target as HTMLElement).matches?.('input,textarea,select')&&!$('#dialog').open)toggleFullscreen();});
   document.addEventListener('fullscreenchange',()=>{if(nativeFull&&!document.fullscreenElement){full=false;nativeFull=false;syncFullscreen();if(!fullscreenPending)api.render();}});
 }
 async function toggleFullscreen(){
@@ -106,7 +111,7 @@ async function toggleFullscreen(){
   }
  }finally{fullscreenPending=false;syncFullscreen();api.render();}
 }
-function syncFullscreen(){document.body.classList.toggle('stage-fullscreen',full);document.body.classList.toggle('fullscreen-with-timeline',full&&fullTimeline);}
+function syncFullscreen(){document.body.classList.toggle('stage-fullscreen',full);document.body.classList.toggle('fullscreen-with-timeline',full&&fullTimeline);try{document.querySelectorAll<HTMLElement>('.fullscreen-button').forEach(button=>{button.setAttribute('aria-pressed',String(full));button.setAttribute('aria-label',full?'Exit fullscreen':'Fullscreen stage');button.title=full?'Exit fullscreen (Esc)':'Fullscreen stage (F)';});}catch{}}
 export function bindPowerTimeline(){bindEditorTimeline();syncFullscreen();document.querySelectorAll<HTMLElement>('[data-power="fullscreen-timeline"]').forEach(button=>{button.textContent=fullTimeline?'Hide timeline':'Show timeline';button.setAttribute('aria-label',`${fullTimeline?'Hide':'Show'} performance timeline`);button.setAttribute('aria-expanded',String(fullTimeline));});timelineObserver?.disconnect();if(full&&fullTimeline){const timeline=$('.timeline'),update=()=>document.documentElement.style.setProperty('--fullscreen-timeline-height',`${timeline.getBoundingClientRect().height}px`);timelineObserver=observeSize(timeline,update);update();}}
 export function transitionDialog(id){
   const p=api.project(),index=p.formations.findIndex(f=>f.id===(id||api.formation().id)),f=p.formations[index],next=p.formations[index+1];

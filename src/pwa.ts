@@ -27,6 +27,9 @@ export function createPWAManager(environment=globalThis){
  }
  async function register(){if(registering)return registering;registering=(async()=>{
   if(!nav.serviceWorker||environment.isSecureContext===false){state.offlineStatus='unsupported';state.error='Offline installation requires HTTPS and a browser with service workers.';changed();return;}
+  // `npm run dev` has no generated /sw.js; only `npm run build` emits the
+  // verified offline worker. Skip registration instead of requesting a 404.
+  if(doc?.querySelector?.('meta[name="choryn-build"]')?.getAttribute('content')==='development'){state.offlineStatus='unsupported';state.error='Offline files are prepared by the production build. Run npm run build, then npm start.';changed();return;}
   try{registration=await nav.serviceWorker.register('/sw.js',{scope:'/',updateViaCache:'none'});
    const watch=worker=>worker?.addEventListener('statechange',()=>{if(worker.state==='redundant'){void refresh().then(()=>{state.error='Offline setup or an update could not finish. Check the connection and retry.';if(!state.offlineReady)state.offlineStatus='error';changed();});}else if(['installed','activated'].includes(worker.state))void refresh();});
    watch(registration.installing);registration.addEventListener('updatefound',()=>{state.offlineStatus=state.offlineReady?'ready':'preparing';watch(registration.installing);changed();});await refresh();

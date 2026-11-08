@@ -1,7 +1,7 @@
 /* CHORYN identity: Figma wEbeOdaMoUT4dzdugt8RrF, frame 3:2. */
 :root{--brand-purple:#7c3aed;--brand-lavender:#b392ff;--brand-ink:#111018;--brand-night:#0d0b12;--accent:var(--brand-purple);--accent-strong:#6826d5;--accent-soft:#f1e8ff;--accent-line:#ded2f4;--text:var(--brand-ink)}
 [data-theme=dark]{--bg:var(--brand-night);--surface:#16111e;--panel:#14101b;--rail:#100c17;--accent:var(--brand-lavender);--accent-strong:#c4adff;--accent-soft:#20162f;--accent-line:#493a60;--text:#fff;--secondary:#b9b3c5;--muted:#b9b3c5}
-[data-theme=dark] .button.primary,[data-theme=dark] .button.primary:hover:not(:disabled),[data-theme=dark] .play-button{color:var(--brand-night)}
+[data-theme=dark] .button.primary,[data-theme=dark] .play-button{color:var(--brand-night)}@media(any-hover:hover){[data-theme=dark] .button.primary:hover:not(:disabled){color:var(--brand-night)}}
 .brand-dark{display:none!important}[data-theme=dark] .brand-light{display:none!important}[data-theme=dark] .brand-dark{display:block!important}
 .brand-mark{background:transparent;border-radius:9px;overflow:hidden}.brand-mark img{display:block;width:36px;height:36px}
 .brand-header{display:flex;align-items:center;gap:11px;flex-shrink:0;padding:0;text-align:left;min-height:44px}.brand-header>img{display:block;width:43px;height:auto;flex-shrink:0}.brand-header-copy{display:flex;flex-direction:column;gap:4px}.brand-header strong,.brand-signature strong{font-family:'Inter','Segoe UI',sans-serif;letter-spacing:-.035em;font-weight:700;color:var(--text)}.brand-header strong{font-size:21px;line-height:1}.brand-header small{font-family:'Inter','Segoe UI',sans-serif;font-size:9px;line-height:1.2;color:var(--secondary);font-weight:400;letter-spacing:0}

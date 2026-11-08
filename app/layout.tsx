@@ -17,6 +17,7 @@ import '../src/branding.css';
 import '../src/pwa.css';
 import '../src/navigation.css';
 import '../src/production-next.css';
+import '../src/responsive.css';
 
 export const metadata: Metadata = {
   title: 'CHORYN Studio — From first count to final cue.',
@@ -35,8 +36,13 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = {width:'device-width',initialScale:1,viewportFit:'cover',interactiveWidget:'resizes-content',themeColor:'#7c3aed'};
 
+// Applies the saved or system theme before first paint, so dark-mode users
+// never see a light flash while the studio loads. Mirrors resolvedTheme() in src/app.ts.
+const themeBootstrap=`try{var t=localStorage.getItem('choryn.theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;}catch(e){}`;
+
 export default function RootLayout({children}:{children:ReactNode}) {
-  return <html lang="en"><head>
+  return <html lang="en" suppressHydrationWarning><head>
+    <script dangerouslySetInnerHTML={{__html:themeBootstrap}}/>
     <link rel="manifest" href="/manifest.json" crossOrigin="use-credentials"/>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>

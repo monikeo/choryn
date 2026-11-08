@@ -5,6 +5,12 @@ import {resolve,relative,sep} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {stripTypeScriptTypes} from 'node:module';
 
+// Node 22 labels type stripping experimental and has no option to silence it.
+// The build relies only on its stable "strip" mode, so keep that one notice
+// out of the output (PowerShell reports any stderr line as a command error).
+const emitWarning=process.emitWarning;
+process.emitWarning=(warning,...rest)=>String(warning?.message??warning).includes('stripTypeScriptTypes')?undefined:emitWarning.call(process,warning,...rest);
+
 const root=fileURLToPath(new URL('../',import.meta.url)),dist=resolve(root,'dist');
 const walk=async dir=>(await Promise.all((await readdir(dir,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name)).map(e=>e.isDirectory()?walk(resolve(dir,e.name)):[resolve(dir,e.name)]))).flat();
 if(!dist.startsWith(resolve(root)+sep))throw Error('Invalid build output path.');

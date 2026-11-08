@@ -14,7 +14,7 @@ body{overscroll-behavior:none}
 .sync-notice>button{color:var(--accent);font-size:11px;text-decoration:underline;text-underline-offset:3px;min-height:28px}
 .workspace-menu{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .workspace-menu>button{display:flex;align-items:center;gap:10px;text-align:left;padding:14px 11px;border:1px solid var(--border);border-radius:8px;font-size:11px;line-height:1.5;min-height:48px}
-.workspace-menu>button:hover{background:var(--accent-soft);border-color:var(--accent-line)}
+@media(any-hover:hover){.workspace-menu>button:hover{background:var(--accent-soft);border-color:var(--accent-line)}}
 .workspace-menu>button>.icon:first-child{color:var(--accent);width:17px;height:17px}
 .workspace-menu>button>.icon:last-child{margin-left:auto;width:12px;height:12px;color:var(--muted)}
 .secondary-menu{margin-top:22px;padding-top:22px;border-top:1px solid var(--border)}

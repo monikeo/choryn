@@ -65,6 +65,24 @@
   "lang": "en",
   "dir": "ltr",
   "prefer_related_applications": false,
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "application/x-choryn": [
+          ".choryn"
+        ]
+      },
+      "icons": [
+        {
+          "src": "/icons/icon-256.png",
+          "sizes": "256x256",
+          "type": "image/png"
+        }
+      ],
+      "launch_type": "single-client"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Projects",

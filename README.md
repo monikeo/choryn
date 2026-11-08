@@ -115,6 +115,7 @@ The tracked `.openai/hosting.json` belongs to the existing hosted CHORYN deploym
 | `src/view-video.ts`, `src/mp4-export.ts` | Matching-view capture and MP4 export |
 | `src/image-exports.ts` | Image previews and batch downloads |
 | `src/pwa.ts`, `sw.ts` | Installation, updates and offline files |
+| `src/responsive.css`, `src/sheet-gesture.ts` | Desktop, tablet, phone and phone-landscape layouts (loaded last); phone bottom-sheet gestures |
 | `tests/` | Model, workflow and regression checks |
 | `scripts/` | Local server and static build |
 
