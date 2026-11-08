@@ -339,3 +339,25 @@
 @media (orientation:landscape) and (max-height:360px) and (max-width:1023px){
  .canvas-options{grid-template-columns:repeat(3,40px)}
 }
+
+/* ---- Highlights (featured performers) and the realistic 3D stage ---- */
+.highlight-halo{fill:rgba(245,184,61,.18);stroke:#e8a317;stroke-width:3;filter:drop-shadow(0 0 7px rgba(245,184,61,.7))}
+.performer-marker.is-highlighted .marker-body{stroke:#f5b83d;stroke-width:4}
+.highlight-toggle[aria-pressed="true"]{background:#fdf3dc;border-color:#e0a21a;color:#5b3d00}
+[data-theme="dark"] .highlight-toggle[aria-pressed="true"]{background:#3a2b0b;border-color:#c98d10;color:#fde7b0}
+.highlight-toggle>svg{color:#d99a0f}
+.stage3d-look{position:absolute;z-index:24;left:8px;top:8px;display:flex;gap:2px;padding:3px;border:1px solid var(--border);border-radius:9px;background:var(--surface);box-shadow:var(--shadow);max-width:calc(100% - 150px);overflow-x:auto;scrollbar-width:none}
+.stage3d-look::-webkit-scrollbar{display:none}
+.stage3d-look>button{flex:0 0 auto;min-height:32px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--secondary);font:inherit;font-size:11px;font-weight:600;white-space:nowrap;cursor:pointer}
+.stage3d-look>button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.stage3d-look>button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (hover:hover){.stage3d-look>button:hover:not([aria-pressed="true"]){background:var(--subtle);color:var(--text)}}
+@media (pointer:coarse){.stage3d-look>button{min-height:40px;padding:0 12px}}
+.webgl-stage[data-look="show"] .stage3d-caption{color:#bdb5cc}
+.webgl-stage>canvas.stage-dragging{cursor:grabbing}
+/* Phones: shorter labels keep the look switch in the top corner, clear of View controls and the stage front. */
+@media (max-width:767px){
+ .stage3d-look{max-width:calc(100% - 72px)}
+ .stage3d-look>button{font-size:10.5px;padding:0 9px}
+ .stage3d-look>button>span{display:none}
+}

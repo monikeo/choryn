@@ -82,6 +82,11 @@ export function beatAt(project: Project,time) {
 export function warnings(project: Project,positions: import("./types.js").Pose[],time=0) {
   const names=new Map(project.performers.map(p=>[p.id,p.name]));return safetyIssues(project,positions,time).map(v=>v.ids.map(id=>names.get(id)).join(' & ')+': '+(v.type==='boundary'?'outside stage or usable outline':v.message));
 }
+/** Performers featured at `time`: the highlights of the formation then in effect. */
+export function highlightsAt(project: Project,time:number):string[]{
+  let current=project.formations[0];for(const f of project.formations)if(f.time<=time+1e-9)current=f;
+  const cast=new Set(project.performers.map(p=>p.id));return (current?.highlights||[]).filter(id=>cast.has(id));
+}
 // Imports are untrusted; allowlist fields and bound geometry, counts and text.
 export function validateProject(input): Project {
   const fail = () => { throw new Error('This is not a valid CHORYN v1 project backup.'); };
@@ -91,14 +96,15 @@ export function validateProject(input): Project {
   if(!input || input.schemaVersion!==1 || !str(input.id) || !str(input.name) || !input.name.trim() || !input.stage || !finite(input.stage.width,2,100) || !finite(input.stage.depth,2,100) || !finite(input.bpm,30,300) || !finite(input.duration,1,3600) || !finite(input.transitionDuration,.1,60) || !Array.isArray(input.performers) || input.performers.length<1 || input.performers.length>100 || !Array.isArray(input.formations) || input.formations.length<1 || input.formations.length>100) fail();
   if(!safeId(input.id))fail();
   const ids = new Set();
-  const performers=input.performers.map((p,i)=>{if(!p || !safeId(p.id) || ids.has(p.id) || !str(p.name) || !/^#[\da-f]{6}$/i.test(p.color)) fail(); ids.add(p.id);return {id:p.id,name:p.name,number:i+1,group:str(p.group,40)&&p.group.trim()?p.group:'A',tags:Array.isArray(p.tags)?[...new Set(p.tags.filter(t=>str(t,30)&&t.trim()))].slice(0,12):[],color:p.color,role:str(p.role)?p.role:'Ensemble'};});
+  const performers=input.performers.map((p,i)=>{if(!p || !safeId(p.id) || ids.has(p.id) || !str(p.name) || !/^#[\da-f]{6}$/i.test(p.color)) fail(); ids.add(p.id);return {id:p.id,name:p.name,number:i+1,group:str(p.group,40)&&p.group.trim()?p.group:'A',tags:Array.isArray(p.tags)?[...new Set(p.tags.filter(t=>str(t,30)&&t.trim()))].slice(0,12):[],color:p.color,role:str(p.role)?p.role:'Ensemble',...(p.identity==='female'||p.identity==='male'?{identity:p.identity}:{})};});
   const formIds=new Set();
   const formations=input.formations.map(f=>{
     if(!f || !safeId(f.id) || formIds.has(f.id) || !str(f.name) || !finite(f.time,0,input.duration-.1) || !Array.isArray(f.positions) || f.positions.length!==performers.length) fail();
     if(f.transition!=null&&(!finite(f.transition.duration,.1,60)||!['smooth','linear'].includes(f.transition.easing)||!['direct','curved'].includes(f.transition.pathType)))fail();
     formIds.add(f.id); const seen=new Set();
     const positions=f.positions.map(p=>{if(!p || !ids.has(p.performerId) || seen.has(p.performerId) || !finite(p.x,-100,100) || !finite(p.z,-100,100) || !finite(p.facing,-360,360)) fail();seen.add(p.performerId); return {performerId:p.performerId,x:p.x,z:p.z,facing:p.facing,visible:p.visible!==false};});
-    return {id:f.id,name:f.name,time:f.time,status:f.status==='approved'?'approved':'draft',notes:str(f.notes,5000)?f.notes:'',positions,...(f.transition?{transition:{duration:f.transition.duration,easing:f.transition.easing,pathType:f.transition.pathType}}:{})};
+    const highlights=Array.isArray(f.highlights)?[...new Set(f.highlights.filter(id=>ids.has(id)))].slice(0,100):[];
+    return {id:f.id,name:f.name,time:f.time,status:f.status==='approved'?'approved':'draft',notes:str(f.notes,5000)?f.notes:'',positions,...(f.transition?{transition:{duration:f.transition.duration,easing:f.transition.easing,pathType:f.transition.pathType}}:{}),...(highlights.length?{highlights}:{})};
   }).sort((a,b)=>a.time-b.time);
   if(formations[0].time!==0 || new Set(formations.map(f=>f.time)).size!==formations.length) fail();
   const cueIds=new Set();

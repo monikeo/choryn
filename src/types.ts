@@ -1,9 +1,12 @@
 /** Portable score data. Coordinates are metres, times are seconds. */
 export interface Point {x:number; z:number}
 export interface Pose extends Point {performerId:string; facing:number; visible:boolean}
-export interface Performer {id:string; name:string; number:number; group:string; tags:string[]; color:string; role:string; costume?:string}
+/** Body shown in 3D. Absent means "not specified" (a neutral figure). */
+export type Identity='female'|'male';
+export interface Performer {id:string; name:string; number:number; group:string; tags:string[]; color:string; role:string; costume?:string; identity?:Identity}
 export interface Transition {duration:number; easing:string; pathType:string}
-export interface Formation {id:string; name:string; time:number; status:string; notes:string; positions:Pose[]; transition?:Transition}
+/** `highlights` lists performers featured (spotlit) while this formation is active. */
+export interface Formation {id:string; name:string; time:number; status:string; notes:string; positions:Pose[]; transition?:Transition; highlights?:string[]}
 export interface Cue {id:string; time:number; label:string}
 export interface Stage {width:number; depth:number; grid:number}
 export interface Music {mode:string; trimStart:number; trimEnd:number|null; start:number; beatOffset:number}
@@ -34,7 +37,10 @@ export interface RehearsalAids {previous?:boolean; next?:boolean; checkpoints?:b
 export interface Ghost {time:number; label:string; positions:Pose[]}
 export interface AnalysisIssue {type:string; ids:string[]; message:string; time?:number}
 export type AnalysisFrame=ReturnType<typeof import('./analysis-model.js').transitionAnalysis>;
-export interface StageOptions {interactive?:boolean; camera?:Partial<Camera>; eye?:number[]; labels?:boolean; showGrid?:boolean; selected?:()=>Set<string>; ghosts?:Ghost[]; analysis?:AnalysisFrame; pixelRatio?:number; following?:()=>boolean; navigationMode?:string; onCameraChange?:(camera:Camera)=>void; onFocus?:()=>void; onManualPan?:()=>void; onNavigationMode?:(mode:string)=>void; onRenderCost?:(ms:number)=>void; onSelect?:(id:string,add?:boolean)=>void}
+export interface StageOptions {interactive?:boolean; camera?:Partial<Camera>; eye?:number[]; labels?:boolean; showGrid?:boolean; selected?:()=>Set<string>; ghosts?:Ghost[]; analysis?:AnalysisFrame; pixelRatio?:number; following?:()=>boolean; navigationMode?:string; onCameraChange?:(camera:Camera)=>void; onFocus?:()=>void; onManualPan?:()=>void; onNavigationMode?:(mode:string)=>void; onRenderCost?:(ms:number)=>void; onSelect?:(id:string,add?:boolean)=>void;
+ /** Direct manipulation in 3D. Return false from onDragStart to keep the press a selection only. Deltas are in project metres. */
+ onDragStart?:(target:StageTarget)=>boolean; onDragMove?:(target:StageTarget,dx:number,dz:number)=>void; onDragEnd?:(target:StageTarget,commit:boolean)=>void}
+export interface StageTarget {kind:'performer'|'prop'; id:string}
 export interface VideoSettings {width:number; height:number; fps:number; bitrate:number; start:number; end:number; labels?:boolean}
 export interface Revision {id:string; projectId:string; createdAt:number; label:string; data:Project}
 export interface TransformOptions {angle?:number; scale?:number; mirrorX?:boolean; mirrorZ?:boolean; align?:string; distribute?:string}
@@ -46,7 +52,7 @@ export interface FrameRenderer {draw:(context:CanvasRenderingContext2D,time:numb
 export interface MediaOptions {media?:typeof import('./mediabunny.js'); environment?:typeof globalThis; frameRenderer?:FrameRenderer; canvas?:HTMLCanvasElement; audioBuffer?:AudioBuffer; signal?:AbortSignal; mime?:string; onProgress?:(fraction:number,canvas:HTMLCanvasElement)=>void; yieldTask?:()=>Promise<unknown>}
 export interface VideoInput {resolution?:number|string; fps?:number|string; quality?:string; start?:number|string; end?:number|string; aspect?:number; labels?:boolean}
 export interface CacheStatus {ok?:boolean; complete?:boolean; cached?:number; total?:number; version?:string; error?:string}
-export interface Project {sceneLights?:ReturnType<typeof import('./production-next-model.js').sampleLights>; sceneSafety?:ReturnType<typeof import('./production-next-model.js').safetyIssues>}
+export interface Project {sceneLights?:ReturnType<typeof import('./production-next-model.js').sampleLights>; sceneSafety?:ReturnType<typeof import('./production-next-model.js').safetyIssues>; sceneHighlights?:string[]}
 export interface PlaybackUpdate {positions?:Pose[]; geometryPositions?:Pose[]; geometryIssues?:AnalysisIssue[]; state?:ViewSnapshot; playing?:boolean; active?:string; focused?:Element; hud?:boolean}
 export interface ImageCaptureOptions {format?:string; scale?:number; quality?:number; signal?:AbortSignal; start?:number}
 export interface ZipOptions {signal?:AbortSignal; onProgress?:(fraction:number)=>void; maxBytes?:number}
