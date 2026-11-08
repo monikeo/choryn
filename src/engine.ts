@@ -82,13 +82,12 @@ export function beatAt(project: Project,time) {
 export function warnings(project: Project,positions: import("./types.js").Pose[],time=0) {
   const names=new Map(project.performers.map(p=>[p.id,p.name]));return safetyIssues(project,positions,time).map(v=>v.ids.map(id=>names.get(id)).join(' & ')+': '+(v.type==='boundary'?'outside stage or usable outline':v.message));
 }
-// Imports are untrusted; allowlist fields and bound geometry, counts and text.
 /** Performers featured at `time`: the highlights of the formation then in effect. */
 export function highlightsAt(project: Project,time:number):string[]{
   let current=project.formations[0];for(const f of project.formations)if(f.time<=time+1e-9)current=f;
   const cast=new Set(project.performers.map(p=>p.id));return (current?.highlights||[]).filter(id=>cast.has(id));
 }
-
+// Imports are untrusted; allowlist fields and bound geometry, counts and text.
 export function validateProject(input): Project {
   const fail = () => { throw new Error('This is not a valid CHORYN v1 project backup.'); };
   const finite = (v,min,max) => typeof v==='number' && Number.isFinite(v) && v>=min && v<=max;
