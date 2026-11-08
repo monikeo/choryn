@@ -1,4 +1,10 @@
-# Timeline editing · v0.19.2
+# Timeline editing · v0.19.3
+
+## Backstage timing and bounded drag previews
+
+Ripple formation edits now move later backstage reservations and adjust windows crossing the edited boundary. Ripple deletion removes enclosed reservations, trims crossing windows and shifts later ones with the rest of the show. A trim that would collapse a reservation is rejected with an explanation. Ordinary end trims stop at the last reserved backstage time instead of producing an invalid score. Ripple limits also respect the whole show's 3,600-second maximum.
+
+Ruler scrubbing does not clone the score or inspect stage image data. Clip previews use the model's effective bounds, so a held trim at its limit reuses its candidate until the pointer returns inside. Precise formation trims seek the selected formation's new start, keeping the stage, selection and playhead together.
 
 ## Locked routes and reliable edits
 

@@ -1,3 +1,31 @@
+# CHORYN v0.19.3 timeline audit — 1 November 2026
+
+491 tests, both TypeScript checks and the Next.js production build pass. Build `6df872be3752e515` contains 70 output files and 65 offline entries. This release remains on Next.js/TypeScript and keeps the existing local-first storage keys and private audience.
+
+## Fixed business logic
+
+The baseline passed 478 tests, but a generated valid backstage score reproduced three omissions: ripple retiming left reservations at old times, ripple deletion could fail because a reservation exceeded the new show end, and ordinary end trimming could cut off a reservation and fail validation. Ripple edits now move later windows, adjust crossings and reject collapsed reservations. Deletion drops enclosed windows, trims crossings and shifts later windows. Ordinary end trims include backstage windows in their minimum. Formation ripple bounds also clamp the total show to 3,600 seconds, instead of accepting a boundary that later fails the total-duration check.
+
+A precise-trim browser check also showed the selected formation moving to 18 seconds while the playhead stayed at 16. Precise formation trims now seek the new formation start; a shared UI regression verifies both selection and playhead.
+
+## Drag work and measurement
+
+Ruler gestures no longer clone or fingerprint the authored score. A regression makes the embedded stage-image getter throw and verifies that scrubbing never reads it. Trim preview tokens use the same effective time bounds as the model, avoiding repeated full-project clones and DOM previews while a pointer is held past a limit. Returning inside resumes preview immediately.
+
+A reproducible Node controller benchmark used 100 pointer frames, 100 formations × 100 performers and a 1 MB floor plan. Against the same current model, the previous controller made 101 structured clones and 100 previews in 1,719–1,877 ms. The revised controller made two clones and one preview in 55–68 ms. These are aggregate CPU measurements for a held boundary, including gesture setup and release; they do not establish browser FPS, moving-within-range speed or whole-app speed.
+
+## Interactive coverage
+
+An isolated four-person local score used real browser mouse drags for reorder and shared-boundary trim. Split, Duplicate and Undo were exercised after those edits. Desktop normal/fullscreen 2D and 3D all used this pointer path. The tablet 820×1180 checks used pointer edits in normal 2D/fullscreen 3D; the phone 390×844 checks used pointer edits in normal 3D/fullscreen 2D. The other four tablet/phone view combinations used keyboard sequence movement, precise trim dialogs, Split, Duplicate and Undo. Every view combination returned to the expected six formations. Phone and tablet document widths matched their viewport widths. Mouse testing at those dimensions is not physical-device touch testing.
+
+Automated gesture coverage includes mouse/touch/pen events at 390-, 1,024- and 1,440-pixel track widths, fullscreen cancellation, stale-score rejection, pointer identity, capture loss, snapping, autoscroll and one commit per completed drag. Existing shared 2D/3D scene/export tests remain passing. No new real MP4 or AAC render was performed in this timeline-only audit; prior media evidence is retained below.
+
+A synthetic JSON project restored through the normal backup chooser contained a 90–94 second backstage reservation in a 96-second show. The real UI end trim requested at 85 stopped at 94. After Undo, ripple start trimming from 16 to 18 extended the show to 98 and moved the reservation to 92–96. Confirmed deletion of that sequence shortened the show to 82 and moved the reservation to 76–80, with no traffic review errors. Formation deletion still required confirmation. No captured browser warning/error logs were recorded during these checks.
+
+Screenshots, synthetic fixtures, the four precise-control matrix receipts and benchmark data are outside Git in `../docs/timeline-qa-2026-11-01/`. Physical iPad/phone hardware, Safari/Firefox, OS installation and device GPU performance remain unverified. These checks establish the exercised workflows, not zero defects on every platform.
+
+## Previous release evidence
+
 # CHORYN v0.19.2 reliability audit — 1 November 2026
 
 478 automated tests and both application/worker TypeScript checks pass. Production build `7d0de51d3f2472eb` contains 70 output files and 65 integrity-checked offline entries. Next.js emits static application routes and lazy 3D/media bundles. The build required normal Windows filesystem access after the sandbox denied creation of a generated `.next` folder; it then completed. Next.js also reports an ignored unrelated parent-directory lockfile. Neither message is an application runtime error.

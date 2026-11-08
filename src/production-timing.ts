@@ -39,6 +39,11 @@ export function applyTimingRelations(original,candidate,{kind,id,edge,copy=true,
   for(const field of ['comments','checkpoints'])for(const item of next[field]||[])if(item.time>=anchor)item.time=round(item.time+delta);
   for(const prop of next.props)for(const item of prop.attachments||[])if(item.time>=anchor){assertTrackUnlocked(original,'prop',prop.id);if(prop.locked)throw Error('Unlock affected props before ripple editing.');item.time=round(item.time+delta);}
   if(next.referenceVideo?.start>=anchor)next.referenceVideo.start=round(next.referenceVideo.start+delta);
+  for(const reservation of next.ensemble?.traffic||[]){
+   if(reservation.start>=anchor){reservation.start=round(reservation.start+delta);reservation.end=round(reservation.end+delta);}
+   else if(reservation.end>=anchor)reservation.end=round(reservation.end+delta);
+   if(reservation.start<0||reservation.end-reservation.start<.0999)throw Error('Ripple would make a backstage reservation too short. Shorten or remove that reservation first.');
+  }
  }else shifts.set(pivot,delta);
  // A linked group follows any member displaced by this edit, exactly once.
  for(const group of production.links){if(group.items.some(k=>shifts.has(k)))group.items.forEach(k=>shifts.set(k,delta));}
@@ -65,6 +70,10 @@ export function rippleRemoveFormation(original,candidate,id){
  const shift=(values,key='time')=>values.filter(v=>section(v[key])!==1).map(v=>({...v,[key]:v[key]>=end?round(v[key]-delta):v[key]}));
  next.duration=round(original.duration-delta);next.formations.forEach(f=>{if(f.time>=end)f.time=round(f.time-delta);});next.cues=shift(next.cues);next.comments=shift(next.comments);next.checkpoints=shift(next.checkpoints||[]);next.cueLog=next.cueLog.filter(v=>next.cues.some(c=>c.id===v.cueId));
  next.actions=original.actions.flatMap(a=>{if(a.end<=start)return [clone(a)];assertTrackUnlocked(original,'movement',a.id);if(a.start>=end)return [{...a,start:round(a.start-delta),end:round(a.end-delta)}];if(a.start>=start&&a.end<=end)return [];const value={...a,start:a.start<start?a.start:start,end:a.end>end?round(a.end-delta):start};return value.end-value.start>=.0999?[value]:[];});
+ if(next.ensemble)next.ensemble.traffic=next.ensemble.traffic.flatMap(v=>{
+  if(v.end<=start)return [v];if(v.start>=end)return [{...v,start:round(v.start-delta),end:round(v.end-delta)}];if(v.start>=start&&v.end<=end)return [];
+  const value={...v,start:v.start<start?v.start:start,end:v.end>end?round(v.end-delta):start};return value.end-value.start>=.0999?[value]:[];
+ });
  for(const prop of next.props){if(prop.attachments?.some(v=>v.time>=start)){assertTrackUnlocked(original,'props');if(prop.locked)throw Error('Unlock affected props before ripple deletion.');}prop.keyframes=shift(prop.keyframes||[]);prop.attachments=shift(prop.attachments||[]);}
  for(const key of ['lights','appearances','cameras'])next.production[key]=shift(next.production[key]);
  if(next.referenceVideo?.start>=start)next.referenceVideo.start=next.referenceVideo.start>=end?round(next.referenceVideo.start-delta):start;
