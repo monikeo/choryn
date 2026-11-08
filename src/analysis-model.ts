@@ -20,10 +20,18 @@ export function transitionAnalysis(project: Project,time,{heat='off',comparisonI
  for(let i=0;i<=steps;i++){
   const positions=samplePerformance(project,start+duration*i/steps).filter(p=>p.visible!==false);result.sampleCount++;
   if(heat==='travel')for(const p of positions){if(selected.size&&!selected.has(p.performerId))continue;if(!tracks.has(p.performerId))tracks.set(p.performerId,[]);tracks.get(p.performerId).push({x:p.x,z:p.z});}
-  if(heat==='spacing')for(let a=0;a<positions.length;a++)for(let b=a+1;b<positions.length;b++){
-   const p=positions[a],q=positions[b];if(selected.size&&!selected.has(p.performerId)&&!selected.has(q.performerId))continue;const gap=distance(p,q);min=Math.min(min,gap);if(gap>=threshold)continue;
+  if(heat==='spacing'){
+   // Sweep and prune on x: a pair farther apart in x than both the threshold and the
+   // closest gap so far cannot add a cell or lower the minimum, so the scan stops there.
+   const order=positions.map((_,n)=>n).sort((m,n)=>positions[m].x-positions[n].x),close:[number,number,number][]=[];
+   for(let s=0;s<order.length;s++)for(let t=s+1;t<order.length;t++){
+    if(positions[order[t]].x-positions[order[s]].x>=Math.max(threshold,min))break;
+    const a=Math.min(order[s],order[t]),b=Math.max(order[s],order[t]),p=positions[a],q=positions[b];if(selected.size&&!selected.has(p.performerId)&&!selected.has(q.performerId))continue;const gap=distance(p,q);min=Math.min(min,gap);if(gap<threshold)close.push([a,b,gap]);
+   }
+   // Same pair order as a nested loop, so cells are created in the same order.
+   for(const [a,b,gap] of close.sort((u,v)=>u[0]-v[0]||u[1]-v[1])){const p=positions[a],q=positions[b];
    for(const point of [p,q,{x:(p.x+q.x)/2,z:(p.z+q.z)/2}]){const x=Math.max(0,Math.min(nx-1,Math.floor((point.x+project.stage.width/2)/cw))),z=Math.max(0,Math.min(nz-1,Math.floor((point.z+project.stage.depth/2)/cd))),key=x+'/'+z,intensity=1-gap/threshold;if(!cells.has(key))cells.set(key,{x:-project.stage.width/2+(x+.5)*cw,z:-project.stage.depth/2+(z+.5)*cd,width:cw,depth:cd,intensity});else cells.get(key).intensity=Math.max(cells.get(key).intensity,intensity);}
-  }
+  }}
  }
  if(heat==='travel'){result.paths=[...tracks].map(([performerId,points])=>({performerId,points,distance:points.slice(1).reduce((sum,p,i)=>sum+distance(p,points[i]),0)}));const max=Math.max(.001,...result.paths.map(p=>p.distance));result.paths.forEach(p=>p.color=heatColor(p.distance/max));result.summary=`Travel · ${from.name} → ${to.name} · longest ${max<.01?'0.00':max.toFixed(2)} m`;}
  else{result.minSpacing=Number.isFinite(min)?min:null;result.cells=[...cells.values()].map(c=>({...c,color:heatColor(c.intensity)}));result.summary=`Spacing · ${threshold.toFixed(2)} m threshold · ${Number.isFinite(min)?min.toFixed(2)+' m minimum':'no visible pairs'} · 33 samples`;}

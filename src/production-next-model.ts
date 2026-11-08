@@ -1,6 +1,6 @@
 import type {CameraKey} from './types.js';
 import type {Project} from './types.js';
-import {clone,uid,samplePerformance,validateProject,transitionSettings,highlightsAt} from './engine.js';
+import {clone,uid,samplePerformance,validateProject,transitionSettings,highlightsAt,closePairs} from './engine.js';
 import {sampleProps} from './prop-motion.js';
 import {getRoute} from './production-model.js';
 import {lastIndex} from './compat.js';
@@ -16,7 +16,7 @@ export function inPolygon(p,points){if(!points?.length)return true;let inside=fa
 export function safetyIssues(project: Project,positions: import("./types.js").Pose[],time=0,objects=[...sampleProps(project,time,positions),...(project.production?.zones||[])]){
  const result=[],visible=positions.filter(p=>p.visible!==false),distance=project.safetyDistance||.55;
  for(const p of visible){if(Math.abs(p.x)>project.stage.width/2||Math.abs(p.z)>project.stage.depth/2||!inPolygon(p,project.production?.stage.outline))result.push({type:'boundary',ids:[p.performerId],time,message:'Outside the usable stage'});}
- for(let a=0;a<visible.length;a++)for(let b=a+1;b<visible.length;b++){const d=Math.hypot(visible[a].x-visible[b].x,visible[a].z-visible[b].z);if(d<distance)result.push({type:'spacing',ids:[visible[a].performerId,visible[b].performerId],time,distance:d,message:`Spacing ${d.toFixed(2)} m (minimum ${distance} m)`});}
+ for(const [a,b,d] of closePairs(visible,distance))result.push({type:'spacing',ids:[visible[a].performerId,visible[b].performerId],time,distance:d,message:`Spacing ${d.toFixed(2)} m (minimum ${distance} m)`});
  for(const p of visible)for(const object of objects){if(!['obstacle','restricted','prop'].includes(object.kind))continue;if(object.carrierId===p.performerId)continue;if(nearFootprint(p,object))result.push({type:'obstacle',ids:[p.performerId],time,message:`Near ${object.name}`});}
  return result;
 }

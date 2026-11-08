@@ -361,3 +361,10 @@
  .stage3d-look>button{font-size:10.5px;padding:0 9px}
  .stage3d-look>button>span{display:none}
 }
+
+/* 3D name labels move every frame. Containing their layer keeps those moves from
+   re-laying out the rest of the page (the layer is sized by inset, never by content). */
+.webgl-stage .stage3d-labels{contain:strict}
+
+/* Labels are placed with transforms from the top-left corner. */
+.webgl-stage .stage3d-labels:not(.analysis-labels)>*{left:0;top:0}

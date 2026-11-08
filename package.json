@@ -8,7 +8,8 @@
     "build": "node scripts/build.mjs",
     "start": "node scripts/serve.mjs --built",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json",
-    "test": "node scripts/test.mjs"
+    "test": "node scripts/test.mjs",
+    "bench": "node scripts/bench.mjs"
   },
   "dependencies": {
     "next": "16.4.3",
