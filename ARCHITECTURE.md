@@ -59,6 +59,24 @@ Generated 404/not-found documents and their route payloads are served online but
 
 `npm run dev` serves Next.js development output. `npm start` serves the built static export. Test production caching in the built preview, and use a separate origin or port if an older installed worker controls your development URL.
 
+## Performance
+
+A frame at 60 fps has 16.7 ms for JavaScript, style/layout and the GPU together. Measured on an Intel Iris Xe laptop (Chrome, Direct3D through ANGLE) with the 100-performer maximum at 1392×732 px, the 3D view spends roughly 1–2 ms in app and renderer JavaScript, about 3 ms restyling the 100 name labels, and the rest on the GPU. Typical casts cost a fraction of that.
+
+- **3D draw calls.** Performer meshes (female, male, not specified), markers, rings and beams are each drawn with one instanced call (`ANGLE_instanced_arrays`); position, facing, colour and highlight state are per-instance data. A frame is about four GPU calls whatever the cast size. Without the extension each instance is drawn alone with constant attributes.
+- **Vertices.** Body meshes are indexed (`drawElements`), so each shared vertex is shaded once rather than six times.
+- **Shadows.** The shadow map is redrawn only when performers, props or the stage change; orbiting and zooming reuse it.
+- **Pixels.** Lighting cost grows with pixels, so live views render at most about 2.4 megapixels and, where the browser exposes GPU timer queries, adapt the scale. The adaptation is conservative because Direct3D timings include browser compositing. Exports use their exact pixel ratio.
+- **Scene uploads.** Spacing warnings are drawn as per-instance rings, so playback never rebuilds stage geometry.
+- **Labels.** Name labels move with `transform` inside a `contain: strict` layer, so they never re-lay out the page.
+- **Pairwise checks.** Spacing warnings and the spacing heat map sort performers by x and stop scanning once the gap exceeds the threshold (sweep and prune). Results match a full pairwise scan, and the tests check that.
+
+Measure with `npm run bench` (CPU cost of each per-frame step at 100 performers) and **Playback performance** in the app (update rate, plus the 3D renderer's GPU, resolution and draw calls on this device).
+
+**WebAssembly.** At the supported scale, the per-frame JavaScript work above is about 1–2 ms; the remaining time is GPU work and browser style recalculation, which WebAssembly cannot speed up. Moving the model to Rust/WASM would add a second toolchain, a larger download and a JS↔WASM copy of positions every frame for no measurable gain. Reconsider it only for a new CPU-bound feature, such as physics or crowd simulation, or offline audio analysis, where the numbers can show a benefit.
+
+**Known cost.** Edits re-render the whole workstation: about 24 ms in 3D and 39 ms in 2D with 100 performers on the laptop above. The live 3D stage is kept across these re-renders. Targeted updates of the panels would make edits instant on phones too.
+
 ## Local data
 
 Project schema, localStorage keys, IndexedDB stores, backups and setlist formats are unchanged by this migration. The server-rendered shell does not read localStorage, decode audio or allocate WebGL. Those operations begin in the client workstation.
