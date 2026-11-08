@@ -87,6 +87,48 @@ export function bindTouchPinch(element:EventTarget,{start,change,end}:{start?:()
  * contextmenu for touch; Android does, so the native event that follows a
  * handled long-press is swallowed, as is the click it would otherwise send).
  */
+/**
+ * Multi-finger taps (the iPad convention: two fingers undo, three redo). All
+ * fingers must land within 150 ms, lift within 350 ms and move under 12 px,
+ * so pinches, pans and holds never count.
+ */
+export function bindMultiFingerTap(element:EventTarget,{onTap,enabled=()=>true}:{onTap:(fingers:number)=>void,enabled?:(event:TouchEvent)=>boolean},{listen=defaultListen,now=()=>Date.now()}:{listen?:Listen,now?:()=>number}={}){
+ let active=false,start=0,fingers=0,moved=false;const origins=new Map<number,{x:number,y:number}>();
+ listen(element,'touchstart',(event:TouchEvent)=>{
+  const time=now();
+  if(event.touches.length===event.changedTouches.length){active=enabled(event);start=time;fingers=0;moved=false;origins.clear();}
+  else if(time-start>150)active=false;
+  if(!active)return;
+  fingers=Math.max(fingers,event.touches.length);
+  for(const touch of Array.from(event.changedTouches))origins.set(touch.identifier,{x:touch.clientX,y:touch.clientY});
+ },{passive:true});
+ listen(element,'touchmove',(event:TouchEvent)=>{
+  if(!active||moved)return;
+  for(const touch of Array.from(event.changedTouches)){const origin=origins.get(touch.identifier);if(origin&&Math.hypot(touch.clientX-origin.x,touch.clientY-origin.y)>12){moved=true;break;}}
+ },{passive:true});
+ listen(element,'touchend',(event:TouchEvent)=>{
+  if(!active||event.touches.length)return;active=false;
+  if(!moved&&fingers>=2&&now()-start<=350)onTap(fingers);
+ },{passive:true});
+ listen(element,'touchcancel',()=>{active=false;},{passive:true});
+}
+
+/**
+ * Palm rejection: while a stylus is down or hovering, and briefly after it
+ * lifts, touch input is ignored so a resting hand cannot move, cancel or
+ * pinch the drawing.
+ */
+export function createPalmGuard({now=()=>globalThis.performance?.now?.()??Date.now(),grace=600}={}){
+ let penDown=false,lastPen=-Infinity;
+ return {
+  note(event:{pointerType?:string;type?:string}){
+   if(event.pointerType!=='pen')return;lastPen=now();
+   if(event.type==='pointerdown')penDown=true;else if(event.type==='pointerup'||event.type==='pointercancel')penDown=false;
+  },
+  rejects(event:{pointerType?:string}){return event.pointerType==='touch'&&(penDown||now()-lastPen<grace);}
+ };
+}
+
 // Module-wide so the swallow still applies when the press re-renders (and
 // re-binds) the surface it started on.
 let longPressAt=-Infinity;

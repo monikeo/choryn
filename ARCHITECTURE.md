@@ -29,6 +29,14 @@ One DOM serves three layouts. `src/responsive.css` is imported last in `app/layo
 - **Timeline:** a mouse wheel over the tracks moves through time, while the track-name column scrolls the tracks vertically. Ctrl/⌘+wheel and pinch (trackpad or two fingers) zoom around the pointer. Touch drags start from clip grips after an 8px slop; clip bodies scroll natively. A long-press opens clip tools, and snapping gives a haptic tick where the device supports it.
 - **Hover styles** apply only where a pointer can hover (`any-hover`), so taps never leave "stuck" highlights. Touch presses dim controls instead.
 
+## Native device features
+
+- **Rehearsal playback** (`src/native-playback.ts`): a Screen Wake Lock keeps phones awake while playing, and is re-acquired after the app returns to the foreground. Media Session provides lock-screen, notification, headphone and media-key controls: play/pause, ±5 s, seek, previous/next formation. Browsers attach Media Session only to a media element, so a silent looping `<audio>` runs beside Web Audio during audible playback. On iOS this also lets music play with the silent switch on.
+- **Saving files** (`src/native-share.ts`): touch devices send backups, images, ZIPs and videos to the system share sheet; desktops download. If an export outlives the tap that started it, a "ready" sheet offers Share and Save.
+- **Tempo & counts** (`src/tempo-tools.ts`): open it from the beat counter, More, or command search. It offers tap tempo (one undoable change), a metronome click accented on each "1", and count vibration on Android. Clicks run on their own timer against the audio clock, so they keep time when the screen locks.
+- **Touch and stylus** (`src/input-gestures.ts`): a two-finger tap undoes and a three-finger tap redoes. Palm rejection ignores touches while a stylus is drawing or hovering on the stage.
+- **Files in** (`src/file-drop.ts`): drop music or a `.choryn` backup anywhere. Installed Chromium apps open `.choryn` files from the OS through the manifest `file_handlers` and `launchQueue`. Both routes reuse the hidden file inputs and their validation.
+
 ## TypeScript boundaries
 
 All 63 application runtime modules under `src/` are TypeScript. `src/types.ts` adds shared contracts for performers, poses, formations, props, attendance, tracks, cues, cameras, views and exports. Browser-only declarations document optional platform APIs. Imported project data continues through the existing runtime validators; compile-time types do not replace validation.
