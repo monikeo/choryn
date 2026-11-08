@@ -21,6 +21,14 @@ One DOM serves three layouts. `src/responsive.css` is imported last in `app/layo
 - **Phone (<768px)**: compact header, bottom tab bar (More is highlighted for overflow workspaces), and dialogs as bottom sheets anchored to the visible viewport, so they sit above the on-screen keyboard. Drag a sheet's header down to dismiss it (`src/sheet-gesture.ts`). Phones up to 700px tall and feature pages show the timeline transport only; Edit expands the full timeline.
 - **Phone landscape (≤500px tall, ≤1023px wide)**: navigation moves to a side rail. The workbench actions move into the canvas toolbar, and the zoom controls dock beside the stage.
 
+## Input
+
+`src/input-gestures.ts` keeps mouse, trackpad, pen and touch behaviour platform-native:
+
+- **Stage (2D and 3D):** a mouse wheel zooms at the pointer. A trackpad two-finger swipe pans, and a pinch zooms. Chromium and Firefox report pinch as Ctrl+wheel; Safari on macOS reports it as gesture events. Detection is automatic, and Settings → This device → Scroll gestures can force Mouse or Trackpad.
+- **Timeline:** a mouse wheel over the tracks moves through time, while the track-name column scrolls the tracks vertically. Ctrl/⌘+wheel and pinch (trackpad or two fingers) zoom around the pointer. Touch drags start from clip grips after an 8px slop; clip bodies scroll natively. A long-press opens clip tools, and snapping gives a haptic tick where the device supports it.
+- **Hover styles** apply only where a pointer can hover (`any-hover`), so taps never leave "stuck" highlights. Touch presses dim controls instead.
+
 ## TypeScript boundaries
 
 All 63 application runtime modules under `src/` are TypeScript. `src/types.ts` adds shared contracts for performers, poses, formations, props, attendance, tracks, cues, cameras, views and exports. Browser-only declarations document optional platform APIs. Imported project data continues through the existing runtime validators; compile-time types do not replace validation.

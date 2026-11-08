@@ -6,6 +6,7 @@ import {resolve} from 'node:path';
 import {createHash,webcrypto} from 'node:crypto';
 import {shouldDismiss,bindSheetGesture} from '../src/sheet-gesture.js';
 import {createPWAManager} from '../src/pwa.js';
+import {looksLikeTrackpad,createWheelClassifier,setWheelPreference,wheelPreference,bindGesturePinch,bindTouchPinch,bindLongPress} from '../src/input-gestures.js';
 
 const root=process.env.CHORYN_SOURCE_ROOT;
 
@@ -96,6 +97,63 @@ test('the offline worker installs, repairs and serves without cloning responses'
   offline=true;
   events.fetch({request:new RelativeRequest('/'),respondWith:p=>served=p});assert.match(await (await served).text(),/choryn-build/);
  }finally{Response.prototype.clone=clone;}
+});
+
+// ---- Mouse, trackpad and touch input ---------------------------------------
+
+test('wheel events are classified by device the way platforms report them',()=>{
+ assert.equal(looksLikeTrackpad({deltaMode:0,deltaX:0,deltaY:100,wheelDeltaY:-120}),false,'Chromium/WebKit mouse notch');
+ assert.equal(looksLikeTrackpad({deltaMode:1,deltaX:0,deltaY:3}),false,'Firefox line-mode mouse');
+ assert.equal(looksLikeTrackpad({deltaMode:0,deltaX:0,deltaY:8,wheelDeltaY:-24}),true,'trackpad pixels');
+ assert.equal(looksLikeTrackpad({deltaMode:0,deltaX:2,deltaY:9}),true,'two-axis movement');
+ assert.equal(looksLikeTrackpad({deltaMode:0,deltaX:0,deltaY:2.5}),true,'fractional pixels without legacy deltas');
+ assert.equal(looksLikeTrackpad({deltaMode:0,deltaX:0,deltaY:120}),false,'large integer steps without legacy deltas');
+});
+
+test('a wheel burst keeps its first classification, pinch always zooms and the preference overrides detection',()=>{
+ let now=0;const pans=createWheelClassifier(()=>now);
+ try{
+  assert.equal(pans({deltaMode:0,deltaY:100,wheelDeltaY:-120}),false);
+  now+=16;assert.equal(pans({deltaMode:0,deltaY:6,wheelDeltaY:-18}),false,'momentum within a mouse burst stays a zoom');
+  now+=500;assert.equal(pans({deltaMode:0,deltaY:6,wheelDeltaY:-18}),true);
+  now+=16;assert.equal(pans({deltaMode:0,deltaY:40,wheelDeltaY:-120}),true,'a fast swipe stays a pan');
+  assert.equal(pans({deltaMode:0,deltaY:-4,ctrlKey:true}),false,'Ctrl/pinch zooms');
+  assert.equal(setWheelPreference('mouse'),'mouse');now+=500;assert.equal(pans({deltaMode:0,deltaX:3,deltaY:6}),false);
+  setWheelPreference('trackpad');now+=500;assert.equal(pans({deltaMode:1,deltaY:3}),true);
+  assert.equal(setWheelPreference('nonsense'),'auto');assert.equal(wheelPreference(),'auto');
+ }finally{setWheelPreference('auto');}
+});
+
+// Own properties shadow Event's read-only getters (target, clientX…).
+const emit=(target,type,props={})=>{const event=new Event(type,{cancelable:true});for(const [key,value] of Object.entries(props))Object.defineProperty(event,key,{value,configurable:true});target.dispatchEvent(event);return event;};
+
+test('Safari trackpad pinch reports incremental zoom factors around the pointer',()=>{
+ const surface=new EventTarget(),factors=[];bindGesturePinch(surface,(factor,x,y)=>factors.push([+factor.toFixed(3),x,y]));
+ assert.equal(emit(surface,'gesturestart',{scale:1}).defaultPrevented,true);
+ emit(surface,'gesturechange',{scale:1.5,clientX:10,clientY:20});emit(surface,'gesturechange',{scale:1.2,clientX:12,clientY:20});emit(surface,'gestureend',{scale:1.2});
+ emit(surface,'gesturechange',{scale:3});
+ assert.deepEqual(factors,[[1.5,10,20],[.8,12,20]]);
+});
+
+test('two-finger touch pinch reports scale from the start of the pinch',()=>{
+ const surface=new EventTarget(),changes=[];let started=0,ended=0;
+ bindTouchPinch(surface,{start:()=>started++,change:(scale,center)=>changes.push([+scale.toFixed(2),center]),end:()=>ended++});
+ const pair=(a,b)=>[{clientX:a,clientY:0},{clientX:b,clientY:0}];
+ emit(surface,'touchstart',{touches:pair(100,200)});
+ assert.equal(emit(surface,'touchmove',{touches:pair(50,250)}).defaultPrevented,true);
+ emit(surface,'touchmove',{touches:[{clientX:60,clientY:0}]});emit(surface,'touchend',{touches:[{clientX:60,clientY:0}]});
+ assert.deepEqual(changes,[[2,150]]);assert.equal(started,1);assert.equal(ended,1);
+});
+
+test('touch long-press opens clip tools once, never from grips, mouse input or a scroll',async()=>{
+ const area=new EventTarget(),pressed=[];const clip={dataset:{id:'a'},closest:s=>s==='[data-timeline-kind]'?clip:null},grip={closest:s=>s==='[data-timeline-kind]'?clip:s.includes('data-reorder-grip')?grip:null};
+ bindLongPress(area,{selector:'[data-timeline-kind]',ignore:'[data-reorder-grip],[data-drag-time]',onPress:target=>pressed.push(target),delay:20});
+ const down=(target,pointerType='touch',id=1)=>emit(area,'pointerdown',{target,pointerType,pointerId:id,clientX:10,clientY:10});
+ const wait=ms=>new Promise(r=>setTimeout(r,ms));
+ down(clip);await wait(40);assert.deepEqual(pressed,[clip]);
+ assert.equal(emit(area,'contextmenu',{}).defaultPrevented,true,'Android’s native long-press menu is not opened a second time');
+ down(clip,'mouse',2);await wait(40);down(grip,'touch',3);await wait(40);assert.equal(pressed.length,1);
+ down(clip,'touch',4);emit(area,'pointermove',{pointerId:4,clientX:40,clientY:10});await wait(40);assert.equal(pressed.length,1,'moving past the slop is a scroll');
 });
 
 // ---- Stylesheet order --------------------------------------------------------

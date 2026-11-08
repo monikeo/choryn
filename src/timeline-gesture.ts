@@ -37,6 +37,8 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
   const raw=g.base+delta;
   const target=g.edge==='reorder'?sequenceDropIndex(g.project,g.id,raw,g.target,pixels):null;
   const snap=g.altKey?'off':options.snap();if(g.snapMode!==snap){g.magnet=null;g.snapMode=snap;}const magnetic=g.edge==='reorder'?null:magneticTime(raw,g.project,{snap,playhead:g.playhead,pixelsPerSecond:pixels,targets:g.snapTargets,previous:g.magnet});g.magnet=magnetic?.key?magnetic:null;
+  // A light haptic tick when a touch drag locks onto a beat, playhead or edge.
+  if(g.pointerType==='touch'&&g.magnet&&g.magnet.key!==g.hapticKey){try{environment.navigator?.vibrate?.(6);}catch{}}g.hapticKey=g.magnet?.key;
   const token=target??magnetic.time;
   if(g.lastToken===token)return;
   g.lastToken=token;
@@ -71,7 +73,9 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
   const base=edge==='reorder'?(start+end)/2:edge==='end'?end:start;
   const editable=!options.readOnly()&&!(kind==='formation'&&(value.status==='approved'||index===0&&edge!=='end'&&edge!=='reorder'));
   const exclude=kind==='formation'&&edge==='end'?project.formations[index+1]?.id:id;
-  gesture={item,kind,id,edge,project,start,end,base,exclude,editable,playhead:options.time(),fingerprint:timelineFingerprint(p),pointerId:event.pointerId,x:event.clientX,y:event.clientY,clientX:event.clientX,clientY:event.clientY,at:0,target:index,lastToken:undefined,moved:false,dirty:false,altKey:!!event.altKey};
+  // Fingers jitter more than a mouse: use platform-like slop before a press becomes a drag.
+  const slop=event.pointerType==='touch'?8:event.pointerType==='pen'?6:5;
+  gesture={item,kind,id,edge,project,start,end,base,exclude,editable,playhead:options.time(),fingerprint:timelineFingerprint(p),pointerId:event.pointerId,pointerType:event.pointerType,slop,x:event.clientX,y:event.clientY,clientX:event.clientX,clientY:event.clientY,at:0,target:index,lastToken:undefined,moved:false,dirty:false,altKey:!!event.altKey};
   gesture.snapTargets=kind?magneticTargets(project,timelineSnapExclusions(project,kind==='formation'&&edge==='end'&&!exclude?'end':kind+'/'+exclude)):null;gesture.at=timeAt(event.clientX,gesture);options.pause();options.active?.(true);
   if(item){options.select?.(kind,id);event.preventDefault();}else{gesture.dirty=true;schedule();}
   try{area.setPointerCapture(event.pointerId);}catch{finish(true);}
@@ -79,10 +83,10 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
  listen(area,'pointermove',event=>{
   const g=gesture;if(!g||event.pointerId!==g.pointerId)return;
   g.clientX=event.clientX;g.clientY=event.clientY;g.altKey=!!event.altKey;
-  if(Math.abs(g.clientX-g.x)>5)g.moved=true;
+  if(Math.abs(g.clientX-g.x)>g.slop)g.moved=true;
   g.dirty=true;schedule();
  });
- listen(area,'pointerup',event=>{if(gesture?.pointerId!==event.pointerId)return;gesture.clientX=event.clientX;gesture.clientY=event.clientY;gesture.altKey=!!event.altKey;if(Math.abs(event.clientX-gesture.x)>5)gesture.moved=true;gesture.dirty=true;finish(false);});
+ listen(area,'pointerup',event=>{if(gesture?.pointerId!==event.pointerId)return;gesture.clientX=event.clientX;gesture.clientY=event.clientY;gesture.altKey=!!event.altKey;if(Math.abs(event.clientX-gesture.x)>gesture.slop)gesture.moved=true;gesture.dirty=true;finish(false);});
  for(const type of ['pointercancel','lostpointercapture'])listen(area,type,event=>{if(gesture?.pointerId===event.pointerId)finish(true);});
  listen(area,'cancel-timeline-gesture',()=>finish(true));
  listen(environment,'blur',()=>finish(true));

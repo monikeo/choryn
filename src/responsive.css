@@ -43,6 +43,34 @@
 .stage-viewport>.canvas-hint{margin-top:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .stage-viewport:not(:has(.webgl-stage)){padding-bottom:10px}
 
+/* -------------------------------------------------------------------------
+   Readable type. Earlier releases set many labels at 7–9px, below what any
+   platform treats as legible (Apple's smallest text style is 11pt, Material's
+   smallest label 11sp). Labels now bottom out at 10px and content at 11px.
+   `#app` lifts these over the per-breakpoint rules without !important.
+   ------------------------------------------------------------------------- */
+:is(#app,#dialog) :is(.eyebrow,.section-label,.standby-label,.live-indicator,.workbench-context,.project-badge,.local-badge,.draft-label,
+ .panel-heading>span,.sidebar-footer,.formation-index,.asset-tabs button>span,.preset-shortcut small,kbd,.brand-header small,
+ .stage-dimension,.audience-label,.canvas-hint,.stage-chip,.stage-chip>span,
+ .timeline-duration,.tempo-control,.beat-counter small,.transport-time>span,.ruler-label,.time-ruler>span,.track-name small,
+ .audio-track-title,.audio-track-title small,.sequence-index,.sequence-duration,.formation-strip>button>span,
+ .status-bar,.status-bar span,.status-bar button,.travel-table small,.travel-table .performer-avatar,
+ .movement-library button small,.portal-formation small,.portal-formation .card-title>span,
+ .cue-marker,.formation-card-info small,.formation-meta,.formation-strip>button>small){font-size:10px}
+:is(#app,#dialog) :is(.preset-shortcut>span,.selection-actions>button,.metric-grid>div>span,.portal-formation>p){font-size:11px}
+#app .audience-label{letter-spacing:1px}
+#app .time-ruler>span{top:5px}
+
+/* Interface chrome behaves like native controls: no text selection or iOS
+   callout on long-press or double-click. Fields stay editable/selectable. */
+.app-rail,.app-header,.project-nav,.workbench-bar,.canvas-toolbar,.canvas-bottom,.formation-strip,.timeline,.native-nav,.status-bar,.asset-tabs,.viewport-navigation,.stage-viewport,.formation-card{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+:is(.app-header,.timeline,.workbench-bar,.canvas-toolbar,.viewport-navigation) :is(input,textarea,[contenteditable]){-webkit-user-select:text;user-select:text}
+/* Touch press feedback (hover styles only apply where a pointer can hover). */
+@media (any-hover:none){
+ :is(.button,.icon-button,.native-nav>button,.workspace-menu>button,.formation-strip>button,.mode-tabs button,.view-switch button,.workbench-bar button,
+  .viewport-navigation button,.timeline-icon-tools button,.timeline-zoom button,.add-formation,.formation-card,.export-options>button,.play-button):not(:disabled):active{opacity:.6}
+}
+
 @keyframes choryn-sheet-in{from{transform:translateY(calc(-100% + 32px));opacity:.4}to{transform:translateY(-100%);opacity:1}}
 
 /* The workspace sheet marks where you are, like a native tab overflow. */
@@ -117,6 +145,10 @@
  .header-actions>.button.primary>.icon:last-child{display:none}
  .project-title{min-height:44px;align-items:center}
  .workbench-bar button[data-workbench=commands]{min-width:44px;justify-content:center}
+ /* Icon-only Compare (its title is the accessible name) instead of a
+    truncated "Compare & heatma…" label. */
+ .workbench-bar button[data-workbench=analysis]{min-width:44px;justify-content:center}
+ .workbench-bar button[data-workbench=analysis]>span{display:none}
 
  /* Feature pages (production, analysis, review…) keep a transport bar only;
     Edit expands the full timeline when needed. */
@@ -186,7 +218,7 @@
   border-top:0;border-right:1px solid var(--border);overflow-y:auto;scrollbar-width:none}
  .native-nav::-webkit-scrollbar{display:none}
  .native-nav{background:var(--surface)}
- .native-nav>button{display:flex;align-items:center;justify-content:center;flex:0 0 auto;flex-direction:column;width:100%;min-width:0;min-height:50px;gap:3px;font-size:9px;font-weight:500;line-height:1.2;padding:5px 2px;border-radius:10px;color:var(--secondary)}
+ .native-nav>button{display:flex;align-items:center;justify-content:center;flex:0 0 auto;flex-direction:column;width:100%;min-width:0;min-height:50px;gap:3px;font-size:10px;font-weight:500;line-height:1.2;padding:5px 2px;border-radius:10px;color:var(--secondary)}
  .native-nav>button>.icon{width:20px;height:20px;stroke-width:1.7}
  .native-nav>button.active{color:var(--accent);background:var(--accent-soft)}
 

@@ -4,6 +4,8 @@ import {timelineToolButtons,reorderImpact,timelineFingerprint,timelineCommandRea
 import {bindTimelineGestures,bindTimelineResizer} from './timeline-gesture.js';
 import {observeSize} from './compat.js';
 import {wheelPixels} from './camera-controls.js';
+import {createWheelClassifier,bindGesturePinch,bindTouchPinch,bindLongPress} from './input-gestures.js';
+const timelineWheel=createWheelClassifier();
 import {timedItems} from './production-timing.js';
 import {clamp,timecode,uid} from './engine.js';
 
@@ -285,9 +287,24 @@ export function bindEditorTimeline(){
     (controls.querySelector<HTMLElement>('[data-timeline-action="zoom-in"]') as HTMLButtonElement).disabled=zoom>=32;
   };
   zoomController(zoom);
+  const idle=()=>!dragging&&!area.querySelector('.timeline-event-active');
   timelineListen(area,'wheel',event=>{
     const delta=wheelPixels(event,scroll.clientHeight);
-    if(event.ctrlKey||event.metaKey){event.preventDefault();if(!dragging&&!area.querySelector('.timeline-event-active'))zoomController(zoom*Math.exp(clamp(-delta.y*.002,-.3,.3)),event.clientX);}
-    else if(event.shiftKey&&delta.y){event.preventDefault();if(!dragging&&!area.querySelector('.timeline-event-active'))scroll.scrollLeft+=delta.y;}
+    if(event.ctrlKey||event.metaKey){event.preventDefault();if(idle())zoomController(zoom*Math.exp(clamp(-delta.y*.002,-.3,.3)),event.clientX);}
+    else if(event.shiftKey&&delta.y){event.preventDefault();if(idle())scroll.scrollLeft+=delta.y;}
+    // Over the tracks a mouse wheel moves through time, as in native timeline
+    // editors (the track-name column scrolls tracks vertically, below);
+    // trackpads keep their own two-axis scrolling.
+    else if(delta.y&&!delta.x&&!timelineWheel(event)){event.preventDefault();if(idle())scroll.scrollLeft+=delta.y;}
   },{passive:false});
+  // The track-name column mirrors the tracks' vertical scroll with a
+  // transform, so it needs its own wheel handling to scroll them.
+  const trackNames=$('.track-labels');
+  if(trackNames)timelineListen(trackNames,'wheel',event=>{if(event.ctrlKey||event.metaKey)return;const delta=wheelPixels(event,scroll.clientHeight),dy=delta.y||delta.x;if(!dy||scroll.scrollHeight<=scroll.clientHeight)return;event.preventDefault();scroll.scrollTop+=dy;},{passive:false});
+  // Safari trackpad pinch and two-finger touch pinch zoom around the fingers.
+  bindGesturePinch(area,(factor,clientX)=>{if(idle()&&zoomController)zoomController(zoom*factor,clientX);},{listen:timelineListen});
+  let pinchStart=zoom;
+  bindTouchPinch(scroll,{start(){gestureController?.cancel();pinchStart=zoom;},change(scale,centerX){if(zoomController&&!area.querySelector('.timeline-event-active'))zoomController(pinchStart*scale,centerX);}},{listen:timelineListen});
+  // Touch long-press on a clip opens its tools (iOS has no touch contextmenu).
+  bindLongPress(area,{selector:'[data-timeline-kind]',ignore:'[data-reorder-grip],[data-drag-time]',onPress(item){if(dragging)return;rememberClipSelection(item.dataset.timelineKind,item.dataset.timelineId);markSelection();clipTools();}},{listen:timelineListen});
 }

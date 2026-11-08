@@ -23,6 +23,7 @@
   "/src/navigation-dock.js",
   "/src/navigation.css",
   "/src/sheet-gesture.js",
+  "/src/input-gestures.js",
   "/src/responsive.css",
   "/src/branding.css",
   "/icons/choryn-mark-light.svg",
