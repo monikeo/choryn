@@ -107,6 +107,7 @@ test('live 3D lowers its render scale when GPU frames run long and restores it w
   frame();assert.equal(canvas.width,1280,'starts at full resolution');assert.equal(stage.stats.adaptive,true);
   for(let i=0;i<8;i++)frame();
   assert.ok(stage.stats.scale<1&&canvas.width<1280,`slow GPU frames lower the scale (now ${stage.stats.scale}, ${canvas.width}px)`);
+  assert.ok(stage.stats.gpuMs>16,'the last GPU time stays reported right after a scale change');
   const until0=Date.now()+3000;while(stage.stats.scale>.75&&Date.now()<until0)frame();
   assert.equal(stage.stats.scale,.75,'never below 75% however slow');
   const lowered=canvas.width;gpu.ms=2;const until=Date.now()+2500;
