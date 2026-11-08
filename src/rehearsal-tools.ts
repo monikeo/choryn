@@ -43,8 +43,10 @@ export function setupRehearsalTools(adapter){
  },true);
 }
 function setSource(id,blob){if(sourceURL)URL.revokeObjectURL(sourceURL);sourceId=id;sourceBlob=blob;sourceURL=blob?URL.createObjectURL(blob):'';}
+// The timeline button is separate so a rebuilt timeline can get it back without reloading the reference video.
+export function bindRehearsalTimeline(){const bar=$('.score-bar');if(bar&&!bar.querySelector('[data-rehearsal="open"]')){const button=document.createElement('button');button.dataset.rehearsal='open';button.innerHTML=icon('eye');button.title='Ghosts, checkpoints, follow camera and reference video';button.setAttribute('aria-label','Ghosts, checkpoints, follow camera and reference video');bar.insertBefore(button,$('#fine-scrub'));}}
 export function bindRehearsalTools(){
- const bar=$('.score-bar');if(bar){const button=document.createElement('button');button.dataset.rehearsal='open';button.innerHTML=icon('eye');button.title='Ghosts, checkpoints, follow camera and reference video';button.setAttribute('aria-label','Ghosts, checkpoints, follow camera and reference video');bar.insertBefore(button,$('#fine-scrub'));}
+ bindRehearsalTimeline();
  if(video){video.pause();video.removeAttribute('src');video.load();}video=null;const config=api.project().referenceVideo;if(!config?.visible)return;
  const host=$('#stage-viewport');if(!host)return;const dock=document.createElement('section');dock.className='reference-dock';dock.setAttribute('aria-label','Synced reference video');dock.innerHTML=`<div><strong>${esc(config.name)}</strong><button data-rehearsal="reference" aria-label="Reference video settings">⚙</button></div><video muted playsinline preload="auto" aria-label="Reference video preview"></video><div><button data-rehearsal="frame-prev">−1 frame</button><button data-rehearsal="toggle-play">Play / pause</button><button data-rehearsal="frame-next">+1 frame</button></div><small role="status">Loading local video…</small>`;host.append(dock);video=dock.querySelector<HTMLVideoElement>('video');video.muted=true;
  video.onloadedmetadata=()=>{syncReference(api.time(),api.playing(),api.rate());dock.querySelector<HTMLElement>('small').textContent=`Muted guide · ${config.fps} fps stepping`;};video.onerror=()=>dock.querySelector<HTMLElement>('small').textContent='Source unavailable or unsupported. Open settings to attach it.';

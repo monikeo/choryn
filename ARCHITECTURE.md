@@ -75,7 +75,21 @@ Measure with `npm run bench` (CPU cost of each per-frame step at 100 performers)
 
 **WebAssembly.** At the supported scale, the per-frame JavaScript work above is about 1–2 ms; the remaining time is GPU work and browser style recalculation, which WebAssembly cannot speed up. Moving the model to Rust/WASM would add a second toolchain, a larger download and a JS↔WASM copy of positions every frame for no measurable gain. Reconsider it only for a new CPU-bound feature, such as physics or crowd simulation, or offline audio analysis, where the numbers can show a benefit.
 
-**Known cost.** Edits re-render the whole workstation: about 24 ms in 3D and 39 ms in 2D with 100 performers on the laptop above. The live 3D stage is kept across these re-renders. Targeted updates of the panels would make edits instant on phones too.
+**Edits.** A committed edit refreshes only the workstation regions it changes (`refresh(parts)` in `app.ts`): the inspector, the active formation card or the roster, the canvas heading, the formation strip, the timeline and the stage. Rebuilding the whole page cost most of its time in style and layout of the new DOM, not in building HTML. The 2D stage is patched in place from `stageLayers2D`: markers are keyed by performer and only changed ones are replaced, the props and paths layers are rewritten when their markup changes, and grid, transform and label are attributes. The live 3D stage gets one `update`. Undo and redo compare the restored project with the current one to choose regions. Mode, view, layout, project, formation list, timing and stage-size changes still use the full `render()`, which is also the fallback outside the formation editor; a refresh requested while a pointer is held waits for its release, like `render()`.
+
+Per-edit time with 100 performers in the built preview (Chrome on the laptop above, JavaScript plus forced style and layout, median of 9 runs, before and after builds measured alternately; GPU drawing excluded):
+
+| Edit | 2D before | 2D after | 3D before | 3D after |
+|---|---|---|---|---|
+| Inspector field (position, name, identity) | 21–23 ms | 3–5 ms | 13–15 ms | 2–4 ms |
+| Highlight, grid, snap toggles | 20–22 ms | 0.5–5 ms | 13 ms | 0.4–3 ms |
+| Performer names toggle (every marker changes) | 20 ms | 9 ms | 12 ms | 2 ms |
+| Undo / redo of a move | 21–22 ms | 5 ms | 14 ms | 3.5 ms |
+| Approve / unlock formation | 20 ms | 11 ms | 14 ms | 8.5 ms |
+| Remove / add performer | 21 / 34 ms | 13 / 21 ms | 14 / 23 ms | 5 / 15 ms |
+| Phone layout (375×812), inspector edits | 66–76 ms | 3–13 ms | 23–55 ms | 3–5 ms |
+
+Approving rebuilds the timeline (about 5 ms) because several modules decorate it after rendering; adding or removing a performer does too when it reopens approved formations. Removing a performer renumbers the later markers, and adding one opens the Performers tab, so both still replace many nodes.
 
 ## Local data
 
