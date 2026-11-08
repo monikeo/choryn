@@ -86,7 +86,7 @@ export function setupPower(adapter){
   document.addEventListener('lostpointercapture',()=>finishSequence(true));
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&sequencePointer){event.preventDefault();event.stopImmediatePropagation();finishSequence(true);}},true);
   $('#dialog').addEventListener('close',()=>{if(!$('#dialog').open)releasePowerExport();});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&full&&!$('#dialog').open){event.preventDefault();toggleFullscreen();}if(event.key.toLowerCase()==='f'&&!event.ctrlKey&&!event.metaKey&&!(event.target as HTMLElement).matches('input,textarea,select')&&!$('#dialog').open)toggleFullscreen();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&full&&!$('#dialog').open){event.preventDefault();toggleFullscreen();}if(event.key.toLowerCase()==='f'&&!event.ctrlKey&&!event.metaKey&&!(event.target as HTMLElement).matches?.('input,textarea,select')&&!$('#dialog').open)toggleFullscreen();});
   document.addEventListener('fullscreenchange',()=>{if(nativeFull&&!document.fullscreenElement){full=false;nativeFull=false;syncFullscreen();if(!fullscreenPending)api.render();}});
 }
 async function toggleFullscreen(){
@@ -111,7 +111,7 @@ async function toggleFullscreen(){
   }
  }finally{fullscreenPending=false;syncFullscreen();api.render();}
 }
-function syncFullscreen(){document.body.classList.toggle('stage-fullscreen',full);document.body.classList.toggle('fullscreen-with-timeline',full&&fullTimeline);}
+function syncFullscreen(){document.body.classList.toggle('stage-fullscreen',full);document.body.classList.toggle('fullscreen-with-timeline',full&&fullTimeline);try{document.querySelectorAll<HTMLElement>('.fullscreen-button').forEach(button=>{button.setAttribute('aria-pressed',String(full));button.setAttribute('aria-label',full?'Exit fullscreen':'Fullscreen stage');button.title=full?'Exit fullscreen (Esc)':'Fullscreen stage (F)';});}catch{}}
 export function bindPowerTimeline(){bindEditorTimeline();syncFullscreen();document.querySelectorAll<HTMLElement>('[data-power="fullscreen-timeline"]').forEach(button=>{button.textContent=fullTimeline?'Hide timeline':'Show timeline';button.setAttribute('aria-label',`${fullTimeline?'Hide':'Show'} performance timeline`);button.setAttribute('aria-expanded',String(fullTimeline));});timelineObserver?.disconnect();if(full&&fullTimeline){const timeline=$('.timeline'),update=()=>document.documentElement.style.setProperty('--fullscreen-timeline-height',`${timeline.getBoundingClientRect().height}px`);timelineObserver=observeSize(timeline,update);update();}}
 export function transitionDialog(id){
   const p=api.project(),index=p.formations.findIndex(f=>f.id===(id||api.formation().id)),f=p.formations[index],next=p.formations[index+1];

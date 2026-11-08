@@ -61,6 +61,14 @@
 #app .audience-label{letter-spacing:1px}
 #app .time-ruler>span{top:5px}
 
+/* Contrast (WCAG AA). Light: the muted gray measured 4.42:1 on the panels;
+   this shade reaches ~5:1. Dark: white text on the light-violet accent
+   measured 2.48:1, so the active timeline clip and GO use the night ink that
+   other accent buttons already use in dark mode. */
+:root:not([data-theme=dark]){--muted:#6f6878}
+[data-theme=dark] :is(.timeline-formation.active,.go-button:not(:disabled)){color:var(--brand-night)}
+@media (any-hover:hover){[data-theme=dark] :is(.timeline-formation.active:hover:not(:disabled),.go-button:hover:not(:disabled)){color:var(--brand-night)}}
+
 /* Interface chrome behaves like native controls: no text selection or iOS
    callout on long-press or double-click. Fields stay editable/selectable. */
 .app-rail,.app-header,.project-nav,.workbench-bar,.canvas-toolbar,.canvas-bottom,.formation-strip,.timeline,.native-nav,.status-bar,.asset-tabs,.viewport-navigation,.stage-viewport,.formation-card{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -108,6 +116,16 @@
 @container stagepanel (max-width:700px){
  .canvas-toolbar{flex-wrap:wrap;height:auto;min-height:46px;padding-block:6px}
  .canvas-toolbar .view-controls{margin-left:auto}
+}
+
+/* Fullscreen toolbar in portrait (tablets and phones): wrap onto a second
+   row instead of pushing 2D/3D and stage rotation off-screen. There is ample
+   height in portrait fullscreen; landscape phones keep a scrolling row. */
+@media (max-width:1199px) and (orientation:portrait){
+ .stage-fullscreen .canvas-toolbar{flex-wrap:wrap;height:auto;min-height:46px;overflow:visible;row-gap:4px;padding-block:4px}
+ .stage-fullscreen .canvas-toolbar .view-controls{margin-left:auto}
+ .stage-fullscreen .canvas-toolbar .ensemble-open{font-size:0;gap:0;width:38px;min-width:38px;padding:0;justify-content:center}
+ .stage-fullscreen .canvas-toolbar .ensemble-open>span{display:none}
 }
 
 /* The rail scrolls instead of clipping its lower actions on short windows. */
@@ -269,7 +287,18 @@
  .canvas-options>[data-action=fit]{order:3}.canvas-options>.fullscreen-button{order:4}
  .canvas-options>[data-action=grid]{order:5}
  .canvas-options>.zoom-label{order:6;width:40px;min-width:0;height:40px;font-size:10px;display:grid;place-items:center;padding:0}
- .stage-fullscreen .canvas-bottom{position:absolute}
+ /* Fullscreen keeps the same floating dock (power.css pinned it in flow,
+    under the stage, which left a ~190px stage on landscape phones). */
+ .stage-fullscreen .canvas-panel .canvas-bottom{position:absolute;left:auto;top:auto;right:calc(8px + var(--safe-right));bottom:max(8px,var(--safe-bottom));padding:0;min-height:0;background:none;border:0;flex-wrap:nowrap}
+ .stage-fullscreen .canvas-bottom .stage-chip{display:none!important}
+ /* Fullscreen adds the transport and a "Show timeline" button: the latter
+    becomes an icon (its aria-label names it) and the row wraps only when it
+    still does not fit, so 2D/3D never hides behind a sideways scroll. */
+ .stage-fullscreen .canvas-toolbar{flex-wrap:wrap;overflow:visible;height:auto;row-gap:2px;padding-block:2px}
+ .stage-fullscreen [data-power="fullscreen-timeline"]{font-size:0;width:40px;min-width:40px;height:40px;padding:0;display:inline-grid;place-items:center}
+ .stage-fullscreen [data-power="fullscreen-timeline"]::before{content:'';width:20px;height:20px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 6h16M4 12h10M4 18h13'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 6h16M4 12h10M4 18h13'/%3E%3C/svg%3E") center/contain no-repeat}
 
  /* Header: compact, with an icon-only export action. */
  .app-header{height:44px;min-height:44px;padding-top:0}

@@ -158,6 +158,16 @@ test('touch long-press opens clip tools once, never from grips, mouse input or a
 
 // ---- Stylesheet order --------------------------------------------------------
 
+// A parser-blocking <head> script runs before any body content exists, so the
+// first paint already uses the right theme (Next.js may place its stylesheet
+// links ahead of it; the script then simply waits for them).
+test('the built page applies the saved or system theme before first paint',async()=>{
+ const html=await readFile(resolve(root,'dist/index.html'),'utf8');
+ const script=html.indexOf("localStorage.getItem('choryn.theme')"),head=html.indexOf('</head>'),body=html.indexOf('<body');
+ assert.ok(script>0,'theme bootstrap is inlined');assert.ok(script<head&&script<body,'it runs inside <head>, before the body exists');
+ assert.match(html,/prefers-color-scheme: dark/);
+});
+
 test('the responsive layer loads after every feature stylesheet',async()=>{
  const layout=await readFile(resolve(root,'app/layout.tsx'),'utf8');
  const sheets=[...layout.matchAll(/import '\.\.\/src\/([^']+\.css)';/g)].map(m=>m[1]);
