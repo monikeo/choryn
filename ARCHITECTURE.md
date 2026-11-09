@@ -71,6 +71,9 @@ A frame at 60 fps has 16.7 ms for JavaScript, style/layout and the GPU together.
 - **Labels.** Name labels move with `transform` inside a `contain: strict` layer, so they never re-lay out the page.
 - **Pairwise checks.** Spacing warnings and the spacing heat map sort performers by x and stop scanning once the gap exceeds the threshold (sweep and prune). Results match a full pairwise scan, and the tests check that.
 
+- **On-demand tools.** These run on a click, not per frame. At 100 performers: shortest-travel assignment about 1.5 ms (Hungarian algorithm); fix spacing about 17 ms. The collision-free planner takes about 0.26 s in the worst case of everyone crossing; it samples routes with the engine's own interpolation, checks the exact closest approach between samples, and skips performers already clear. Tempo detection takes about 0.1 s for a 3-minute song and is loaded only when used.
+- **Demo music.** The generated demo track renders with per-beat envelope tables and rotating phasors: the same signal (within float rounding) in about 0.1 s instead of 0.7–2.4 s on first play.
+
 Measure with `npm run bench` (CPU cost of each per-frame step at 100 performers) and **Playback performance** in the app (update rate, plus the 3D renderer's GPU, resolution and draw calls on this device).
 
 **WebAssembly.** At the supported scale, the per-frame JavaScript work above is about 1–2 ms; the remaining time is GPU work and browser style recalculation, which WebAssembly cannot speed up. Moving the model to Rust/WASM would add a second toolchain, a larger download and a JS↔WASM copy of positions every frame for no measurable gain. Reconsider it only for a new CPU-bound feature, such as physics or crowd simulation, or offline audio analysis, where the numbers can show a benefit.

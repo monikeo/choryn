@@ -1,5 +1,7 @@
 [
   "/src/ensemble-schema.js",
+  "/src/formation-tools.js",
+  "/src/beat-detect.js",
   "/src/ensemble-model.js",
   "/src/ensemble-tools.js",
   "/src/ensemble.css",

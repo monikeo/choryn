@@ -7,6 +7,15 @@ import {samplePerformance,timecode,beatAt,clamp} from './engine.js';
 import {contrastText} from './colors.js';
 
 export const RESOLUTIONS={480:[854,480],720:[1280,720],1080:[1920,1080],1440:[2560,1440]};
+/** Video cameras. "view" keeps the on-screen camera; the others are cinematic 3D shots. */
+export const VIDEO_CAMERAS=[
+  {id:'view',label:'Current view · as on screen'},
+  {id:'audience',label:'Audience · slow push-in from the house'},
+  {id:'overhead',label:'Overhead · bird’s-eye formations'},
+  {id:'side',label:'Side · from the stage-left wing'},
+  {id:'orbit',label:'Orbit · one slow turn around the stage'},
+  {id:'follow',label:'Follow · tracks highlighted dancers'}
+];
 export function videoSettings(duration:number,input:VideoInput={}){
   const resolution=Number(input.resolution||720),fps=Number(input.fps||30),quality=input.quality||'standard';
   if(!RESOLUTIONS[resolution]||![24,30,60].includes(fps)||!['compact','standard','high'].includes(quality))throw Error('Choose a supported video quality.');
@@ -16,7 +25,9 @@ export function videoSettings(duration:number,input:VideoInput={}){
   const bitrate=Math.round(width*height*fps*.08*({compact:.55,standard:1,high:1.8}[quality]));
   const estimatedBytes=(bitrate+192000)*(end-start)/8;
   if(estimatedBytes>400*1024*1024)throw Error('This clip is too large for an in-memory export. Choose a shorter range or lower quality (estimated limit 400 MB).');
-  return {width,height,fps,quality,start,end,bitrate,estimatedBytes,labels:input.labels!==false};
+  const camera=String(input.camera||'view'),look=String(input.look||'view');
+  if(!VIDEO_CAMERAS.some(c=>c.id===camera)||!['view','rehearsal','show'].includes(look))throw Error('Choose a supported camera and lighting.');
+  return {width,height,fps,quality,start,end,bitrate,estimatedBytes,labels:input.labels!==false,camera,look};
 }
 export function supportedVideoFormats(Recorder=globalThis.MediaRecorder){
   if(!Recorder?.isTypeSupported)return [];

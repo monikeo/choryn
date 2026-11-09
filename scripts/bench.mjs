@@ -15,7 +15,7 @@ await rm(runtime,{recursive:true,force:true});await mkdir(resolve(runtime,'src')
 for(const name of await readdir(resolve(root,'src'))){if(name.endsWith('.d.ts'))continue;const input=resolve(root,'src',name);if(name.endsWith('.ts'))await writeFile(resolve(runtime,'src',name.replace(/\.ts$/,'.js')),stripTypeScriptTypes(await readFile(input,'utf8'),{mode:'strip'}));else await cp(input,resolve(runtime,'src',name));}
 await writeFile(resolve(runtime,'package.json'),'{"type":"module"}');
 const load=name=>import(pathToFileURL(resolve(runtime,'src',name)).href);
-const engine=await load('engine.js'),model=await load('production-next-model.js'),rehearsal=await load('rehearsal-model.js'),analysis=await load('analysis-model.js'),stage2d=await load('stage2d.js'),stage3d=await load('stage3d.js');
+const engine=await load('engine.js'),model=await load('production-next-model.js'),rehearsal=await load('rehearsal-model.js'),analysis=await load('analysis-model.js'),stage2d=await load('stage2d.js'),stage3d=await load('stage3d.js'),tools=await load('formation-tools.js'),beats=await load('beat-detect.js');
 
 function bench(label,fn,{min=60,ms=400}={}){
   for(let i=0;i<5;i++)fn(i);// warm the JIT
@@ -56,6 +56,14 @@ results.push(bench('3D frame: update + draw (shadow + main + labels)',i=>{const 
 results.push(bench('3D frame: camera orbit only (same positions)',()=>{stage.camera.yaw+=.001;stage.update(model.sceneProject(project,0,positionsAt[0]),positionsAt[0]);flush();}));
 const gpuCalls=stage.stats.drawCalls;stage.dispose();
 results.push(bench('validateProject (open/import a 100-performer project)',()=>engine.validateProject(JSON.parse(JSON.stringify(project))),{min:20,ms:400}));
+// One-off tools (run on a click, not per frame).
+const origins=new Map(project.formations[0].positions.map(p=>[p.performerId,p])),circle=engine.generateLayout('circle',project.performers,project.stage);
+results.push(bench('assignByTravel (shortest-travel spots, 100 dancers)',()=>tools.assignByTravel(circle,origins),{min:10,ms:400}));
+const crowded=project.formations[0].positions.map((p,i)=>({...p,x:(i%10-4.5)*.4,z:(Math.floor(i/10)-4.5)*.3}));
+results.push(bench('spaceApart (fix spacing, 100 dancers packed tight)',()=>tools.spaceApart(crowded,{distance:.55,stage:project.stage}),{min:5,ms:400}));
+results.push(bench('planClearRoutes (collision-free, 100 dancers)',()=>tools.planClearRoutes(project,project.formations[1].id),{min:3,ms:400}));
+const rate=22050,song=new Float32Array(rate*180);for(let k=0;k*rate*.5<song.length;k++){const s=Math.round(k*rate*.5);for(let j=0;j<rate*.08&&s+j<song.length;j++)song[s+j]=Math.exp(-j/rate*25)*Math.sin(j*.05);}
+results.push(bench('detectTempo (3-minute song)',()=>beats.detectTempo(song,rate),{min:3,ms:400}));
 
 const width=Math.max(...results.map(r=>r.label.length));
 console.log(`CHORYN CPU benchmark · ${project.performers.length} performers · ${project.formations.length} formations · Node ${process.version}\n`);
