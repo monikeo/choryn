@@ -1,3 +1,4 @@
+import {errorMessage} from './errors.js';
 import {icon} from './icons.js';
 import {uid,samplePerformance,clone} from './engine.js';
 import {parseCount,formatCount} from './music-model.js';
@@ -17,7 +18,7 @@ const atTime=(data,p)=>data.get('unit')==='counts'?parseCount(data.get('at'),p.b
 export function setupRehearsalTools(adapter){
  api=adapter;const input=document.createElement('input');input.type='file';input.accept='video/*';input.hidden=true;document.body.append(input);
  input.onchange=async()=>{const file=input.files[0];input.value='';if(!file||api.readOnly())return;const projectId=api.project().id;if(file.size>250*1024*1024)return api.toast('Choose a reference video smaller than 250 MB.');api.pause();api.toast('Reading reference video…');
-  try{const duration=await probeReference(file);if(api.project().id!==projectId)return;const config=validateReference({id:uid(),name:file.name,duration,trimStart:0,trimEnd:duration,start:0,fps:30,visible:true});let saved=true;try{await saveReference(config.id,file);}catch{saved=false;}if(api.project().id!==projectId)return;setSource(config.id,file);const next=clone(api.project());next.referenceVideo=config;api.replace(next,saved?'Reference video saved on this device.':'Video is available for this session. Device storage could not save it.');api.close();}catch(error){api.toast(error.message);}
+  try{const duration=await probeReference(file);if(api.project().id!==projectId)return;const config=validateReference({id:uid(),name:file.name,duration,trimStart:0,trimEnd:duration,start:0,fps:30,visible:true});let saved=true;try{await saveReference(config.id,file);}catch{saved=false;}if(api.project().id!==projectId)return;setSource(config.id,file);const next=clone(api.project());next.referenceVideo=config;api.replace(next,saved?'Reference video saved on this device.':'Video is available for this session. Device storage could not save it.');api.close();}catch(error){api.toast(errorMessage(error));}
  };
  document.addEventListener('click',event=>{const button=(event.target as HTMLElement).closest<HTMLElement>('[data-rehearsal]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();const p=api.project(),action=button.dataset.rehearsal;
   try{
@@ -30,7 +31,7 @@ export function setupRehearsalTools(adapter){
    if(action==='frame-prev'||action==='frame-next'){api.pause();api.seek(stepFrame(api.time(),action==='frame-next'?1:-1,p.referenceVideo?.fps||30,p.duration));}
    if(action==='toggle-play')api.togglePlay();
    if(action==='hide-reference'&&!api.readOnly()){const next=clone(p);next.referenceVideo.visible=false;api.replace(next,'Reference video hidden.');}
-  }catch(error){api.toast(error.message);}
+  }catch(error){api.toast(errorMessage(error));}
  },true);
  document.addEventListener('submit',event=>{const form=(event.target as HTMLFormElement);if(!['aids-form','checkpoint-form','reference-form','attachment-form'].includes(form.id))return;event.preventDefault();event.stopImmediatePropagation();const data=new FormData(form),p=api.project();
   try{
@@ -39,7 +40,7 @@ export function setupRehearsalTools(adapter){
    if(form.id==='checkpoint-form'){const next=clone(p);next.checkpoints.push({id:uid(),time:atTime(data,p),label:String(String(data.get('label')||'')).slice(0,100)});api.replace(next,'Count checkpoint saved.');toolsDialog();}
    if(form.id==='reference-form'){const next=clone(p);next.referenceVideo=validateReference({...p.referenceVideo,start:Number(String(data.get('start')||'')),trimStart:Number(String(data.get('trimStart')||'')),trimEnd:Number(String(data.get('trimEnd')||'')),fps:Number(String(data.get('fps')||'')),visible:data.has('visible')});api.replace(next,'Reference sync saved.');api.close();}
    if(form.id==='attachment-form'){const time=atTime(data,p);if(!Number.isFinite(time)||time<0||time>p.duration)throw Error('Choose a handoff time inside the performance.');const next=setAttachment(p,form.dataset.prop,{time,performerId:String(data.get('performer')||'')||null,x:Number(String(data.get('x')||'')),z:Number(String(data.get('z')||'')),rotation:Number(String(data.get('rotation')||'')),rotate:data.has('rotate'),keepPosition:data.has('keep')},samplePerformance(p,time));api.replace(next,'Prop attachment saved. Undo is available.');attachmentDialog(form.dataset.prop);}
-  }catch(error){api.toast(error.message);}
+  }catch(error){api.toast(errorMessage(error));}
  },true);
 }
 function setSource(id,blob){if(sourceURL)URL.revokeObjectURL(sourceURL);sourceId=id;sourceBlob=blob;sourceURL=blob?URL.createObjectURL(blob):'';}

@@ -1,3 +1,4 @@
+import {errorMessage} from './errors.js';
 import type {VideoInput,MediaOptions} from './types.js';
 import type {Project} from './types.js';
 import {sampleProps} from './prop-motion.js';
@@ -80,7 +81,7 @@ export async function recordVideo(project: Project,settings,{mime,audioBuffer,si
     let nextDraw=1/settings.fps;
     const duration=settings.end-settings.start,clock=()=>audioContext?audioContext.currentTime:performance.now()/1000;
     recorder.start(500);const started=clock();if(source){const slice=audioSlice(project,audioBuffer.duration,settings.start,settings.end);if(slice)source.start(audioContext.currentTime+slice.delay,slice.offset,slice.duration);}
-    const draw=async()=>{try{if(aborted||recorder.state!=='recording')return;const elapsed=Math.max(0,clock()-started);if(elapsed<duration&&elapsed+1e-6<nextDraw){frame=requestAnimationFrame(draw);return;}nextDraw=(Math.floor((elapsed+1e-6)*settings.fps)+1)/settings.fps;if(frameRenderer)await frameRenderer.draw(ctx,Math.min(settings.end,settings.start+elapsed));else drawVideoFrame(ctx,project,Math.min(settings.end,settings.start+elapsed),settings);if(aborted)return;onProgress(Math.min(1,elapsed/duration),canvas);if(elapsed>=duration){stop('');return;}frame=requestAnimationFrame(draw);}catch(error){stop(error.message||'Video rendering failed.');}};
+    const draw=async()=>{try{if(aborted||recorder.state!=='recording')return;const elapsed=Math.max(0,clock()-started);if(elapsed<duration&&elapsed+1e-6<nextDraw){frame=requestAnimationFrame(draw);return;}nextDraw=(Math.floor((elapsed+1e-6)*settings.fps)+1)/settings.fps;if(frameRenderer)await frameRenderer.draw(ctx,Math.min(settings.end,settings.start+elapsed));else drawVideoFrame(ctx,project,Math.min(settings.end,settings.start+elapsed),settings);if(aborted)return;onProgress(Math.min(1,elapsed/duration),canvas);if(elapsed>=duration){stop('');return;}frame=requestAnimationFrame(draw);}catch(error){stop(errorMessage(error)||'Video rendering failed.');}};
     draw();timer=setTimeout(()=>{if(recorder.state==='recording')stop('Recording stalled. Keep this tab active and try a lower resolution.');},(duration+15)*1000);
 
     const blob=await result;if(!blob.size)throw Error('The video encoder returned an empty file.');return blob;

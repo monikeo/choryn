@@ -1,3 +1,4 @@
+import {errorMessage} from './errors.js';
 import type {Project} from './types.js';
 import {icon} from './icons.js';
 import {timelineToolButtons,reorderImpact,timelineFingerprint,timelineCommandReason} from './timeline-tools.js';
@@ -52,7 +53,7 @@ export function setupTimeline(adapter){
     const menu=$('.timeline-more[open]');if(menu&&(!(event.target as HTMLElement).closest<HTMLElement>('.timeline-more')||(event.target as HTMLElement).closest<HTMLElement>('[data-power],[data-images]')))menu.open=false;
     const button=(event.target as HTMLElement).closest<HTMLElement>('[data-timeline-action]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(menu)menu.open=false;
 
-    try{runTimelineCommand(button.dataset.timelineAction);}catch(error){api.toast(error.message);}
+    try{runTimelineCommand(button.dataset.timelineAction);}catch(error){api.toast(errorMessage(error));}
 
   },true);
 
@@ -71,7 +72,7 @@ export function setupTimeline(adapter){
 
     if((event.target as HTMLElement).id!=='timeline-trim-form')return;event.preventDefault();event.stopImmediatePropagation();if(api.readOnly())return;
 
-    try{const pending=pendingTrim;if(!pending||(event.target as HTMLElement).dataset.trimToken!==pending.token)throw Error('This trim dialog expired. Reopen it.');if(pending.before!==timelineFingerprint(api.project()))throw Error('The score changed. Reopen the trim dialog before saving.');const data=new FormData(((event.target as HTMLElement) as HTMLFormElement)),edge=String(data.get('edge')||'');if(!['start','end'].includes(edge))throw Error('Choose the start or end edge.');const next=editTimeline(api.project(),{kind:pending.kind,id:pending.id,edge,value:Number(String(data.get('time')||''))});if(boundaryTime(next,pending.kind,pending.id,edge)===boundaryTime(api.project(),pending.kind,pending.id,edge)){const input=(((event.target as HTMLElement) as HTMLFormElement).elements?.['time'] as HTMLInputElement);if(input)input.value=boundaryTime(next,pending.kind,pending.id,edge);api.toast('No timing change. Existing events or sequence boundaries limit this trim.');return;}api.replace(next,'Clip trimmed. Undo is available.',{formationId:pending.kind==='formation'?pending.id:undefined,time:pending.kind==='formation'?timelineItem(next,'formation',pending.id).time:undefined});pendingTrim=null;rememberClipSelection(pending.kind,pending.id);api.close();markSelection();focusTimeline();}catch(error){api.toast(error.message);}
+    try{const pending=pendingTrim;if(!pending||(event.target as HTMLElement).dataset.trimToken!==pending.token)throw Error('This trim dialog expired. Reopen it.');if(pending.before!==timelineFingerprint(api.project()))throw Error('The score changed. Reopen the trim dialog before saving.');const data=new FormData(((event.target as HTMLElement) as HTMLFormElement)),edge=String(data.get('edge')||'');if(!['start','end'].includes(edge))throw Error('Choose the start or end edge.');const next=editTimeline(api.project(),{kind:pending.kind,id:pending.id,edge,value:Number(String(data.get('time')||''))});if(boundaryTime(next,pending.kind,pending.id,edge)===boundaryTime(api.project(),pending.kind,pending.id,edge)){const input=(((event.target as HTMLElement) as HTMLFormElement).elements?.['time'] as HTMLInputElement);if(input)input.value=boundaryTime(next,pending.kind,pending.id,edge);api.toast('No timing change. Existing events or sequence boundaries limit this trim.');return;}api.replace(next,'Clip trimmed. Undo is available.',{formationId:pending.kind==='formation'?pending.id:undefined,time:pending.kind==='formation'?timelineItem(next,'formation',pending.id).time:undefined});pendingTrim=null;rememberClipSelection(pending.kind,pending.id);api.close();markSelection();focusTimeline();}catch(error){api.toast(errorMessage(error));}
 
   },true);
 
@@ -88,7 +89,7 @@ export function setupTimeline(adapter){
 
     if(event.altKey&&event.key==='ArrowLeft')command='move-earlier';else if(event.altKey&&event.key==='ArrowRight')command='move-later';else if(mod&&key==='d')command='duplicate';else if(mod&&key==='c')command='copy';else if(mod&&key==='x')command='cut';else if(mod&&key==='v')command='paste';else if(!mod&&key==='s')command='split';else if(key==='delete'||key==='backspace')command='delete';
 
-    if(command){event.preventDefault();event.stopImmediatePropagation();try{runTimelineCommand(command);}catch(error){api.toast(error.message);}}
+    if(command){event.preventDefault();event.stopImmediatePropagation();try{runTimelineCommand(command);}catch(error){api.toast(errorMessage(error));}}
 
     else if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();event.stopImmediatePropagation();api.seek(event.key==='Home'?0:event.key==='End'?api.project().duration:api.time()+(event.key==='ArrowLeft'?-1:1)*60/api.project().bpm*(event.shiftKey?4:1));focusTimeline();}
 

@@ -521,7 +521,7 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
       if(!drag&&event.pointerType==='mouse'&&event.buttons===0&&navigation!=='pan')canvas.style.cursor=pick(event.clientX,event.clientY)?'grab':'';
     },{signal});
     canvas.addEventListener('pointerup',event=>{if(drag&&event.pointerId===drag.pointerId){event.stopImmediatePropagation();endDrag(true);}},{signal});
-    for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,(event:PointerEvent)=>{if(drag&&event.pointerId===drag.pointerId)endDrag(false);},{signal});
+    for(const type of ['pointercancel','lostpointercapture'] as const)canvas.addEventListener(type,(event:PointerEvent)=>{if(drag&&event.pointerId===drag.pointerId)endDrag(false);},{signal});
     canvas.addEventListener('keydown',event=>{if(event.key==='Escape'&&drag){event.preventDefault();event.stopImmediatePropagation();endDrag(false);}},{signal});
   }
   const metrics=()=>{const rect=host.getBoundingClientRect();return {width:rect.width,height:rect.height,distance:(fitDistance||Math.max(current.stage.width,current.stage.depth)*1.4)/camera.zoom};};

@@ -1,3 +1,4 @@
+import {errorMessage} from './errors.js';
 import {clone} from './engine.js';
 import {editTimeline,reorderFormation,timelineItem,timelineEditBounds,roundTime} from './timeline-model.js';
 import {magneticTime,sequenceDropIndex,timelineFingerprint,timelineScrollVelocity,magneticTargets,timelineSnapExclusions} from './timeline-tools.js';
@@ -25,11 +26,11 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
   if(!g.candidate){options.cancel?.(g);return;}
   if(g.fingerprint!==timelineFingerprint(options.project())){options.cancel?.(g,'The score changed during the drag. Please drag again.');return;}
   if(timelineFingerprint(g.candidate)===g.fingerprint){options.cancel?.(g);return;}
-  try{options.commit?.(g);}catch(error){options.cancel?.(g,error.message||'The edit could not be saved. Try again.');}
+  try{options.commit?.(g);}catch(error){options.cancel?.(g,errorMessage(error)||'The edit could not be saved. Try again.');}
  };
  const preview=g=>{
   g.dirty=false;const rect=area.getBoundingClientRect(),pixels=rect.width/g.project.duration;
-  if(!g.kind){try{options.scrub?.(Math.max(0,Math.min(g.project.duration,timeAt(g.clientX,g))));g.error=null;}catch(error){g.error=error.message||'This time could not be previewed.';options.invalid?.(g,g.error);}return;}
+  if(!g.kind){try{options.scrub?.(Math.max(0,Math.min(g.project.duration,timeAt(g.clientX,g))));g.error=null;}catch(error){g.error=errorMessage(error)||'This time could not be previewed.';options.invalid?.(g,g.error);}return;}
   if(!g.moved)return;
   options.pointer?.(g);
   if(!g.editable){g.error=options.readOnly()?'Read-only snapshot':'Unlock this formation before editing its timing.';options.invalid?.(g,g.error);return;}
@@ -46,7 +47,7 @@ export function bindTimelineGestures(area,scroll,options,environment=globalThis)
    const candidate=g.edge==='reorder'?reorderFormation(g.project,g.id,target):editTimeline(g.project,{kind:g.kind,id:g.id,edge:g.edge,value:token});
    g.candidate=candidate;g.error=null;g.target=target;
    options.preview?.(g,{magnetic,target});
-  }catch(error){g.candidate=null;g.error=error.message||'This edit is unavailable.';options.invalid?.(g,g.error);}
+  }catch(error){g.candidate=null;g.error=errorMessage(error)||'This edit is unavailable.';options.invalid?.(g,g.error);}
  };
  function tick(now){
   frame=0;const g=gesture;if(!g||disposed)return;

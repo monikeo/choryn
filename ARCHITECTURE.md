@@ -39,13 +39,27 @@ One DOM serves three layouts. `src/responsive.css` is imported last in `app/layo
 
 ## TypeScript boundaries
 
-All 63 application runtime modules under `src/` are TypeScript. `src/types.ts` adds shared contracts for performers, poses, formations, props, attendance, tracks, cues, cameras, views and exports. Browser-only declarations document optional platform APIs. Imported project data continues through the existing runtime validators; compile-time types do not replace validation.
+Everything authored for this project is TypeScript, apart from the regression tests:
 
-The service worker is authored in `sw.ts` and checked with `tsconfig.worker.json`, using worker libraries separately from the browser DOM. Next.js owns the TSX routes and `next.config.ts`. Build and regression tooling uses Node `.mjs` scripts.
+| Code | Language | Checked by |
+| --- | --- | --- |
+| Next.js routes and config (`app/*.tsx`, `next.config.ts`) | TSX / TS | `tsconfig.json` |
+| Application modules (`src/*.ts`) | TS | `tsconfig.json`; strict modules also by `tsconfig.strict.json` |
+| Service worker (`sw.ts`) | TS, **strict** | `tsconfig.worker.json` |
+| Build, test, preview, benchmark and icon scripts (`scripts/*.ts`) | TS, **strict** | `tsconfig.scripts.json`; run directly by Node's built-in type stripping (Node 22.18+) |
+| Regression tests (`tests/*.test.mjs`) | JavaScript | run by `node --test` |
 
-The existing editor is checked with `strict: false`; implicit types remain in portions of its UI adapters. Application and worker checks must pass before the production build, and build errors are not ignored. Stricter UI adapter types can be introduced gradually without hiding compiler failures.
+`npm run typecheck` runs all four projects, and `npm run build` refuses to build if any of them fails.
+
+`src/types.ts` holds the shared contracts for performers, poses, formations, props, attendance, tracks, cues, cameras, views and exports. Imported project data still passes through the runtime validators; compile-time types do not replace validation.
+
+**Strictness.** `tsconfig.json` enables every strict check the editor already meets: strict function types, bind/call/apply, `this`, typed catch variables (`unknown`, read with `errorMessage()` from `src/errors.ts`), implicit returns, switch fall-through, `override`, file-name casing (Linux CI), erasable-only syntax and verbatim module syntax. The last two keep every file strippable by Node, which is how the tests and scripts run it. Full `strict` (mainly `noImplicitAny` and `strictNullChecks`) is the remaining step for the large UI modules. `tsconfig.strict.json` lists the modules already held to full strict mode. TypeScript also checks everything a listed file imports, so a module joins the list only when its whole import tree passes.
+
+**Tests stay JavaScript for now.** They drive the modules through deliberately loose doubles (fake DOM, WebGL and media objects); converting them means typing those doubles, about 760 compiler findings. They import the same type-stripped modules the browser runs.
 
 The unmodified Mediabunny distribution remains JavaScript, with the matching upstream `.d.ts` declarations and license files. Third-party package implementations are also distributed in their upstream formats.
+
+Fonts (DM Sans, Manrope, Inter) are loaded with `next/font/google`. Next.js downloads them at build time and serves them from `/_next/static/media/`, so there is no runtime request to Google and the offline cache includes them. The CSS uses them through `--body-font`, `--display-font` and the branding stack.
 
 Relative `.js` module specifiers in editor source resolve to `.ts` through TypeScript and the explicit Webpack extension aliases. Both development and production use Next.js's Webpack mode. The production browser receives generated `/_next/static/` bundles.
 

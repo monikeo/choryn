@@ -20,8 +20,9 @@ export function shareableFile(blob:Blob,name:string,type:string|undefined,enviro
 export async function shareFile(file:File,environment:Environment=globalThis as Environment):Promise<'shared'|'cancelled'|'blocked'|'failed'>{
  try{await environment.navigator.share({files:[file],title:file.name});return 'shared';}
  catch(error){
-  if(error?.name==='AbortError')return 'cancelled';      // The person closed the sheet.
-  if(error?.name==='NotAllowedError')return 'blocked';   // The tap that started the export expired.
+  const name=(error as {name?:string}|null)?.name;
+  if(name==='AbortError')return 'cancelled';      // The person closed the sheet.
+  if(name==='NotAllowedError')return 'blocked';   // The tap that started the export expired.
   return 'failed';
  }
 }

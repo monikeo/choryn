@@ -1,3 +1,4 @@
+import {errorMessage} from './errors.js';
 import {videoExportFormats,RENDERED_MP4,renderMP4,chooseMP4Route} from './mp4-export.js';
 import {createViewVideoRenderer} from './view-video.js';
 import {observeSize} from './compat.js';
@@ -38,7 +39,7 @@ export function setupPower(adapter){
       if(action==='sequence-select'){api.selectFormation(node.dataset.id);api.close();}
       if(action==='duplicate'){api.duplicate();}
       if(action==='clear-loop'){api.clearLoop();api.close();}
-    }catch(error){api.toast(error.message);}
+    }catch(error){api.toast(errorMessage(error));}
   },true);
   document.addEventListener('change',event=>{if((event.target as HTMLElement).id==='timeline-snap')timelineSnap=(event.target as HTMLInputElement).value;if((event.target as HTMLElement).id==='transition-sequence')transitionDialog((event.target as HTMLInputElement).value);});
   document.addEventListener('input',event=>{if((event.target as HTMLElement).id!=='sequence-move-duration')return;const span=Number((event.target as HTMLElement).dataset.span),duration=Number((event.target as HTMLInputElement).value);$('#sequence-hold-summary').textContent=`Hold ${Math.max(0,span-duration).toFixed(2)}s, then move for ${duration.toFixed(2)}s into the next formation.`;});
@@ -60,13 +61,13 @@ export function setupPower(adapter){
         next.performers.forEach(person=>{if(!ids.has(person.id))return;if(group)person.group=group;if(role)person.role=role;if(data.has('set-color'))person.color=String(data.get('color')||'');if(data.has('set-tags'))person.tags=tags;const identity=String(data.get('identity')??'keep');if(identity!=='keep'){if(identity==='female'||identity==='male')person.identity=identity;else delete person.identity;}});
         api.replace(next,`${ids.size} performer profiles updated.`);api.close();
       }
-    }catch(error){api.toast(error.message);}
+    }catch(error){api.toast(errorMessage(error));}
   },true);
   document.addEventListener('dragstart',event=>{const row=(event.target as HTMLElement).closest<HTMLElement>('[data-sequence-row]');if(!row)return;sequenceDragged=row.dataset.sequenceRow;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',sequenceDragged);row.classList.add('dragging');});
   // Mouse drag shows the landing row the same way the touch grip does.
   const markDropRow=(row?:HTMLElement|null)=>document.querySelectorAll<HTMLElement>('[data-sequence-row]').forEach(item=>item.classList.toggle('sequence-drop-target',item===row&&item.dataset.sequenceRow!==sequenceDragged));
   document.addEventListener('dragover',event=>{const row=(event.target as HTMLElement).closest<HTMLElement>('[data-sequence-row]');if(sequenceDragged&&row){event.preventDefault();event.dataTransfer.dropEffect='move';markDropRow(row);}});
-  document.addEventListener('drop',event=>{const row=(event.target as HTMLElement).closest<HTMLElement>('[data-sequence-row]');if(!row||!sequenceDragged)return;event.preventDefault();markDropRow(null);const id=sequenceDragged;sequenceDragged=null;if(row.dataset.sequenceRow===id)return;try{requestSequenceReorder(reorderFormation(api.project(),id,Number(row.dataset.index)),id,sequenceDialog);}catch(error){api.toast(error.message);}});
+  document.addEventListener('drop',event=>{const row=(event.target as HTMLElement).closest<HTMLElement>('[data-sequence-row]');if(!row||!sequenceDragged)return;event.preventDefault();markDropRow(null);const id=sequenceDragged;sequenceDragged=null;if(row.dataset.sequenceRow===id)return;try{requestSequenceReorder(reorderFormation(api.project(),id,Number(row.dataset.index)),id,sequenceDialog);}catch(error){api.toast(errorMessage(error));}});
   document.addEventListener('dragend',()=>{sequenceDragged=null;markDropRow(null);document.querySelectorAll<HTMLElement>('.dragging').forEach(el=>el.classList.remove('dragging'));});
   document.addEventListener('pointerdown',event=>{
     const grip=(event.target as HTMLElement).closest<HTMLElement>('.sequence-grip'),row=grip?.closest<HTMLElement>('[data-sequence-row]');
@@ -80,7 +81,7 @@ export function setupPower(adapter){
     rows.forEach(row=>row.classList.toggle('sequence-drop-target',Number(row.dataset.index)===sequencePointer.index));
     const body=$('#dialog .modal-body'),rect=body.getBoundingClientRect();if(event.clientY<rect.top+30)body.scrollTop-=16;else if(event.clientY>rect.bottom-30)body.scrollTop+=16;
   },{passive:false});
-  const finishSequence=cancel=>{if(!sequencePointer)return;const gesture=sequencePointer;sequencePointer=null;document.querySelectorAll<HTMLElement>('.sequence-drop-target').forEach(el=>el.classList.remove('sequence-drop-target'));if(cancel||!gesture.moved)return;try{requestSequenceReorder(reorderFormation(api.project(),gesture.id,gesture.index),gesture.id,sequenceDialog);}catch(error){api.toast(error.message);}};
+  const finishSequence=cancel=>{if(!sequencePointer)return;const gesture=sequencePointer;sequencePointer=null;document.querySelectorAll<HTMLElement>('.sequence-drop-target').forEach(el=>el.classList.remove('sequence-drop-target'));if(cancel||!gesture.moved)return;try{requestSequenceReorder(reorderFormation(api.project(),gesture.id,gesture.index),gesture.id,sequenceDialog);}catch(error){api.toast(errorMessage(error));}};
   document.addEventListener('pointerup',()=>finishSequence(false));document.addEventListener('pointercancel',()=>finishSequence(true));
   // A re-rendered list or Escape abandons a grip drag without reordering.
   document.addEventListener('lostpointercapture',()=>finishSequence(true));
@@ -145,6 +146,6 @@ async function startVideo(data){
     if(!current())return;if(mime===RENDERED_MP4&&!blob.type.startsWith('video/mp4'))throw Error('The encoder did not return MP4. Choose another supported format or lower quality.');
     videoURL=URL.createObjectURL(blob);exportBlob=blob;const extension=blob.type.includes('mp4')?'mp4':'webm';exportName=`${project.name}-${settings.height}p.${extension}`;
     body.innerHTML=`<div class="video-progress"><h3>Your video is ready.</h3><video id="exported-video" src="${videoURL}" controls playsinline preload="metadata" aria-label="Exported performance video"></video><p role="status">${settings.width} × ${settings.height} · ${settings.fps} fps target · ${settings.quality} · ${(blob.size/1024/1024).toFixed(1)} MB · ${extension.toUpperCase()}</p><p class="field-help">${route.rendered?'Rendered MP4 uses the selected frame timestamps.':'Browser recording frame rate depends on device performance.'} Download this video before closing the preview.</p>${button('download-video','Download video')}</div>`;
-  }catch(error){if(exportJob===controller&&$('#dialog').open&&body===$('#dialog .modal-body')){if(!started)throw error;body.innerHTML=`<p class="modal-intro" role="status">${esc(error.message)}</p>${button('video','Return to video settings')}`;}}
+  }catch(error){if(exportJob===controller&&$('#dialog').open&&body===$('#dialog .modal-body')){if(!started)throw error;body.innerHTML=`<p class="modal-intro" role="status">${esc(errorMessage(error))}</p>${button('video','Return to video settings')}`;}}
   finally{try{frameRenderer?.dispose();}finally{if(exportJob===controller){exportJob=null;if(submit){submit.disabled=false;submit.textContent=previousLabel;}}}}
 }

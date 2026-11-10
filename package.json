@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --webpack --hostname 127.0.0.1 --port 4173",
-    "build": "node scripts/build.mjs",
-    "start": "node scripts/serve.mjs --built",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json",
-    "test": "node scripts/test.mjs",
-    "bench": "node scripts/bench.mjs"
+    "build": "node scripts/build.ts",
+    "start": "node scripts/serve.ts",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json && tsc -p tsconfig.scripts.json && tsc -p tsconfig.strict.json",
+    "test": "node scripts/test.ts",
+    "bench": "node scripts/bench.ts"
   },
   "dependencies": {
     "next": "16.4.3",

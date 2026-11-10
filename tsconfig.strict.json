@@ -1,0 +1,27 @@
+{
+  "//": "Modules held to full strict mode. TypeScript also checks everything a listed file imports, so a module joins this list only when its whole import tree passes. Move modules here as they are tightened; the goal is to fold this into tsconfig.json with strict: true.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "incremental": false
+  },
+  "include": [
+    "next-env.d.ts",
+    "app/layout.tsx",
+    "app/error.tsx",
+    "src/beat-detect.ts",
+    "src/colors.ts",
+    "src/command-model.ts",
+    "src/compat.ts",
+    "src/errors.ts",
+    "src/file-drop.ts",
+    "src/icons.ts",
+    "src/input-gestures.ts",
+    "src/native-playback.ts",
+    "src/native-share.ts",
+    "src/playback-pacer.ts",
+    "src/reference-store.ts",
+    "src/sheet-gesture.ts",
+    "src/tempo-tools.ts"
+  ]
+}

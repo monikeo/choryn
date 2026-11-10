@@ -22,7 +22,7 @@ export function feedInput(input:HTMLInputElement|null,file:File,environment:{Dat
 
 const carriesFiles=(event:DragEvent)=>Array.from(event.dataTransfer?.types||[]).includes('Files');
 
-export function bindFileDrop({target=document as EventTarget,host=document.body as HTMLElement|null,accept}:{target?:EventTarget;host?:HTMLElement|null;accept:(files:File[])=>void}){
+export function bindFileDrop({target=document as GlobalEventHandlers,host=document.body as HTMLElement|null,accept}:{target?:GlobalEventHandlers;host?:HTMLElement|null;accept:(files:File[])=>void}){
  let depth=0,overlay:HTMLElement|null=null;
  const show=()=>{
   if(overlay||!host)return;

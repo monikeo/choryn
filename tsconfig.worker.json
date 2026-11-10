@@ -1,13 +1,19 @@
 {
   "compilerOptions": {
-    "target":"ES2022",
-    "lib":["es2022","webworker"],
-    "types":[],
-    "module":"esnext",
-    "moduleResolution":"bundler",
-    "strict":false,
-    "noEmit":true,
-    "skipLibCheck":true
+    "target": "ES2022",
+    "lib": ["es2022", "webworker"],
+    "types": [],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "skipLibCheck": true
   },
-  "include":["sw.ts"]
+  "include": ["sw.ts"]
 }

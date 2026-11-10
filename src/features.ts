@@ -1,3 +1,4 @@
+import {errorMessage} from './errors.js';
 import {sampleProps,sampleProp,setPropPose,PROP_SHAPES} from './prop-motion.js';
 import {contrastText} from './colors.js';
 import {uid, timecode, samplePerformance, validateProject, transitionSettings, warnings, clone} from './engine.js';
@@ -71,7 +72,7 @@ async function scan(){
   report={projectId:p.id,at:Date.now(),items,samples,truncated};reportBusy=false;api.render();
 }
 function canWrite(){if(api.readOnly()){api.toast('This rehearsal snapshot is read-only.');return false;}return true;}
-function change(fn,message){if(!canWrite())return false;try{const next=clone(api.project());fn(next);const valid=validateProject(next);report=null;api.replace(valid,message);return true;}catch(error){api.toast(error.message||'This edit could not be saved. Your previous project is unchanged.');return false;}}
+function change(fn,message){if(!canWrite())return false;try{const next=clone(api.project());fn(next);const valid=validateProject(next);report=null;api.replace(valid,message);return true;}catch(error){api.toast(errorMessage(error)||'This edit could not be saved. Your previous project is unchanged.');return false;}}
 async function onClick(e){
   const button=e.target.closest('[data-feature-action]');if(!button||button.disabled)return;
   const p=api.project(),a=button.dataset.featureAction,id=button.dataset.id;
@@ -109,7 +110,7 @@ function onSubmit(e){
   if(type==='prop'){
     const current=byId(p.props,id);if(current?.locked&&data.has('locked'))return api.toast('Uncheck Lock on stage to edit this prop.');
     const pose={x:num('x'),z:num('z'),width:num('width'),depth:num('depth'),height:num('height'),rotation:num('rotation'),shape:str('shape'),color:str('color')};
-    try{item=current?{...clone(current),locked:false}:{...newStageObject(),id,...pose};if(data.has('animate'))item=setPropPose(item,num('poseTime'),pose,str('poseEasing'));else Object.assign(item,pose);Object.assign(item,{name:str('name'),kind:str('kind'),locked:data.has('locked')});key='props';}catch(error){return api.toast(error.message);}
+    try{item=current?{...clone(current),locked:false}:{...newStageObject(),id,...pose};if(data.has('animate'))item=setPropPose(item,num('poseTime'),pose,str('poseEasing'));else Object.assign(item,pose);Object.assign(item,{name:str('name'),kind:str('kind'),locked:data.has('locked')});key='props';}catch(error){return api.toast(errorMessage(error));}
   }
   if(type==='action'){if(num('end')<=num('start'))return api.toast('End time must follow start time.');if(str('reference')&&!safeReference(str('reference')))return api.toast('Use an HTTPS reference link.');key='actions';item={id,name:str('name'),category:str('category'),start:num('start'),end:num('end'),notes:str('notes'),status:str('status'),reference:safeReference(str('reference')),performerIds:data.getAll('performer')};}
   if(type==='rehearsal'){if(!Number.isFinite(Date.parse(str('start'))))return api.toast('Choose a valid session date.');key='rehearsals';item={id,name:str('name'),start:new Date(str('start')).toISOString(),minutes:num('minutes'),location:str('location'),notes:str('notes'),performerIds:data.getAll('performer'),status:byId(p.rehearsals,id)?.status||'planned'};}
