@@ -43,17 +43,21 @@ Everything authored for this project is TypeScript, apart from the regression te
 
 | Code | Language | Checked by |
 | --- | --- | --- |
-| Next.js routes and config (`app/*.tsx`, `next.config.ts`) | TSX / TS | `tsconfig.json` |
-| Application modules (`src/*.ts`) | TS | `tsconfig.json`; strict modules also by `tsconfig.strict.json` |
+| Next.js routes and config (`app/*.tsx`, `next.config.ts`) | TSX / TS, **strict** | `tsconfig.json` |
+| Application modules (`src/*.ts`) | TS, **strict** | `tsconfig.json` |
 | Service worker (`sw.ts`) | TS, **strict** | `tsconfig.worker.json` |
 | Build, test, preview, benchmark and icon scripts (`scripts/*.ts`) | TS, **strict** | `tsconfig.scripts.json`; run directly by Node's built-in type stripping (Node 22.18+) |
 | Regression tests (`tests/*.test.mjs`) | JavaScript | run by `node --test` |
 
-`npm run typecheck` runs all four projects, and `npm run build` refuses to build if any of them fails.
+`npm run typecheck` runs all three projects, and `npm run build` refuses to build if any of them fails.
 
 `src/types.ts` holds the shared contracts for performers, poses, formations, props, attendance, tracks, cues, cameras, views and exports. Imported project data still passes through the runtime validators; compile-time types do not replace validation.
 
-**Strictness.** `tsconfig.json` enables every strict check the editor already meets: strict function types, bind/call/apply, `this`, typed catch variables (`unknown`, read with `errorMessage()` from `src/errors.ts`), implicit returns, switch fall-through, `override`, file-name casing (Linux CI), erasable-only syntax and verbatim module syntax. The last two keep every file strippable by Node, which is how the tests and scripts run it. Full `strict` (mainly `noImplicitAny` and `strictNullChecks`) is the remaining step for the large UI modules. `tsconfig.strict.json` lists the modules already held to full strict mode. TypeScript also checks everything a listed file imports, so a module joins the list only when its whole import tree passes.
+**Strictness.** Every project runs with full `strict` (including `noImplicitAny`, `strictNullChecks` and `unknown` catch variables, read with `errorMessage()` from `src/errors.ts`). `tsconfig.json` adds implicit returns, switch fall-through, `override`, file-name casing (Linux CI), erasable-only syntax and verbatim module syntax. The last two keep every file strippable by Node, which is how the tests and scripts run it. Conventions:
+
+- Validators read imported JSON as `Unchecked` (`src/types.ts`, an alias of `any`) until they have checked it; every other value has a real type.
+- Element lookups name the element they expect (`$<HTMLInputElement>('#…')`). A non-null `!` marks only lookups the markup guarantees, such as a node rendered in the same function or a `data-*` value read from an element matched by `[data-*]`.
+- Feature modules take a typed adapter: `Pick<StudioServices, …>` from `src/types.ts` plus their own callbacks.
 
 **Tests stay JavaScript for now.** They drive the modules through deliberately loose doubles (fake DOM, WebGL and media objects); converting them means typing those doubles, about 760 compiler findings. They import the same type-stripped modules the browser runs.
 

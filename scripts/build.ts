@@ -15,13 +15,13 @@ const root=fileURLToPath(new URL('../',import.meta.url)),dist=resolve(root,'dist
 const walk=async(dir:string):Promise<string[]>=>(await Promise.all((await readdir(dir,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name)).map(e=>e.isDirectory()?walk(resolve(dir,e.name)):[resolve(dir,e.name)]))).flat();
 if(!dist.startsWith(resolve(root)+sep))throw Error('Invalid build output path.');
 // The build version is a hash of every input, so any source or config change gets a new offline cache.
-const configs=['package-lock.json','package.json','next.config.ts','tsconfig.json','tsconfig.worker.json','tsconfig.scripts.json','tsconfig.strict.json','sw.ts'];
+const configs=['package-lock.json','package.json','next.config.ts','tsconfig.json','tsconfig.worker.json','tsconfig.scripts.json','sw.ts'];
 const inputs=[...await walk(resolve(root,'src')),...await walk(resolve(root,'app')),...await walk(resolve(root,'public')),...configs.map(name=>resolve(root,name)),fileURLToPath(import.meta.url)];
 const hash=createHash('sha256');for(const file of inputs.sort()){hash.update(relative(root,file));hash.update(await readFile(file));}
 const version=hash.digest('hex').slice(0,16);
 const run=(args:string[])=>{const r=spawnSync(process.execPath,args,{cwd:root,stdio:'inherit',env:{...process.env,NEXT_TELEMETRY_DISABLED:'1',CHORYN_BUILD:version}});if(r.status!==0)process.exit(r.status??1);};
-// Type checks: the app, the service worker, the tooling scripts and the strict-mode modules.
-for(const project of ['tsconfig.json','tsconfig.worker.json','tsconfig.scripts.json','tsconfig.strict.json'])run(['node_modules/typescript/bin/tsc','--noEmit','-p',project]);
+// Strict type checks: the app, the service worker and the tooling scripts.
+for(const project of ['tsconfig.json','tsconfig.worker.json','tsconfig.scripts.json'])run(['node_modules/typescript/bin/tsc','--noEmit','-p',project]);
 run(['node_modules/next/dist/bin/next','build','--webpack']);
 await rm(dist,{recursive:true,force:true});await cp(resolve(root,'out'),dist,{recursive:true});
 await mkdir(resolve(dist,'src'),{recursive:true});
