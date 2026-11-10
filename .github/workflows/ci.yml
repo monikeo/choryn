@@ -1,0 +1,43 @@
+name: CI
+
+# Every pull request and every push to main must typecheck, build, pass the
+# test suite and run the performance benchmark before it can be merged.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, build, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # The build type-checks the app and the service worker, then exports to dist/.
+      # Some tests read dist/ (offline manifest, worker, built HTML), so it runs first.
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Benchmark (per-frame CPU cost, 100 performers)
+        run: npm run bench

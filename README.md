@@ -10,7 +10,11 @@ The application runs on **Next.js App Router and React**, with TypeScript applic
 
 ## What you can do
 
-- Build formations by hand or start with one of 36 templates.
+- Build formations by hand or start with one of 36 templates. **Shortest travel** gives each dancer the nearest spot in a new shape, so their straight paths never cross.
+- **Fix spacing** pushes dancers who are too close apart to the safety distance, moving as little as possible.
+- **Collision-free routes** bend or delay individual paths so dancers keep their distance while they travel, without anyone moving faster than 3 m/s.
+- **Detect tempo and count 1** from uploaded music, so the counts line up with the song.
+- Film the 3D stage with **cinematic cameras** (audience push-in, overhead, side wing, slow orbit, follow the highlighted dancers) in Rehearsal or Show light.
 - Edit the performance timeline with drag and drop, trim, split, duplicate, ripple edits and linked events.
 - Draw curved performer routes and adjust movement duration, departure delay and easing.
 - Organize performers with names, groups, roles, colors and tags.
@@ -65,7 +69,10 @@ Stop the development server before starting the production preview on the same p
 npm run typecheck
 npm run build
 npm test
+npm run bench
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the build (which includes both type checks), the tests and the benchmark on every pull request and every push to `main`.
 
 The tests exercise formation sampling, attendance protection, editing, persistence, capture and media workflows. The runner creates ignored JavaScript fixtures from the checked TypeScript modules for the existing Node/VM tests; production uses the Next.js bundles. Framework checks verify the actual exported HTML, lazy chunks and offline worker. Build before testing. See [VERIFICATION.md](VERIFICATION.md) for the distinction between controlled doubles and interactive browser evidence.
 
@@ -111,8 +118,10 @@ The tracked `.openai/hosting.json` belongs to the existing hosted CHORYN deploym
 | `src/timeline-*.ts` | Timeline editing, selection, timing and gestures |
 | `src/ensemble-*.ts` | Cast assignment, attendance, constraints and show tools |
 | `src/stage2d.ts`, `src/stage3d.ts` | SVG and WebGL stage renderers |
+| `src/formation-tools.ts` | Shortest-travel spot assignment, fix spacing and the collision-free route planner |
+| `src/beat-detect.ts` | Tempo and first-downbeat detection for uploaded music (loaded on demand) |
 | `src/production-*.ts` | Stage, lighting, appearance, camera and production tools |
-| `src/view-video.ts`, `src/mp4-export.ts` | Matching-view capture and MP4 export |
+| `src/view-video.ts`, `src/mp4-export.ts` | Matching-view capture, cinematic 3D cameras and MP4 export |
 | `src/image-exports.ts` | Image previews and batch downloads |
 | `src/pwa.ts`, `sw.ts` | Installation, updates and offline files |
 | `src/responsive.css`, `src/sheet-gesture.ts` | Desktop, tablet, phone and phone-landscape layouts (loaded last); phone bottom-sheet gestures |

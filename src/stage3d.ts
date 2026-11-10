@@ -303,7 +303,7 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
   const controller=new AbortController(),signal=controller.signal;
   const floor=createStageFloor(gl,()=>requestDraw());floor.load(project.production?.stage.image?.data||'');
   const camera=(options.camera||{}) as Camera;Object.assign(camera,safeCamera(camera));let yaw=camera.yaw,pitch=camera.pitch,disposed=false,contextLost=false;
-  let currentShowGrid=options.showGrid!==false,currentLabels=options.labels===true,looks=stageLookSettings();
+  let currentShowGrid=options.showGrid!==false,currentLabels=options.labels===true,looks=options.look==='show'||options.look==='rehearsal'?{...stageLookSettings(),look:options.look}:stageLookSettings();
   let current=project,currentPositions=positions,currentGhosts=options.ghosts||[],currentAnalysis=options.analysis,dirty=true,frame=0,fitKey='',fitDistance=0;
   let sceneKey=geometryKey(project,currentShowGrid,looks.set),ghostKey=JSON.stringify(currentGhosts),sceneCounts={casters:0,rest:0},sceneVersion=0,capacity=0,lastMatrix=null,lastRect=null;
   let cast=new Map(project.performers.map(p=>[p.id,p]));const labelNodes=new Map(),labelColors=new Map(),ghostNodes=new Map();
