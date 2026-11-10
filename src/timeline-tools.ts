@@ -1,30 +1,32 @@
-import type {MagneticOptions} from './types.js';
+import type {MagneticOptions,TrackName} from './types.js';
 import type {Project} from './types.js';
-import {snappedTime,roundTime} from './timeline-model.js';
+import {snappedTime,roundTime,type TimelineClip} from './timeline-model.js';
 import {icon} from './icons.js';
-export function timelineSnapExclusions(project: Project,key){
+/** A time a dragged clip snaps to, keyed like timed items (`cue/id`, `movement/id`, `end`, `playhead`). */
+export interface MagneticTarget {key:string; time:number; label:string}
+export function timelineSnapExclusions(project: Project,key:string){
  const group=project.production?.links?.find(group=>group.items.includes(key));return new Set([key,...(group?.items||[])]);
 }
-export function magneticTargets(project: Project,exclude){
- const omit=key=>exclude instanceof Set?exclude.has(key)||exclude.has(key.split('/').pop()):exclude===key||exclude===key.split('/').pop(),targets=[],add=(key,time,label)=>{if(!omit(key))targets.push({key,time,label});};
+export function magneticTargets(project: Project,exclude?:string|Set<string>):MagneticTarget[]{
+ const omit=(key:string)=>exclude instanceof Set?exclude.has(key)||exclude.has(key.split('/').pop()!):exclude===key||exclude===key.split('/').pop(),targets:MagneticTarget[]=[],add=(key:string,time:number,label:string)=>{if(!omit(key))targets.push({key,time,label});};
  project.formations.forEach(f=>add('formation/'+f.id,f.time,f.name));
  project.actions.forEach(a=>{add('movement/'+a.id,a.start,a.name+' start');add('movement/'+a.id,a.end,a.name+' end');});
  (project.checkpoints||[]).forEach(c=>add('checkpoint/'+c.id,c.time,c.label||'Checkpoint'));
  project.cues.forEach(c=>add('cue/'+c.id,c.time,c.label));
- for(const [key,kind]of [['lights','light'],['appearances','appearance'],['cameras','camera']])for(const item of project.production?.[key]||[])add(kind+'/'+item.id,item.time,item.name||item.costume||'Camera key');
+ for(const [key,kind]of [['lights','light'],['appearances','appearance'],['cameras','camera']] as const)for(const item of (project.production?.[key]||[]) as {id:string;time:number;name?:string;costume?:string}[])add(kind+'/'+item.id,item.time,item.name||item.costume||'Camera key');
  for(const prop of project.props||[])for(const frame of prop.keyframes||[])add('prop/'+prop.id+'/'+frame.id,frame.time,prop.name+' pose');
  add('end',project.duration,'Performance end');return targets;
 }
-export function magneticTime(value,project: Project,{snap='beat',playhead=0,pixelsPerSecond=1,exclude,targets,previous}:MagneticOptions={}){
+export function magneticTime(value:number,project: Project,{snap='beat',playhead=0,pixelsPerSecond=1,exclude,targets,previous}:MagneticOptions={}):{key?:string;time:number;label:string}{
  const grid=snappedTime(value,project.bpm,snap,project.music?.beatOffset||0);if(snap==='off')return {time:grid,label:'Exact'};
  const choices=targets||magneticTargets(project,exclude),playheadTarget={key:'playhead',time:playhead,label:'Playhead'};
  // Keep a captured magnet until the pointer leaves its slightly larger release radius.
  const prior=previous?.key&&(previous.key==='playhead'?playheadTarget:choices.find(t=>t.key===previous.key&&t.time===previous.time));
  if(prior&&Math.abs(prior.time-value)*pixelsPerSecond<=13)return prior;
- let nearest,distance=Infinity;for(const target of choices){const pixels=Math.abs(target.time-value)*pixelsPerSecond;if(pixels<=9&&pixels<distance){nearest=target;distance=pixels;}}const playheadDistance=Math.abs(playhead-value)*pixelsPerSecond;if(playheadDistance<=9&&playheadDistance<distance)nearest=playheadTarget;
+ let nearest:MagneticTarget|undefined,distance=Infinity;for(const target of choices){const pixels=Math.abs(target.time-value)*pixelsPerSecond;if(pixels<=9&&pixels<distance){nearest=target;distance=pixels;}}const playheadDistance=Math.abs(playhead-value)*pixelsPerSecond;if(playheadDistance<=9&&playheadDistance<distance)nearest=playheadTarget;
  return nearest||{time:grid,label:snap==='half-beat'?'Half beat':snap==='second'?'Second':'Beat'};
 }
-export function reorderImpact(before,after){const kept=new Set(after.routes.map(r=>r.id));return {removedRoutes:before.routes.filter(r=>!kept.has(r.id)),changed:before.formations.some((f,i)=>f.id!==after.formations[i]?.id)};}
+export function reorderImpact(before:Project,after:Project){const kept=new Set(after.routes.map(r=>r.id));return {removedRoutes:before.routes.filter(r=>!kept.has(r.id)),changed:before.formations.some((f,i)=>f.id!==after.formations[i]?.id)};}
 export function timelineFingerprint(project: Project){const {updatedAt,...authored}=project;return JSON.stringify(authored);}
 export function timelineToolButtons(){
  const primary=[['duplicate','copy','Duplicate','Ctrl/⌘ D'],['split','split','Split at playhead','S'],['delete','trash','Delete (confirmation required)','Delete']];
@@ -34,30 +36,32 @@ export function timelineToolButtons(){
 }
 
 // Compare against the original slots, never the moving DOM rectangles.
-export function sequenceDropIndex(project: Project,id,center,previous,pixelsPerSecond=1){
+export function sequenceDropIndex(project: Project,id:string,center:number,previous?:number|null,pixelsPerSecond=1){
  const source=project.formations.findIndex(f=>f.id===id);if(source<0)throw Error('Choose an existing sequence.');
  const centers=project.formations.map((f,i)=>(f.time+(project.formations[i+1]?.time??project.duration))/2).filter((_,i)=>i!==source);
- let target=Number.isInteger(previous)?Math.max(0,Math.min(centers.length,previous)):source;
+ let target=Number.isInteger(previous)?Math.max(0,Math.min(centers.length,previous!)):source;
  const margin=3/Math.max(.001,pixelsPerSecond);
  while(target<centers.length&&center>centers[target]+margin)target++;
  while(target>0&&center<centers[target-1]-margin)target--;
  return target;
 }
 
-export function timelineScrollVelocity(x,rect){
+export function timelineScrollVelocity(x:number,rect:Pick<DOMRect,'width'|'left'|'right'>){
  if(!Number.isFinite(x)||rect.width<=0)return 0;
  const edge=Math.min(56,rect.width/4),left=(rect.left+edge-x)/edge,right=(x-(rect.right-edge))/edge;
  const intensity=Math.max(-1,Math.min(1,right>0?right:left>0?-left:0));
  return Math.sign(intensity)*900*intensity*intensity;
 }
 
-export function timelineCommandReason(project: Project,selection,command,time,{readOnly=false,clipboard}:{readOnly?:boolean;clipboard?:{kind:string;projectId:string}}={}){
+export function timelineCommandReason(project: Project,selection:{kind:string;id:string},command:string,time:number,{readOnly=false,clipboard}:{readOnly?:boolean;clipboard?:{kind:string;projectId:string}}={}){
  if(command.startsWith('zoom-')||['tools','copy','details'].includes(command))return '';
  if(readOnly)return 'Read-only snapshot';
- const locked=project.production?.layers?.[{formation:'formations',movement:'movement',cue:'cues'}[command==='paste'?clipboard?.kind:selection.kind]]?.locked;if(locked)return 'Unlock the selected track first';
+ const locked=project.production?.layers?.[({formation:'formations',movement:'movement',cue:'cues'} as Record<string,TrackName>)[(command==='paste'?clipboard?.kind:selection.kind) as string]]?.locked;if(locked)return 'Unlock the selected track first';
  if(command==='paste')return clipboard?.projectId===project.id?'':'Copy a clip in this project first';
- const kind=selection.kind,item=project[{formation:'formations',movement:'actions',cue:'cues'}[kind]]?.find(v=>v.id===selection.id);if(!item)return 'Select a timeline clip';
- if(['duplicate','split'].includes(command)&&project[{formation:'formations',movement:'actions',cue:'cues'}[kind]].length>=({formation:100,movement:300,cue:100}[kind]))return 'This track has reached its item limit';
+ // Formation, movement and cue lists, looked up by track kind.
+ const lists=project as unknown as Record<string,TimelineClip[]|undefined>;
+ const kind=selection.kind,item=lists[({formation:'formations',movement:'actions',cue:'cues'} as Record<string,string>)[kind]]?.find(v=>v.id===selection.id);if(!item)return 'Select a timeline clip';
+ if(['duplicate','split'].includes(command)&&lists[({formation:'formations',movement:'actions',cue:'cues'} as Record<string,string>)[kind]]!.length>=(({formation:100,movement:300,cue:100} as Record<string,number>)[kind]))return 'This track has reached its item limit';
  const index=kind==='formation'?project.formations.indexOf(item):-1,start=kind==='movement'?item.start:item.time,end=kind==='formation'?(project.formations[index+1]?.time??project.duration):item.end;
  if(command==='duplicate'&&kind==='formation'){const at=roundTime((start+end)/2);if(at-start<.0999||end-at<.0999)return 'This interval is too short to duplicate. Extend it to at least 0.2 seconds';}
  if(['move-earlier','move-later'].includes(command)){

@@ -1,4 +1,9 @@
 /** Portable score data. Coordinates are metres, times are seconds. */
+/**
+ * Imported or stored data that has not been validated yet (parsed JSON, a backup file, a share link).
+ * Validators read it field by field and check every value at runtime before it reaches a typed model.
+ */
+export type Unchecked=any;
 export interface Point {x:number; z:number}
 export interface Pose extends Point {performerId:string; facing:number; visible:boolean}
 /** Body shown in 3D. Absent means "not specified" (a neutral figure). */
@@ -46,7 +51,7 @@ export interface Revision {id:string; projectId:string; createdAt:number; label:
 export interface TransformOptions {angle?:number; scale?:number; mirrorX?:boolean; mirrorZ?:boolean; align?:string; distribute?:string}
 export interface CameraMetrics {width?:number; height?:number; distance?:number}
 export interface CameraControlsOptions {camera?:Camera; metrics?:()=>CameraMetrics; changed?:(camera:Camera)=>void; mode?:()=>string; manualPan?:()=>void; following?:()=>boolean; reset?:()=>void; environment?:typeof globalThis; signal?:AbortSignal}
-export interface ViewSnapshot {theme?:string; kind?:string; time?:number; zoom?:number; pan?:{x:number;y:number}; mirror?:boolean; flip?:boolean; rotation?:number; labels?:boolean; showGrid?:boolean; showPaths?:boolean; camera?:Partial<Camera>; aids?:RehearsalAids; selected?:Set<string>|string[]; viewport?:{width:number;height:number}; colors?:Record<string,string>; font?:string; ghosts?:Ghost[]; analysis?:AnalysisFrame; analysisSettings?:Parameters<typeof import('./analysis-model.js').transitionAnalysis>[2]}
+export interface ViewSnapshot {theme?:string; kind?:string; time?:number; /** Set while saved camera direction drives the view. */ directed?:boolean; editPaths?:boolean; readOnly?:boolean; zoom?:number; pan?:{x:number;y:number}; mirror?:boolean; flip?:boolean; rotation?:number; labels?:boolean; showGrid?:boolean; showPaths?:boolean; camera?:Partial<Camera>; aids?:RehearsalAids; selected?:Set<string>|string[]; viewport?:{width:number;height:number}; colors?:Record<string,string>; font?:string; ghosts?:Ghost[]; analysis?:AnalysisFrame; analysisSettings?:Parameters<typeof import('./analysis-model.js').transitionAnalysis>[2]}
 export interface NavigationOptions {kind?:string; getMode?:()=>string; mode?:(mode:string)=>void; pan?:(x:number,y:number)=>void; orbit?:(x:number,y:number)=>void; zoom?:(factor:number)=>void; fit?:()=>void; focus?:()=>void; signal?:AbortSignal}
 export interface FrameRenderer {draw:(context:CanvasRenderingContext2D,time:number)=>void|Promise<void>; dispose?:()=>void}
 export interface MediaOptions {media?:typeof import('./mediabunny.js'); environment?:typeof globalThis; frameRenderer?:FrameRenderer; canvas?:HTMLCanvasElement; audioBuffer?:AudioBuffer; signal?:AbortSignal; mime?:string; onProgress?:(fraction:number,canvas:HTMLCanvasElement)=>void; yieldTask?:()=>Promise<unknown>}

@@ -1,18 +1,20 @@
-import {floorCorners} from './stage-import.js'; // Shared calibration with the canonical stage.
+import {floorCorners,type FloorPlan} from './stage-import.js'; // Shared calibration with the canonical stage.
 // A single textured floor quad, reused by live WebGL and captured exports.
 interface FloorRequest {error:unknown; promise?:Promise<void>; resolve?:()=>void; timer?:ReturnType<typeof setTimeout>}
+/** The project's stage image (types.ts StageImage). */
+interface FloorImage extends FloorPlan {data?:string; opacity:number}
 export function createStageFloor(gl:WebGLRenderingContext,changed:()=>void){
- let source='',loadedSource='',image,texture,program,buffer,vertex,fragment,disposed=false,request;
- const compile=(type,code)=>{const shader=gl.createShader(type);gl.shaderSource(shader,code);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){gl.deleteShader(shader);throw Error('Floor plan shader unavailable.');}return shader;};
- const cancel=()=>{if(image){image.onload=image.onerror=null;image=null;}if(request){clearTimeout(request.timer);request.resolve();request=null;}};
- function load(data){
+ let source='',loadedSource='',image:HTMLImageElement|null=null,texture:WebGLTexture|null=null,program:WebGLProgram|null=null,buffer:WebGLBuffer|null=null,vertex:WebGLShader|null=null,fragment:WebGLShader|null=null,disposed=false,request:FloorRequest|null=null;
+ const compile=(type:number,code:string)=>{const shader=gl.createShader(type)!;gl.shaderSource(shader,code);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){gl.deleteShader(shader);throw Error('Floor plan shader unavailable.');}return shader;};
+ const cancel=()=>{if(image){image.onload=image.onerror=null;image=null;}if(request){clearTimeout(request.timer);request.resolve!();request=null;}};
+ function load(data:string){
   if(disposed||data===source)return;cancel();source=data;if(!data){loadedSource='';return;}
   const current:FloorRequest={error:null};current.promise=new Promise<void>(resolve=>current.resolve=resolve);request=current;
-  const finish=(error?:unknown)=>{if(request!==current||disposed)return;clearTimeout(current.timer);current.error=error||null;current.resolve();if(image){image.onload=image.onerror=null;image=null;}changed();};
+  const finish=(error?:unknown)=>{if(request!==current||disposed)return;clearTimeout(current.timer);current.error=error||null;current.resolve!();if(image){image.onload=image.onerror=null;image=null;}changed();};
   current.timer=setTimeout(()=>finish(Error('Floor plan loading timed out. Reimport the image or export without it.')),12000);current.timer.unref?.();
   try{const target=new Image();image=target;target.onload=()=>{if(request!==current||disposed)return;try{texture||=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,target);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);loadedSource=data;finish();}catch(error){finish(error);}};target.onerror=()=>finish(Error('Floor plan texture could not load. Reimport the image.'));target.src=data;}catch(error){finish(error);}
  }
- return {load,get error(){return request?.error||null;},get ready(){const current=request;return current?current.promise.then(()=>{if(current.error)throw current.error;}):Promise.resolve();},draw(matrix,plan){
+ return {load,get error(){return request?.error||null;},get ready(){const current=request;return current?current.promise!.then(()=>{if(current.error)throw current.error;}):Promise.resolve();},draw(matrix:Float32List,plan:FloorImage|null|undefined){
   if(!plan||!texture||disposed||!loadedSource||plan.data&&loadedSource!==plan.data||request?.error)return;
   if(!program){vertex=compile(gl.VERTEX_SHADER,'attribute vec3 floorPosition;attribute vec2 floorUV;uniform mat4 floorMatrix;varying vec2 uv;void main(){uv=floorUV;gl_Position=floorMatrix*vec4(floorPosition,1.);}');fragment=compile(gl.FRAGMENT_SHADER,'precision mediump float;varying vec2 uv;uniform sampler2D floorTexture;uniform float opacity;void main(){gl_FragColor=texture2D(floorTexture,uv);gl_FragColor.a*=opacity;}');program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error('Floor plan rendering unavailable.');buffer=gl.createBuffer();}
   const corners=floorCorners(plan),uv=[[0,0],[1,0],[1,1],[0,1]],verts=new Float32Array([0,1,2,0,2,3].flatMap(i=>[corners[i].x,.022,-corners[i].z,...uv[i]]));

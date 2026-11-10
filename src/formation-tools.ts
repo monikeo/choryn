@@ -3,6 +3,8 @@ import {clone,uid,closePairs,transitionSettings,interpolatePosition} from './eng
 import {minimumAssignment} from './ensemble-model.js';
 
 type Point={x:number;z:number};
+/** One candidate path for a performer; its samples are computed on first use. */
+interface RouteOption {route:Route; deviation:number; readonly trajectory:Float64Array; readonly bounds:number[]; readonly peak:number}
 const round=(v:number)=>Math.round(v*100)/100;
 /** Smallest distance of two performers over one sample interval, given their offset at its start (x0, z0) and end (x1, z1). */
 export function closestApproach(x0:number,z0:number,x1:number,z1:number){const dx=x1-x0,dz=z1-z0,length=dx*dx+dz*dz,s=length>1e-12?Math.max(0,Math.min(1,-(x0*dx+z0*dz)/length)):0;return Math.hypot(x0+dx*s,z0+dz*s);}
@@ -15,7 +17,7 @@ export function closestApproach(x0:number,z0:number,x1:number,z1:number){const d
 export function assignByTravel(layout:Pose[],origins:Map<string,Point>):Pose[]{
   const movers=layout.filter(p=>origins.has(p.performerId));
   if(movers.length<2)return layout;
-  const cost=movers.map(p=>{const o=origins.get(p.performerId);return movers.map(spot=>Math.hypot(spot.x-o.x,spot.z-o.z));});
+  const cost=movers.map(p=>{const o=origins.get(p.performerId)!;return movers.map(spot=>Math.hypot(spot.x-o.x,spot.z-o.z));});
   const pick=minimumAssignment(cost),spots=new Map(movers.map((p,i)=>[p.performerId,{x:movers[pick[i]].x,z:movers[pick[i]].z}]));
   return layout.map(p=>spots.has(p.performerId)?{...p,...spots.get(p.performerId)}:p);
 }
@@ -63,11 +65,11 @@ export function planClearRoutes(project:Project,formationId:string,{distance=pro
   const settings=transitionSettings(project,from),pathProject={...project,pathType:settings.pathType};
   const duration=Math.min(60,to.time-from.time,Math.max(settings.duration,2)),window=Math.min(to.time-from.time,duration),start=to.time-window;
   const destinations=new Map(to.positions.map(p=>[p.performerId,p]));
-  const movers=from.positions.filter(p=>p.visible!==false&&destinations.get(p.performerId)&&destinations.get(p.performerId).visible!==false);
+  const movers=from.positions.filter(p=>p.visible!==false&&destinations.get(p.performerId)&&destinations.get(p.performerId)!.visible!==false);
   const samples=steps+1,times=Array.from({length:samples},(_,k)=>start+window*k/steps);
   const route=(p:Pose,waypoints:Point[],delay:number):Route=>({id:'',fromId:from.id,toId:to.id,performerId:p.performerId,duration,delay,easing:'smooth',curve:'smooth',waypoints,locked:false});
   const trajectory=(p:Pose,r:Route)=>{
-    const q=destinations.get(p.performerId),out=new Float64Array(samples*2),delay=Math.min(r.delay,Math.max(0,window-.001));
+    const q=destinations.get(p.performerId)!,out=new Float64Array(samples*2),delay=Math.min(r.delay,Math.max(0,window-.001));
     for(let k=0;k<samples;k++){const progress=Math.max(0,Math.min(1,(times[k]-(start+delay))/Math.max(.001,window-delay))),amount=progress*progress*(3-2*progress),pos=interpolatePosition(pathProject,p,q,amount,r);out[2*k]=pos.x;out[2*k+1]=pos.z;}
     return out;
   };
@@ -76,7 +78,7 @@ export function planClearRoutes(project:Project,formationId:string,{distance=pro
   const bounds=(t:Float64Array)=>{let x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity;for(let k=0;k<t.length;k+=2){x0=Math.min(x0,t[k]);x1=Math.max(x1,t[k]);z0=Math.min(z0,t[k+1]);z1=Math.max(z1,t[k+1]);}return [x0,x1,z0,z1];};
   // Options per performer: a perpendicular bend of the path midpoint and a start delay.
   const options=movers.map(p=>{
-    const q=destinations.get(p.performerId),dx=q.x-p.x,dz=q.z-p.z,length=Math.hypot(dx,dz),list=[];
+    const q=destinations.get(p.performerId)!,dx=q.x-p.x,dz=q.z-p.z,length=Math.hypot(dx,dz),list:RouteOption[]=[];
     const bends=length<.3?[0]:[0,.5,-.5,1,-1,1.6,-1.6].map(b=>Math.sign(b)*Math.min(Math.abs(b),length*.75)),delays=[0,.12,.24,.36].map(f=>f*window);
     for(const delay of delays)for(const bend of bends){
       const waypoints=bend?[{x:round((p.x+q.x)/2-dz/length*bend),z:round((p.z+q.z)/2+dx/length*bend)}]:[];
@@ -89,9 +91,9 @@ export function planClearRoutes(project:Project,formationId:string,{distance=pro
   });
   const n=movers.length,choice=new Array(n).fill(0);
   // A pair only needs the clearance its two formations allow.
-  const required=Array.from({length:n},(_,a)=>Array.from({length:n},(_,b)=>{if(a===b)return 0;const p=movers[a],q=movers[b],pa=destinations.get(p.performerId),qa=destinations.get(q.performerId);return Math.min(distance,Math.hypot(p.x-q.x,p.z-q.z),Math.hypot(pa.x-qa.x,pa.z-qa.z))-1e-3;}));
+  const required=Array.from({length:n},(_,a)=>Array.from({length:n},(_,b)=>{if(a===b)return 0;const p=movers[a],q=movers[b],pa=destinations.get(p.performerId)!,qa=destinations.get(q.performerId)!;return Math.min(distance,Math.hypot(p.x-q.x,p.z-q.z),Math.hypot(pa.x-qa.x,pa.z-qa.z))-1e-3;}));
   // `limit` stops early once an option is already worse than the best found (branch and bound).
-  const violation=(a:number,option,limit=Infinity)=>{
+  const violation=(a:number,option:RouteOption,limit=Infinity)=>{
     let total=0;const [x0,x1,z0,z1]=option.bounds;
     for(let b=0;b<n;b++){
       if(b===a)continue;const other=options[b][choice[b]],[ox0,ox1,oz0,oz1]=other.bounds,need=required[a][b];
@@ -105,7 +107,7 @@ export function planClearRoutes(project:Project,formationId:string,{distance=pro
   const totalViolation=()=>{let sum=0;for(let a=0;a<n;a++)sum+=violation(a,options[a][choice[a]]);return sum/2;};
   const before=totalViolation();
   // Longest journeys choose first; later passes revisit everyone against the others' choices.
-  const order=movers.map((p,i)=>i).sort((a,b)=>{const pa=destinations.get(movers[a].performerId),pb=destinations.get(movers[b].performerId);return Math.hypot(pb.x-movers[b].x,pb.z-movers[b].z)-Math.hypot(pa.x-movers[a].x,pa.z-movers[a].z);});
+  const order=movers.map((p,i)=>i).sort((a,b)=>{const pa=destinations.get(movers[a].performerId)!,pb=destinations.get(movers[b].performerId)!;return Math.hypot(pb.x-movers[b].x,pb.z-movers[b].z)-Math.hypot(pa.x-movers[a].x,pa.z-movers[a].z);});
   for(let pass=0;pass<passes;pass++){
     let changed=false;
     for(const a of order){

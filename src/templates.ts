@@ -1,10 +1,11 @@
+import type {Point,Pose,Stage} from './types.js';
 export const FORMATION_TEMPLATES=[
  ['staggered','Staggered rows','Lines'],['line','Straight line','Lines'],['v','V shape','Wedges'],['circle','Circle','Curves'],['diamond','Diamond','Geometric'],['columns','Columns','Lines'],['arc','Arc','Curves'],['diagonal','Diagonal','Lines'],
  ['double-line','Double line','Lines'],['corridor','Corridor','Lines'],['zigzag','Zigzag','Lines'],['wave','Wave','Curves'],['spiral','Spiral','Curves'],['double-circle','Twin circles','Curves'],['concentric','Concentric rings','Curves'],['semicircle','Semicircle','Curves'],['square','Square outline','Geometric'],['triangle','Triangle outline','Geometric'],['cross','Cross','Geometric'],['x-cross','Diagonal cross','Geometric'],['hourglass','Hourglass','Wedges'],['wedge','Filled wedge','Wedges'],['wings','Open wings','Wedges'],['heart','Heart','Geometric']
  ,['fan','Spotlight fan','Dance'],['infinity','Infinity flow','Dance'],['butterfly','Butterfly wings','Dance'],['petals','Four-petal bloom','Dance'],['starburst','Starburst','Dance'],['snake','Serpentine','Dance'],['ripple','Ripple lines','Dance'],['chevrons','Layered chevrons','Dance'],['three-pods','Three dance pods','Dance'],['offset-rings','Orbit rings','Dance'],['solo-halo','Soloist & halo','Dance'],['runway','Runway reveal','Dance']
 ].map(([id,name,category])=>({id,name,category}));
-export function extraLayout(type,n){
-  const points=[];for(let i=0;i<n;i++){
+export function extraLayout(type:string,n:number):Point[]|null{
+  const points:Point[]=[];for(let i=0;i<n;i++){
     const t=n===1?.5:i/(n-1);let x=0,z=0;
     if(type==='double-line'){const row=i%2,k=Math.floor(i/2),count=Math.ceil((n-row)/2);x=count===1?0:k/(count-1)*2-1;z=row?-.5:.5;}
     else if(type==='corridor'){const column=i%2,k=Math.floor(i/2),count=Math.ceil((n-column)/2);x=column?.6:-.6;z=count===1?0:k/(count-1)*2-1;}
@@ -36,7 +37,7 @@ export function extraLayout(type,n){
     points.push({x,z});
   }return points;
 }
-export function customizeLayout(positions: import("./types.js").Pose[],stage,{angle=0,scale=1,mirrorX=false,mirrorZ=false,facing=0}={}){
+export function customizeLayout(positions:Pose[],stage:Pick<Stage,'width'|'depth'>,{angle=0,scale=1,mirrorX=false,mirrorZ=false,facing=0}={}){
   const a=angle*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
   const points=positions.map(p=>{const x=p.x*(mirrorX?-1:1),z=p.z*(mirrorZ?-1:1);return {...p,x:(x*c-z*s)*scale,z:(x*s+z*c)*scale,facing};});
   const maxX=Math.max(.001,...points.map(p=>Math.abs(p.x))),maxZ=Math.max(.001,...points.map(p=>Math.abs(p.z))),fit=Math.min(1,stage.width*.48/maxX,stage.depth*.48/maxZ);

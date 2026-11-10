@@ -1,5 +1,5 @@
 import {errorMessage} from './errors.js';
-import type {Project} from './types.js';
+import type {Formation,Project} from './types.js';
 import {icon} from './icons.js';
 import {timelineToolButtons,reorderImpact,timelineFingerprint,timelineCommandReason} from './timeline-tools.js';
 import {bindTimelineGestures,bindTimelineResizer} from './timeline-gesture.js';
@@ -29,7 +29,7 @@ const boundaryTime=(project: Project,kind,id,edge)=>{const item=timelineItem(pro
 const selectedItem=()=>{const s=current();return timelineItem(api.project(),s.kind,s.id);};
 export function syncRelatedTiming(project: Project,duration=project.duration,includeFormations=false){
  const items=new Map(timedItems(project).map(v=>[v.key,v]));
- for(const node of document.querySelectorAll<HTMLElement>('[data-timeline-id]')){const v=items.get(node.dataset.timelineKind+'/'+node.dataset.timelineId);if(!v||v.kind==='formation'&&!includeFormations)continue;node.style.left=v.time/duration*100+'%';if(v.kind==='movement')node.style.width=(v.item.end-v.item.start)/duration*100+'%';if(v.kind==='formation'){const i=project.formations.indexOf(v.item),span=(project.formations[i+1]?.time??project.duration)-v.time;node.style.width=span/duration*100+'%';const label=node.querySelector<HTMLElement>('.sequence-duration');if(label)label.textContent=+span.toFixed(3)+'s';}}
+ for(const node of document.querySelectorAll<HTMLElement>('[data-timeline-id]')){const v=items.get(node.dataset.timelineKind+'/'+node.dataset.timelineId);if(!v||v.kind==='formation'&&!includeFormations)continue;node.style.left=v.time/duration*100+'%';if(v.kind==='movement')node.style.width=(v.item.end-v.item.start)/duration*100+'%';if(v.kind==='formation'){const i=project.formations.indexOf(v.item as Formation),span=(project.formations[i+1]?.time??project.duration)-v.time;node.style.width=span/duration*100+'%';const label=node.querySelector<HTMLElement>('.sequence-duration');if(label)label.textContent=+span.toFixed(3)+'s';}}
  for(const node of document.querySelectorAll<HTMLElement>('.production-lane [data-production="event"]')){const key={lights:'light',appearances:'appearance',cameras:'camera'}[node.dataset.key],v=items.get(key+'/'+node.dataset.id);if(v)node.style.left=v.time/duration*100+'%';}
  for(const node of document.querySelectorAll<HTMLElement>('.prop-lane [data-score="prop-frame"]')){const prop=project.props.find(v=>v.id===node.dataset.id),key=prop?.keyframes.find(v=>v.id===node.dataset.frame);if(key)node.style.left=key.time/duration*100+'%';}
 }
