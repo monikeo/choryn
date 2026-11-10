@@ -16,7 +16,7 @@ interface MarkerNodes {node:SVGGraphicsElement; facing:SVGGraphicsElement|null; 
 // Keep focused stage objects and performer nodes alive while the clock advances.
 export function createPlaybackView(root:Element){
  const find=<T extends Element=HTMLElement>(selector:string)=>root.querySelector<T>(selector),layer=find('#performer-markers'),objects=find('#stage-objects'),ghostLayer=find('#rehearsal-ghosts'),analysisLayer=find('#stage-analysis');
- let markers=new Map<string,MarkerNodes>(),props=new Map<string,{node:SVGElement;shape:Element}>(),playingId:string|null|undefined=null,activeId:string|null|undefined=null,ghostsRef:Ghost[]|undefined,analysisRef:AnalysisFrame|undefined;
+ let markers=new Map<string,MarkerNodes>(),props=new Map<string,{node:SVGElement;shape:Element}>(),playingId:string|null|undefined=null,activeId:string|null|undefined=null,ghostsRef:Ghost[]|undefined,analysisRef:AnalysisFrame|null|undefined;
  // Rendered markers, stage objects and clips always carry their ids, and an object's first child is its shape.
  const scan=()=>{markers=new Map(Array.from(layer?.querySelectorAll<SVGGraphicsElement>('[data-marker]')||[],(node):[string,MarkerNodes]=>[node.dataset.marker!,{node,facing:node.querySelector<SVGGraphicsElement>('.marker-facing'),ring:node.querySelector<HTMLInputElement>('.selection-ring')} ]));};scan();
  for(const node of objects?.querySelectorAll<SVGElement>('[data-stage-object]')||[])props.set(node.dataset.stageObject!,{node,shape:node.firstElementChild!});
