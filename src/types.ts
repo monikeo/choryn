@@ -68,9 +68,11 @@ export interface ZipOptions {signal?:AbortSignal; onProgress?:(fraction:number)=
  */
 export interface StudioServices {
  project:()=>Project; formation:()=>Formation; selected:()=>Set<string>; time:()=>number; readOnly:()=>boolean; playing:()=>boolean; rate:()=>number;
- render:()=>void; pause:()=>void;
+ render:()=>void;
+ /** `fromShow` marks a pause the show runner requested, so it does not also pause the show. */
+ pause:(options?:{fromShow?:boolean})=>void;
  /** Moves the playhead; `reset` false keeps the current view while scrubbing. */
- seek:(time:number,reset?:boolean)=>void;
+ seek:(time:number,reset?:boolean,options?:{fromShow?:boolean})=>void;
  /** Validates and commits a new score, then toasts `message`. */
  replace:(next:Project,message?:string,options?:{formationId?:string;time?:number})=>void;
  dialog:(title:string,body:string,wide?:boolean)=>void; close:()=>void; toast:(message:string)=>void;
