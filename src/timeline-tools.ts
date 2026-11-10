@@ -53,7 +53,7 @@ export function timelineScrollVelocity(x:number,rect:Pick<DOMRect,'width'|'left'
  return Math.sign(intensity)*900*intensity*intensity;
 }
 
-export function timelineCommandReason(project: Project,selection:{kind:string;id:string},command:string,time:number,{readOnly=false,clipboard}:{readOnly?:boolean;clipboard?:{kind:string;projectId:string}}={}){
+export function timelineCommandReason(project: Project,selection:{kind:string;id:string},command:string,time:number,{readOnly=false,clipboard}:{readOnly?:boolean;clipboard?:{kind:string;projectId:string}|null}={}){
  if(command.startsWith('zoom-')||['tools','copy','details'].includes(command))return '';
  if(readOnly)return 'Read-only snapshot';
  const locked=project.production?.layers?.[({formation:'formations',movement:'movement',cue:'cues'} as Record<string,TrackName>)[(command==='paste'?clipboard?.kind:selection.kind) as string]]?.locked;if(locked)return 'Unlock the selected track first';
