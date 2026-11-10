@@ -1,5 +1,6 @@
 import type {Metadata, Viewport} from 'next';
 import type {ReactNode} from 'react';
+import {DM_Sans, Inter, Manrope} from 'next/font/google';
 import '../src/styles.css';
 import '../src/features.css';
 import '../src/native.css';
@@ -18,6 +19,13 @@ import '../src/pwa.css';
 import '../src/navigation.css';
 import '../src/production-next.css';
 import '../src/responsive.css';
+
+// next/font downloads these at build time and serves them from the app itself: no request to Google
+// at runtime, no layout shift (size-adjusted fallbacks), and the fonts are part of the offline app.
+// The CSS reads them through --body-font, --display-font and the branding font stack.
+const dmSans = DM_Sans({subsets: ['latin'], display: 'swap', variable: '--font-dm-sans'});
+const manrope = Manrope({subsets: ['latin'], display: 'swap', variable: '--font-manrope'});
+const inter = Inter({subsets: ['latin'], display: 'swap', variable: '--font-inter'});
 
 export const metadata: Metadata = {
   title: 'CHORYN Studio — From first count to final cue.',
@@ -41,11 +49,8 @@ export const viewport: Viewport = {width:'device-width',initialScale:1,viewportF
 const themeBootstrap=`try{var t=localStorage.getItem('choryn.theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;}catch(e){}`;
 
 export default function RootLayout({children}:{children:ReactNode}) {
-  return <html lang="en" suppressHydrationWarning><head>
+  return <html lang="en" className={`${dmSans.variable} ${manrope.variable} ${inter.variable}`} suppressHydrationWarning><head>
     <script dangerouslySetInnerHTML={{__html:themeBootstrap}}/>
     <link rel="manifest" href="/manifest.json" crossOrigin="use-credentials"/>
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>
-    <link id="studio-fonts" rel="stylesheet" media="print" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=DM+Sans:wght@400;450;500;550;600;650;700&family=Manrope:wght@400;500;600;650;700;750;800&display=swap"/>
   </head><body>{children}</body></html>;
 }

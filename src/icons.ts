@@ -55,4 +55,6 @@ const paths = {
  flip:'<path d="M12 3v2m0 3v2m0 3v2m0 3v3M8 5 3 19h5V5Zm8 0 5 14h-5V5Z"/>',
  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 5 9 8 9-8"/>'
 };
-export const icon = (name, cls='') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.grid}</svg>`;
+export type IconName=keyof typeof paths;
+/** Inline SVG for a named icon; unknown names fall back to the grid icon. */
+export const icon = (name:IconName|string, cls='') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name as IconName] || paths.grid}</svg>`;

@@ -31,8 +31,8 @@ async function verify(response:Response,path:string):Promise<Checked>{
  const digest=await crypto.subtle.digest('SHA-256',bytes);
  return {ok:Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')===EXPECTED[path],make};
 }
-async function cachedPaths(cache){return new Set((await cache.keys()).map(request=>new URL(request.url,worker.location.origin).pathname));}
-async function prepare(paths){
+async function cachedPaths(cache:Cache){return new Set((await cache.keys()).map(request=>new URL(request.url,worker.location.origin).pathname));}
+async function prepare(paths:string[]){
  const results=new Map<string,Response>();let cursor=0,failure;
  await Promise.all(Array.from({length:Math.min(6,paths.length)},async()=>{while(cursor<paths.length){const path=paths[cursor++];try{const checked=await verify(await fetch(new Request(path,{credentials:'same-origin',cache:'reload'})),path);if(!checked.ok)throw Error('The online application changed or requires sign-in. Check for updates while online.');results.set(path,checked.make());}catch(error){failure||=error;}}}));
  if(failure)throw failure;return results;
@@ -43,7 +43,7 @@ worker.addEventListener('install',event=>{event.waitUntil((async()=>{
 })());});
 worker.addEventListener('activate',event=>{event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith('choryn-shell-')&&key!==CACHE)await caches.delete(key);await worker.clients.claim();})());});
 worker.addEventListener('message',event=>{
- const reply=value=>event.ports?.[0]?.postMessage(value);
+ const reply=(value:unknown)=>event.ports?.[0]?.postMessage(value);
  if(!['CACHE_STATUS','REPAIR_OFFLINE','ACTIVATE_UPDATE'].includes(event.data?.type))return;
  event.waitUntil((async()=>{try{
   if(event.data.type==='ACTIVATE_UPDATE'){
@@ -58,7 +58,7 @@ worker.addEventListener('message',event=>{
    for(const [path,response] of responses)await cache.put(path,response);found=await cachedPaths(cache);
   }
   const count=SHELL.filter(path=>found.has(path)).length;reply({ok:true,version:CACHE.replace('choryn-shell-',''),cached:count,total:SHELL.length,complete:count===SHELL.length});
- }catch(error){reply({ok:false,error:error.message||'Offline preparation could not finish.'});}})());
+ }catch(error){reply({ok:false,error:error instanceof Error&&error.message?error.message:'Offline preparation could not finish.'});}})());
 });
 worker.addEventListener('fetch',event=>{
  const url=new URL(event.request.url);

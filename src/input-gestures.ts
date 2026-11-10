@@ -59,7 +59,7 @@ let touchesDown=0,touchTracking=false;
 function trackTouches(){
  if(touchTracking||typeof document==='undefined')return;touchTracking=true;
  const update=(event:TouchEvent)=>{touchesDown=event.touches?.length||0;};
- for(const type of ['touchstart','touchend','touchcancel'])document.addEventListener(type,update,{capture:true,passive:true});
+ for(const type of ['touchstart','touchend','touchcancel'] as const)document.addEventListener(type,update,{capture:true,passive:true});
 }
 
 /** Safari (macOS) trackpad pinch → incremental zoom factor around the pointer. */

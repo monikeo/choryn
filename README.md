@@ -41,7 +41,7 @@ CHORYN adapts its workspace to desktop, tablet and phone widths. It is a browser
 
 ## Run locally
 
-Use Node.js 22.18 or later and npm. Install the versions recorded in the lockfile before starting the Next.js development server.
+Use Node.js 22.18 or later (it runs the TypeScript build and test scripts directly) and npm. Install the versions recorded in the lockfile before starting the Next.js development server.
 
 ```sh
 git clone https://github.com/monikeo/choryn.git
@@ -126,7 +126,7 @@ The tracked `.openai/hosting.json` belongs to the existing hosted CHORYN deploym
 | `src/pwa.ts`, `sw.ts` | Installation, updates and offline files |
 | `src/responsive.css`, `src/sheet-gesture.ts` | Desktop, tablet, phone and phone-landscape layouts (loaded last); phone bottom-sheet gestures |
 | `tests/` | Model, workflow and regression checks |
-| `scripts/` | Local server and static build |
+| `scripts/*.ts` | Static build, preview server, test runner, benchmark and icon generation (TypeScript, run directly by Node) |
 
 ## Current boundaries
 

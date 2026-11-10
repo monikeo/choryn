@@ -1,4 +1,4 @@
-import type {Camera,StageOptions,Project,Pose,StageTarget} from './types.js';
+import type {AnalysisFrame,Camera,Ghost,Performer,Point,StageOptions,Project,Pose,StageTarget} from './types.js';
 import {safeCamera,bindCameraControls} from './camera-controls.js';
 import {mountNavigationDock} from './navigation-dock.js';
 import {observeSize} from './compat.js';
@@ -17,38 +17,42 @@ import {createStageFloor} from './stage-floor.js';
 //    (dark house, black dance floor, haze, visible beams on featured dancers).
 // ---------------------------------------------------------------------------
 
-const sub=(a,b)=>a.map((v,i)=>v-b[i]);
-const dot=(a,b)=>a.reduce((v,n,i)=>v+n*b[i],0);
-const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
-const norm=a=>{const l=Math.hypot(...a)||1;return a.map(v=>v/l);};
-export function multiply(a,b){const out=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)for(let i=0;i<4;i++)out[c*4+r]+=a[i*4+r]*b[c*4+i];return out;}
-export function cameraMatrix(eye,target,aspect){
+/** A 3-vector (or a colour, or a material triple). */
+type Vec=number[];
+/** A column-major 4×4 matrix. */
+type Mat4=Float32Array|number[];
+const sub=(a:Vec,b:Vec)=>a.map((v,i)=>v-b[i]);
+const dot=(a:Vec,b:Vec)=>a.reduce((v,n,i)=>v+n*b[i],0);
+const cross=(a:Vec,b:Vec)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=(a:Vec)=>{const l=Math.hypot(...a)||1;return a.map(v=>v/l);};
+export function multiply(a:Mat4,b:Mat4){const out=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)for(let i=0;i<4;i++)out[c*4+r]+=a[i*4+r]*b[c*4+i];return out;}
+export function cameraMatrix(eye:Vec,target:Vec,aspect:number){
   const z=norm(sub(eye,target)),x=norm(cross([0,1,0],z)),y=cross(z,x);
   const view=new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dot(x,eye),-dot(y,eye),-dot(z,eye),1]);
   const f=1/Math.tan(Math.PI/7),near=.1,far=500;
   const projection=new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,2*far*near/(near-far),0]);
   return multiply(projection,view);
 }
-export function projectPoint(matrix,p){const v=[...p,1],out=[0,0,0,0];for(let r=0;r<4;r++)for(let i=0;i<4;i++)out[r]+=matrix[i*4+r]*v[i];return out[3]>.01?[out[0]/out[3],out[1]/out[3],out[2]/out[3]]:null;}
+export function projectPoint(matrix:Mat4,p:Vec):Vec|null{const v=[...p,1],out=[0,0,0,0];for(let r=0;r<4;r++)for(let i=0;i<4;i++)out[r]+=matrix[i*4+r]*v[i];return out[3]>.01?[out[0]/out[3],out[1]/out[3],out[2]/out[3]]:null;}
 /** Inverse of a column-major 4×4 matrix, or null when singular. */
-export function invert(m){
+export function invert(m:Mat4){
   const [a00,a01,a02,a03,a10,a11,a12,a13,a20,a21,a22,a23,a30,a31,a32,a33]=m;
   const b00=a00*a11-a01*a10,b01=a00*a12-a02*a10,b02=a00*a13-a03*a10,b03=a01*a12-a02*a11,b04=a01*a13-a03*a11,b05=a02*a13-a03*a12,b06=a20*a31-a21*a30,b07=a20*a32-a22*a30,b08=a20*a33-a23*a30,b09=a21*a32-a22*a31,b10=a21*a33-a23*a31,b11=a22*a33-a23*a32;
   let det=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06;if(!det)return null;det=1/det;
   return new Float32Array([(a11*b11-a12*b10+a13*b09)*det,(a02*b10-a01*b11-a03*b09)*det,(a31*b05-a32*b04+a33*b03)*det,(a22*b04-a21*b05-a23*b03)*det,(a12*b08-a10*b11-a13*b07)*det,(a00*b11-a02*b08+a03*b07)*det,(a32*b02-a30*b05-a33*b01)*det,(a20*b05-a22*b02+a23*b01)*det,(a10*b10-a11*b08+a13*b06)*det,(a01*b08-a00*b10-a03*b06)*det,(a30*b04-a31*b02+a33*b00)*det,(a21*b02-a20*b04-a23*b00)*det,(a11*b07-a10*b09-a12*b06)*det,(a00*b09-a01*b07+a02*b06)*det,(a31*b01-a30*b03-a32*b00)*det,(a20*b03-a21*b01+a22*b00)*det]);
 }
 /** World point on the stage floor (y = height) under a screen point in NDC, or null when looking away from it. */
-export function floorPointAt(matrix,nx,ny,height=0){
+export function floorPointAt(matrix:Mat4,nx:number,ny:number,height=0){
   const inverse=invert(matrix);if(!inverse)return null;
-  const unproject=z=>{const v=[nx,ny,z,1],o=[0,0,0,0];for(let r=0;r<4;r++)for(let i=0;i<4;i++)o[r]+=inverse[i*4+r]*v[i];return o[3]?[o[0]/o[3],o[1]/o[3],o[2]/o[3]]:null;};
+  const unproject=(z:number)=>{const v=[nx,ny,z,1],o=[0,0,0,0];for(let r=0;r<4;r++)for(let i=0;i<4;i++)o[r]+=inverse[i*4+r]*v[i];return o[3]?[o[0]/o[3],o[1]/o[3],o[2]/o[3]]:null;};
   const near=unproject(-1),far=unproject(1);if(!near||!far)return null;
   const dy=far[1]-near[1];if(Math.abs(dy)<1e-6)return null;const t=(height-near[1])/dy;if(t<0)return null;
   return {x:near[0]+(far[0]-near[0])*t,z:near[2]+(far[2]-near[2])*t};
 }
-const rgb=hex=>/^#[\da-f]{6}$/i.test(hex||'')?[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255):[.52,.4,.84];
-const stageReferences=new WeakMap();let nextStageReference=0;
-const stageReference=value=>{if(!value)return 0;if(!stageReferences.has(value))stageReferences.set(value,++nextStageReference);return stageReferences.get(value);};
-export function stageSceneKey(project: Project,positions: Pose[],selected){return JSON.stringify([project.stage.width,project.stage.depth,stageReference(project.production?.stage),project.sceneLights,project.sceneSafety?.map(v=>[v.type,v.ids]),project.performers.map(p=>[p.id,p.number,p.name,p.color,p.costume]),(project.props||[]).map(p=>[p.id,p.x,p.z,p.width,p.depth,p.height,p.rotation,p.shape,p.color]),positions,[...selected].sort()]);}
+const rgb=(hex:string|null|undefined)=>/^#[\da-f]{6}$/i.test(hex||'')?[1,3,5].map(i=>parseInt(hex!.slice(i,i+2),16)/255):[.52,.4,.84];
+const stageReferences=new WeakMap<object,number>();let nextStageReference=0;
+const stageReference=(value:object|null|undefined)=>{if(!value)return 0;if(!stageReferences.has(value))stageReferences.set(value,++nextStageReference);return stageReferences.get(value);};
+export function stageSceneKey(project: Project,positions: Pose[],selected:Iterable<string>){return JSON.stringify([project.stage.width,project.stage.depth,stageReference(project.production?.stage),project.sceneLights,project.sceneSafety?.map(v=>[v.type,v.ids]),project.performers.map(p=>[p.id,p.number,p.name,p.color,p.costume]),(project.props||[]).map(p=>[p.id,p.x,p.z,p.width,p.depth,p.height,p.rotation,p.shape,p.color]),positions,[...selected].sort()]);}
 
 // ---- Look preference (shared by the live view, exports and the second screen) ----
 export type StageLook={look:'rehearsal'|'show';set:boolean};
@@ -61,33 +65,33 @@ export function setStageLook(next:Partial<StageLook>):StageLook{const value={...
 export const FLOATS_PER_VERTEX=12;
 // Set pieces (velvet, cyclorama, rig) are cut away wherever they would hide the dance area.
 const K={plain:0,floor:1,velvet:2,skin:3,costume:4,hair:5,leg:6,glow:7,cyc:8,shoe:9,ring:10,mark:11,beam:12,rig:13,grid:14};
-const mat=(kind,gloss=.3,emissive=0)=>[kind,gloss,emissive];
+const mat=(kind:number,gloss=.3,emissive=0)=>[kind,gloss,emissive];
 const WHITE=[1,1,1];
-function vertex(out,p,n,c,m){out.push(p[0],p[1],p[2],n[0],n[1],n[2],c[0],c[1],c[2],m[0],m[1],m[2]);}
-function tri(out,a,b,c,color,m){const n=norm(cross(sub(b,a),sub(c,a)));vertex(out,a,n,color,m);vertex(out,b,n,color,m);vertex(out,c,n,color,m);}
-function box(out,x,y,z,w,h,d,color,m=mat(K.plain),rotation=0){
+function vertex(out:number[],p:Vec,n:Vec,c:Vec,m:Vec){out.push(p[0],p[1],p[2],n[0],n[1],n[2],c[0],c[1],c[2],m[0],m[1],m[2]);}
+function tri(out:number[],a:Vec,b:Vec,c:Vec,color:Vec,m:Vec){const n=norm(cross(sub(b,a),sub(c,a)));vertex(out,a,n,color,m);vertex(out,b,n,color,m);vertex(out,c,n,color,m);}
+function box(out:number[],x:number,y:number,z:number,w:number,h:number,d:number,color:Vec,m=mat(K.plain),rotation=0){
   const points=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(p=>{const a=rotation*Math.PI/180,dx=p[0]*w/2,dz=p[2]*d/2;return [x+dx*Math.cos(a)-dz*Math.sin(a),y+p[1]*h/2,z+dx*Math.sin(a)+dz*Math.cos(a)];});
   for(const [a,b,c,e] of [[0,3,2,1],[4,5,6,7],[0,4,7,3],[1,2,6,5],[3,7,6,2],[0,1,5,4]]){tri(out,points[a],points[b],points[c],color,m);tri(out,points[a],points[c],points[e],color,m);}
 }
-function cylinder(out,x,y,z,r,h,color,m=mat(K.plain),segments=12){
+function cylinder(out:number[],x:number,y:number,z:number,r:number,h:number,color:Vec,m=mat(K.plain),segments=12){
   for(let i=0;i<segments;i++){
     const a=i/segments*Math.PI*2,b=(i+1)/segments*Math.PI*2,p=[x+Math.cos(a)*r,y-h/2,z+Math.sin(a)*r],q=[x+Math.cos(b)*r,y-h/2,z+Math.sin(b)*r],t=[p[0],y+h/2,p[2]],u=[q[0],y+h/2,q[2]];
     tri(out,p,t,u,color,m);tri(out,p,u,q,color,m);tri(out,[x,y+h/2,z],u,t,color,m);tri(out,[x,y-h/2,z],p,q,color,m);
   }
 }
-function ring(out,x,y,z,inner,outer,color,m,segments=32){for(let i=0;i<segments;i++){const a=i/segments*Math.PI*2,b=(i+1)/segments*Math.PI*2,pt=(angle,r)=>[x+Math.cos(angle)*r,y,z+Math.sin(angle)*r],n=[0,1,0];for(const p of [pt(a,inner),pt(b,inner),pt(b,outer),pt(a,inner),pt(b,outer),pt(a,outer)])vertex(out,p,n,color,m);}}
+function ring(out:number[],x:number,y:number,z:number,inner:number,outer:number,color:Vec,m:Vec,segments=32){for(let i=0;i<segments;i++){const a=i/segments*Math.PI*2,b=(i+1)/segments*Math.PI*2,pt=(angle:number,r:number)=>[x+Math.cos(angle)*r,y,z+Math.sin(angle)*r],n=[0,1,0];for(const p of [pt(a,inner),pt(b,inner),pt(b,outer),pt(a,inner),pt(b,outer),pt(a,outer)])vertex(out,p,n,color,m);}}
 // Body meshes are indexed: each shared vertex is stored and shaded once (about a fifth of
 // the vertex work of separate triangles), which is what limits large casts on laptop GPUs.
 type IndexedMesh={v:number[];i:number[]};
-const addVertex=(mesh:IndexedMesh,p,n,c,m)=>{vertex(mesh.v,p,n,c,m);return mesh.v.length/FLOATS_PER_VERTEX-1;};
+const addVertex=(mesh:IndexedMesh,p:Vec,n:Vec,c:Vec,m:Vec)=>{vertex(mesh.v,p,n,c,m);return mesh.v.length/FLOATS_PER_VERTEX-1;};
 const flatMesh=(v:number[]):IndexedMesh=>({v,i:Array.from({length:v.length/FLOATS_PER_VERTEX},(_,k)=>k)});
 /** Separate triangles in index order (for drawArrays and for measuring a mesh). */
-function expand(mesh:IndexedMesh):number[]{const out=[];for(const k of mesh.i)for(let f=0;f<FLOATS_PER_VERTEX;f++)out.push(mesh.v[k*FLOATS_PER_VERTEX+f]);return out;}
+function expand(mesh:IndexedMesh):number[]{const out:number[]=[];for(const k of mesh.i)for(let f=0;f<FLOATS_PER_VERTEX;f++)out.push(mesh.v[k*FLOATS_PER_VERTEX+f]);return out;}
 /** Smooth ellipsoid; `keep` (unit-sphere direction) trims it, e.g. to leave the face clear of hair. */
-function ellipsoid(mesh:IndexedMesh,c,r,color,m,seg=10,rings=7,keep?:(u:number[])=>boolean){
-  const ids=[],dirs=[];
+function ellipsoid(mesh:IndexedMesh,c:Vec,r:Vec,color:Vec,m:Vec,seg=10,rings=7,keep?:(u:number[])=>boolean){
+  const ids:number[]=[],dirs:Vec[]=[];
   for(let i=0;i<=rings;i++)for(let j=0;j<=seg;j++){const t=i/rings*Math.PI,p=j/seg*Math.PI*2,u=[Math.sin(t)*Math.cos(p),Math.cos(t),Math.sin(t)*Math.sin(p)];dirs.push(u);ids.push(addVertex(mesh,[c[0]+u[0]*r[0],c[1]+u[1]*r[1],c[2]+u[2]*r[2]],norm([u[0]/r[0],u[1]/r[1],u[2]/r[2]]),color,m));}
-  const at=(i,j)=>i*(seg+1)+j;
+  const at=(i:number,j:number)=>i*(seg+1)+j;
   for(let i=0;i<rings;i++)for(let j=0;j<seg;j++){
     const a=at(i,j),b=at(i+1,j),d=at(i+1,j+1),e=at(i,j+1);
     if(keep&&!keep(norm([(dirs[a][0]+dirs[d][0])/2,(dirs[a][1]+dirs[d][1])/2,(dirs[a][2]+dirs[d][2])/2])))continue;
@@ -95,9 +99,9 @@ function ellipsoid(mesh:IndexedMesh,c,r,color,m,seg=10,rings=7,keep?:(u:number[]
   }
 }
 /** Tapered limb from a to b with a rounded joint at a. */
-function limb(mesh:IndexedMesh,a,b,ra,rb,color,m,seg=9){
+function limb(mesh:IndexedMesh,a:Vec,b:Vec,ra:number,rb:number,color:Vec,m:Vec,seg=9){
   const axis=sub(b,a),length=Math.hypot(...axis)||1,k=axis.map(v=>v/length),helper=Math.abs(k[1])<.9?[0,1,0]:[1,0,0],e1=norm(cross(k,helper)),e2=cross(k,e1);
-  const slope=(ra-rb)/length,ringA=[],ringB=[];
+  const slope=(ra-rb)/length,ringA:number[]=[],ringB:number[]=[];
   for(let i=0;i<=seg;i++){const t=i/seg*Math.PI*2,d=e1.map((v,n)=>v*Math.cos(t)+e2[n]*Math.sin(t)),n=norm(d.map((v,j)=>v+k[j]*slope));ringA.push(addVertex(mesh,a.map((v,j)=>v+d[j]*ra),n,color,m));ringB.push(addVertex(mesh,b.map((v,j)=>v+d[j]*rb),n,color,m));}
   for(let i=0;i<seg;i++)mesh.i.push(ringA[i],ringB[i],ringB[i+1],ringA[i],ringB[i+1],ringA[i+1]);
   ellipsoid(mesh,a,[ra,ra,ra],color,m,8,5);
@@ -117,7 +121,7 @@ export const bodyHeight=(kind:BodyKind)=>BODIES[kind].h;
 /** Separate triangles of one body (12 floats per vertex). */
 export function bodyMesh(kind:BodyKind):number[]{return expand(bodyIndexed(kind));}
 function bodyIndexed(kind:BodyKind):IndexedMesh{
-  const b=BODIES[kind],h=b.h,out:IndexedMesh={v:[],i:[]},y=f=>f*h,L=b.limb;
+  const b=BODIES[kind],h=b.h,out:IndexedMesh={v:[],i:[]},y=(f:number)=>f*h,L=b.limb;
   const skin=mat(K.skin,.35),cloth=mat(K.costume,.22),leg=mat(K.leg,.2),hair=mat(K.hair,.55),shoe=mat(K.shoe,.6);
   for(const s of [-1,1]){
     ellipsoid(out,[s*b.hip*.27,.04,.04],[.05,.04,.12],WHITE,shoe);
@@ -142,9 +146,9 @@ function bodyIndexed(kind:BodyKind):IndexedMesh{
   else if(b.hair==='medium')ellipsoid(out,[0,head[1]-.035,head[2]-.052],[hr[0]*1.06,.085,.06],WHITE,hair,10,6,u=>u[2]<.25);
   return out;
 }
-function markerMesh(){const out=[];ring(out,0,.008,0,0,.33,WHITE,mat(K.mark,.1),28);const n=[0,1,0],y=.012;for(const p of [[0,y,.62],[.15,y,.36],[-.15,y,.36]])vertex(out,p,n,WHITE,mat(K.mark,.1,.25));return out;}
-function ringMesh(){const out=[];ring(out,0,.016,0,.4,.47,WHITE,mat(K.ring),40);return out;}
-function beamMesh(){const out=[],top=7.2,r=.95,seg=28;for(let i=0;i<seg;i++){const a=i/seg*Math.PI*2,b=(i+1)/seg*Math.PI*2,p=[Math.cos(a)*r,0,Math.sin(a)*r],q=[Math.cos(b)*r,0,Math.sin(b)*r],apex=[0,top,0],n=norm([Math.cos((a+b)/2),r/top,Math.sin((a+b)/2)]);for(const v of [apex,p,q])vertex(out,v,n,[1,.93,.78],mat(K.beam));}return out;}
+function markerMesh(){const out:number[]=[];ring(out,0,.008,0,0,.33,WHITE,mat(K.mark,.1),28);const n=[0,1,0],y=.012;for(const p of [[0,y,.62],[.15,y,.36],[-.15,y,.36]])vertex(out,p,n,WHITE,mat(K.mark,.1,.25));return out;}
+function ringMesh(){const out:number[]=[];ring(out,0,.016,0,.4,.47,WHITE,mat(K.ring),40);return out;}
+function beamMesh(){const out:number[]=[],top=7.2,r=.95,seg=28;for(let i=0;i<seg;i++){const a=i/seg*Math.PI*2,b=(i+1)/seg*Math.PI*2,p=[Math.cos(a)*r,0,Math.sin(a)*r],q=[Math.cos(b)*r,0,Math.sin(b)*r],apex=[0,top,0],n=norm([Math.cos((a+b)/2),r/top,Math.sin((a+b)/2)]);for(const v of [apex,p,q])vertex(out,v,n,[1,.93,.78],mat(K.beam));}return out;}
 
 interface Template {start:number;count:number}
 interface TemplateBlock {vertices:Float32Array;indices:Uint16Array;templates:Record<string,Template>;readonly data:Float32Array}
@@ -158,7 +162,7 @@ let BLOCK:TemplateBlock|null=null;
 export function templateBlock():TemplateBlock{
   if(BLOCK)return BLOCK;
   const parts:[string,IndexedMesh][]=[['female',bodyIndexed('female')],['male',bodyIndexed('male')],['neutral',bodyIndexed('neutral')],['marker',flatMesh(markerMesh())],['ring',flatMesh(ringMesh())],['beam',flatMesh(beamMesh())]];
-  const v:number[]=[],idx:number[]=[],templates={};
+  const v:number[]=[],idx:number[]=[],templates:Record<string,Template>={};
   for(const [name,mesh] of parts){const base=v.length/FLOATS_PER_VERTEX;templates[name]={start:idx.length,count:mesh.i.length};for(const x of mesh.v)v.push(x);for(const k of mesh.i)idx.push(k+base);}
   const vertices=new Float32Array(v),indices=new Uint16Array(idx);let data:Float32Array|null=null;
   if(vertices.length/FLOATS_PER_VERTEX>65535)throw Error('3D template meshes exceed 16-bit indices');
@@ -167,8 +171,8 @@ export function templateBlock():TemplateBlock{
 }
 
 // ---- Scene (stage set, props, overlays) -----------------------------------------
-function sceneGeometry(project: Project,ghosts=[],analysis,showGrid=true,setVisible=true){
-  const casters=[],rest=[],cast=new Map(project.performers.map(p=>[p.id,p]));
+function sceneGeometry(project: Project,ghosts:Ghost[]=[],analysis:AnalysisFrame|null|undefined,showGrid=true,setVisible=true){
+  const casters:number[]=[],rest:number[]=[],cast=new Map(project.performers.map(p=>[p.id,p]));
   const w=project.stage.width,d=project.stage.depth,deck=1.0;
   // Props cast shadows; everything else is lit only.
   for(const prop of project.props||[]){const h=Math.max(.05,prop.height),color=rgb(prop.color),m=mat(K.plain,.38);if(prop.shape==='rectangle'||!prop.shape){box(casters,prop.x,h/2,-prop.z,prop.width,h,prop.depth,color,m,prop.rotation||0);continue;}const n=prop.shape==='triangle'?3:28,a=(prop.rotation||0)*Math.PI/180,points=Array.from({length:n},(_,i)=>{const angle=i/n*Math.PI*2-Math.PI/2,vertexAt=prop.shape==='triangle'?[[0,-prop.depth/2],[prop.width/2,prop.depth/2],[-prop.width/2,prop.depth/2]][i]:[Math.cos(angle)*prop.width/2,Math.sin(angle)*prop.depth/2],dx=vertexAt[0],dz=vertexAt[1];return [prop.x+dx*Math.cos(a)-dz*Math.sin(a),-prop.z+dx*Math.sin(a)+dz*Math.cos(a)];});for(let i=0;i<n;i++){const p=points[i],q=points[(i+1)%n],b=[p[0],0,p[1]],c=[q[0],0,q[1]],t=[p[0],h,p[1]],u=[q[0],h,q[1]];tri(casters,b,t,u,color,m);tri(casters,b,u,c,color,m);tri(casters,[prop.x,h,-prop.z],u,t,color,m);tri(casters,[prop.x,0,-prop.z],b,c,color,m);}}
@@ -180,7 +184,7 @@ function sceneGeometry(project: Project,ghosts=[],analysis,showGrid=true,setVisi
   box(rest,0,-.01,d/2+.012,w,.02,.024,[1,.96,.86],mat(K.glow,0,1.2));
   if(showGrid){const g=[.55,.52,.6],gm=mat(K.grid,.1,.15);for(let i=0;i<=w;i++)box(rest,i-w/2,.004,0,.012,.008,d,g,gm);for(let i=0;i<=d;i++)box(rest,0,.004,i-d/2,w,.008,.012,g,gm);}
   const centre=[.5,.42,.66],cm=mat(K.grid,.1,.3);box(rest,0,.007,0,.025,.01,d,centre,cm);box(rest,0,.007,0,w,.01,.025,centre,cm);
-  const line=(a,b,color,width=.05)=>{const dx=b.x-a.x,dz=b.z-a.z;box(rest,(a.x+b.x)/2,.03,-(a.z+b.z)/2,Math.hypot(dx,dz),.02,width,color,mat(K.plain,.2,.5),Math.atan2(-dz,dx)*180/Math.PI);};
+  const line=(a:Point,b:Point,color:Vec,width=.05)=>{const dx=b.x-a.x,dz=b.z-a.z;box(rest,(a.x+b.x)/2,.03,-(a.z+b.z)/2,Math.hypot(dx,dz),.02,width,color,mat(K.plain,.2,.5),Math.atan2(-dz,dx)*180/Math.PI);};
   for(const item of project.production?.stage.lines||[])line(item.a,item.b,[.5,.35,.75],.035);
   const outline=project.production?.stage.outline||[];outline.forEach((point,i)=>line(point,outline[(i+1)%outline.length],[.5,.35,.75],.06));
   if(setVisible){
@@ -189,7 +193,7 @@ function sceneGeometry(project: Project,ghosts=[],analysis,showGrid=true,setVisi
     const cz=-d/2-1.2,cyc=[[-w/2-3,-deck,cz],[w/2+3,-deck,cz],[w/2+3,7.5,cz],[-w/2-3,7.5,cz]];for(const i of [0,1,2,0,2,3])vertex(rest,cyc[i],[0,0,1],WHITE,mat(K.cyc,0));
     const legs=Math.max(2,Math.round(d/3)),velvet=[.035,.03,.04],vm=mat(K.velvet,.08);
     // Soft pleats: a sine fold with smooth normals so the velvet catches light like fabric.
-    for(let i=0;i<legs;i++){const z=-d/2+(i+.5)*d/legs;for(const s of [-1,1]){const x=s*(w/2+.9),width=1.6,folds=5,amplitude=.07,steps=30,k=folds*2*Math.PI/width,at=j=>{const zz=z-width/2+j/steps*width,phase=k*(zz-z+width/2);return {p:x+Math.sin(phase)*amplitude,z:zz,n:norm([1,0,-amplitude*k*Math.cos(phase)])};};for(let j=0;j<steps;j++){const u=at(j),v=at(j+1),a=[u.p,-deck,u.z],b=[v.p,-deck,v.z],c=[v.p,6.4,v.z],e=[u.p,6.4,u.z];vertex(rest,a,u.n,velvet,vm);vertex(rest,b,v.n,velvet,vm);vertex(rest,c,v.n,velvet,vm);vertex(rest,a,u.n,velvet,vm);vertex(rest,c,v.n,velvet,vm);vertex(rest,e,u.n,velvet,vm);}}}
+    for(let i=0;i<legs;i++){const z=-d/2+(i+.5)*d/legs;for(const s of [-1,1]){const x=s*(w/2+.9),width=1.6,folds=5,amplitude=.07,steps=30,k=folds*2*Math.PI/width,at=(j:number)=>{const zz=z-width/2+j/steps*width,phase=k*(zz-z+width/2);return {p:x+Math.sin(phase)*amplitude,z:zz,n:norm([1,0,-amplitude*k*Math.cos(phase)])};};for(let j=0;j<steps;j++){const u=at(j),v=at(j+1),a=[u.p,-deck,u.z],b=[v.p,-deck,v.z],c=[v.p,6.4,v.z],e=[u.p,6.4,u.z];vertex(rest,a,u.n,velvet,vm);vertex(rest,b,v.n,velvet,vm);vertex(rest,c,v.n,velvet,vm);vertex(rest,a,u.n,velvet,vm);vertex(rest,c,v.n,velvet,vm);vertex(rest,e,u.n,velvet,vm);}}}
     box(rest,0,7.05,d/2-.4,w+2,.07,.07,[.16,.16,.18],mat(K.rig,.6));
     for(let i=0;i<7;i++){const x=(i-3)*(w+1)/7;box(rest,x,6.85,d/2-.4,.22,.3,.3,[.08,.08,.09],mat(K.rig,.55));box(rest,x,6.68,d/2-.32,.16,.04,.04,[1,.95,.8],mat(K.rig,0,1.2));}
   }
@@ -200,7 +204,7 @@ function sceneGeometry(project: Project,ghosts=[],analysis,showGrid=true,setVisi
   return {casters,rest};
 }
 // Performer positions never enter the scene key: they are drawn from per-instance data.
-function geometryKey(project: Project,showGrid,setVisible){
+function geometryKey(project: Project,showGrid:boolean,setVisible:boolean){
   return JSON.stringify([project.stage.width,project.stage.depth,stageReference(project.production?.stage),showGrid,setVisible,(project.props||[]).map(p=>[p.id,p.x,p.z,p.width,p.depth,p.height,p.rotation,p.shape,p.color])]);
 }
 
@@ -213,7 +217,7 @@ const RING_SELECTED=[.55,.38,.95],RING_FEATURED=[1,.78,.3],RING_WARNING=[.86,.24
 export function buildInstances(figures:{p:Pose;body:BodyKind;color:number[]}[],{featured=new Set<string>(),selected=new Set<string>(),warnings=new Set<string>(),dimOthers=false,beams=false}={}):{data:Float32Array;groups:InstanceGroups}{
   const featuredCount=figures.reduce((n,f)=>n+(featured.has(f.p.performerId)?1:0),0),ringCount=figures.reduce((n,f)=>n+(selected.has(f.p.performerId)?1:0)+(featured.has(f.p.performerId)?1:0)+(warnings.has(f.p.performerId)?1:0),0);
   const total=figures.length*2+ringCount+(beams?featuredCount:0),data=new Float32Array(total*INSTANCE_FLOATS);let n=0;
-  const put=(x,z,angle,scale,color,a=0,b=0)=>{const o=n*INSTANCE_FLOATS;data[o]=x;data[o+1]=z;data[o+2]=angle;data[o+3]=scale;data[o+4]=color[0];data[o+5]=color[1];data[o+6]=color[2];data[o+7]=a;data[o+8]=b;n++;};
+  const put=(x:number,z:number,angle:number,scale:number,color:Vec,a=0,b=0)=>{const o=n*INSTANCE_FLOATS;data[o]=x;data[o+1]=z;data[o+2]=angle;data[o+3]=scale;data[o+4]=color[0];data[o+5]=color[1];data[o+6]=color[2];data[o+7]=a;data[o+8]=b;n++;};
   const groups={} as InstanceGroups,dim=dimOthers&&featuredCount>0;
   for(const kind of ['female','male','neutral'] as BodyKind[]){const start=n;for(const f of figures)if(f.body===kind){const lit=featured.has(f.p.performerId);put(f.p.x,-f.p.z,f.p.facing*Math.PI/180,1,f.color,lit?1:0,dim&&!lit?1:0);}groups[kind]={start,count:n-start};}
   let start=n;for(const f of figures){const lit=featured.has(f.p.performerId);put(f.p.x,-f.p.z,f.p.facing*Math.PI/180,1,f.color,0,dim&&!lit?1:0);}groups.marker={start,count:n-start};
@@ -286,31 +290,41 @@ const LIGHTING={
 };
 const KEY_DIR=norm([-.32,.84,.44]);
 
-export function mountStage3D(host,project: Project,positions: Pose[],options:StageOptions={}){
+/** Last-frame statistics of a live 3D stage. */
+export interface Stage3DStats {drawCalls:number; instanced:boolean; indexed:boolean; width:number; height:number; shadows:boolean; shadowReused:boolean; renderer:string; gpuMs:number|null; adaptive:boolean; scale:number}
+/** A mounted 3D stage. Without WebGL only the camera, update and dispose exist. */
+export interface Stage3D {camera:Camera; readonly available:boolean; readonly ready?:Promise<void>; readonly stats?:Stage3DStats; update:(project:Project,positions:Pose[],extras?:StageOptions)=>void; capture?:(ctx:CanvasRenderingContext2D,width:number,height:number)=>void; dispose:()=>void}
+type Figure={p:Pose;person:Performer;body:BodyKind;color:number[]};
+/** EXT_disjoint_timer_query (WebGL 1), which lib.dom does not describe. Results are numbers (availability a boolean). */
+interface TimerQueryExtension {TIME_ELAPSED_EXT:number; QUERY_RESULT_EXT:number; QUERY_RESULT_AVAILABLE_EXT:number; GPU_DISJOINT_EXT:number; createQueryEXT():WebGLQuery|null; deleteQueryEXT(query:WebGLQuery):void; beginQueryEXT(target:number,query:WebGLQuery):void; endQueryEXT(target:number):void; getQueryObjectEXT(query:WebGLQuery,pname:number):number}
+export function mountStage3D(host:HTMLElement,project: Project,positions: Pose[],options:StageOptions={}):Stage3D{
   host.classList.add('webgl-stage');host.classList.remove('spatial');host.replaceChildren();
   const interactive=options.interactive!==false,dragEnabled=interactive&&typeof options.onDragStart==='function';
   const canvas=document.createElement('canvas');canvas.tabIndex=interactive?0:-1;canvas.setAttribute('aria-label',interactive?`3D stage. Drag to orbit${dragEnabled?'; drag a performer or prop to move it':''}; right or middle drag pans. Wheel or pinch zooms. Open View controls for camera buttons.`:'3D stage preview');
   host.append(canvas);
-  const gl=canvas.getContext('webgl',{antialias:true,alpha:false,preserveDrawingBuffer:false});
+  const context=canvas.getContext('webgl',{antialias:true,alpha:false,preserveDrawingBuffer:false});
   const fallback=()=>{host.innerHTML='<div class="stage3d-fallback"><strong>3D is unavailable on this device.</strong><p>You can keep editing and rehearsing in 2D.</p><button class="button" data-view="2d">Return to 2D</button></div>';};
-  if(!gl){fallback();return {camera:options.camera||safeCamera({}),available:false,update(){},dispose(){}};}
-  const compile=(type,source)=>{const shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){gl.deleteShader(shader);throw Error('Shader compilation failed');}return shader;};
-  const link=(vsSource,fsSource)=>{const vs=compile(gl.VERTEX_SHADER,vsSource),fs=compile(gl.FRAGMENT_SHADER,fsSource),program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);ATTRIBUTES.forEach((name,i)=>gl.bindAttribLocation?.(program,i,name));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS)){gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);throw Error('3D program failed');}return {program,vs,fs};};
+  // Without WebGL the stage keeps the caller's camera (or a default one).
+  if(!context){fallback();return {camera:(options.camera||safeCamera({})) as Camera,available:false,update(){},dispose(){}};}
+  // Bound after the check so the hoisted draw functions below see a context.
+  const gl=context;
+  const compile=(type:number,source:string)=>{const shader=gl.createShader(type)!;gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){gl.deleteShader(shader);throw Error('Shader compilation failed');}return shader;};
+  const link=(vsSource:string,fsSource:string)=>{const vs=compile(gl.VERTEX_SHADER,vsSource),fs=compile(gl.FRAGMENT_SHADER,fsSource),program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);ATTRIBUTES.forEach((name,i)=>gl.bindAttribLocation?.(program,i,name));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS)){gl.deleteProgram(program);gl.deleteShader(vs);gl.deleteShader(fs);throw Error('3D program failed');}return {program,vs,fs};};
   // Full lighting first; a lighter shader keeps 3D available on very limited GPUs.
-  let main,full=true,buffer;
-  try{try{main=link(VERTEX,fragment(true));}catch{full=false;main=link(VERTEX,fragment(false));}buffer=gl.createBuffer();}catch{if(buffer)gl.deleteBuffer(buffer);fallback();return {camera:options.camera||safeCamera({}),available:false,update(){},dispose(){}};}
+  let main:ReturnType<typeof link>,full=true,buffer:WebGLBuffer|undefined;
+  try{try{main=link(VERTEX,fragment(true));}catch{full=false;main=link(VERTEX,fragment(false));}buffer=gl.createBuffer();}catch{if(buffer)gl.deleteBuffer(buffer);fallback();return {camera:(options.camera||safeCamera({})) as Camera,available:false,update(){},dispose(){}};}
   const program=main.program;
   const controller=new AbortController(),signal=controller.signal;
   const floor=createStageFloor(gl,()=>requestDraw());floor.load(project.production?.stage.image?.data||'');
   const camera=(options.camera||{}) as Camera;Object.assign(camera,safeCamera(camera));let yaw=camera.yaw,pitch=camera.pitch,disposed=false,contextLost=false;
   let currentShowGrid=options.showGrid!==false,currentLabels=options.labels===true,looks=options.look==='show'||options.look==='rehearsal'?{...stageLookSettings(),look:options.look}:stageLookSettings();
   let current=project,currentPositions=positions,currentGhosts=options.ghosts||[],currentAnalysis=options.analysis,dirty=true,frame=0,fitKey='',fitDistance=0;
-  let sceneKey=geometryKey(project,currentShowGrid,looks.set),ghostKey=JSON.stringify(currentGhosts),sceneCounts={casters:0,rest:0},sceneVersion=0,capacity=0,lastMatrix=null,lastRect=null;
-  let cast=new Map(project.performers.map(p=>[p.id,p]));const labelNodes=new Map(),labelColors=new Map(),ghostNodes=new Map();
+  let sceneKey=geometryKey(project,currentShowGrid,looks.set),ghostKey=JSON.stringify(currentGhosts),sceneCounts={casters:0,rest:0},sceneVersion=0,capacity=0,lastMatrix:Float32Array|null=null,lastRect:DOMRect|null=null;
+  let cast=new Map(project.performers.map(p=>[p.id,p]));const labelNodes=new Map<string,HTMLButtonElement>(),labelColors=new Map<string,string>(),ghostNodes=new Map<string,HTMLSpanElement>();
   // Labels move with transforms (compositor only); left/top would re-lay out the page every frame.
-  const placed=new WeakMap<object,string>(),placeAt=(pos,rect)=>`translate(${((pos[0]*.5+.5)*rect.width).toFixed(1)}px, ${((-pos[1]*.5+.5)*rect.height).toFixed(1)}px) translate(-50%, -50%)`;
+  const placed=new WeakMap<object,string>(),placeAt=(pos:Vec,rect:{width:number;height:number})=>`translate(${((pos[0]*.5+.5)*rect.width).toFixed(1)}px, ${((-pos[1]*.5+.5)*rect.height).toFixed(1)}px) translate(-50%, -50%)`;
   const block=templateBlock(),templates=block.templates;
-  const uniform=name=>gl.getUniformLocation(program,name);
+  const uniform=(name:string)=>gl.getUniformLocation(program,name);
   const U={matrix:uniform('matrix'),lightMatrix:uniform('lightMatrix'),eye:uniform('eye'),skin:uniform('skin'),hair:uniform('hair'),look:uniform('look'),stageBox:uniform('stageBox'),keyDir:uniform('keyDir'),keyColor:uniform('keyColor'),fillColor:uniform('fillColor'),rimColor:uniform('rimColor'),skyColor:uniform('skyColor'),groundColor:uniform('groundColor'),fogColor:uniform('fogColor'),spots:uniform('spots'),spotColors:uniform('spotColors'),spotCount:uniform('spotCount'),shadowMap:uniform('shadowMap'),shadowTexel:uniform('shadowTexel')};
   const attributes:{location:number;offset:number}[]=([['position',0],['normal',12],['color',24],['material',36]] as [string,number][]).map(([name,offset])=>({location:gl.getAttribLocation(program,name),offset})).filter(a=>a.location>=0);
   const STRIDE=FLOATS_PER_VERTEX*4,INSTANCE_BYTES=INSTANCE_FLOATS*4;
@@ -318,26 +332,27 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
   // Instancing draws every performer of one mesh in a single call (about 10 calls a frame instead of 4 per performer).
   // Without the extension each instance is drawn alone with constant attribute values.
   const instanceAttributes=([['iPose',4,0],['iColor',3,16],['iState',4,28]] as [string,number,number][]).map(([name,size,offset])=>({location:gl.getAttribLocation(program,name),size,offset}));
+  // `angle` is only used where `instancing` is true, which requires the extension.
   const angle=gl.getExtension?.('ANGLE_instanced_arrays'),instancing=typeof angle?.drawArraysInstancedANGLE==='function'&&typeof angle?.vertexAttribDivisorANGLE==='function';
   const instanceBuffer=instancing?gl.createBuffer():null;
   // Indexed templates where drawElements is available; otherwise the expanded triangles.
-  const indexed=typeof gl.drawElements==='function'&&gl.ELEMENT_ARRAY_BUFFER!==undefined&&(!instancing||typeof angle.drawElementsInstancedANGLE==='function');
+  const indexed=typeof gl.drawElements==='function'&&gl.ELEMENT_ARRAY_BUFFER!==undefined&&(!instancing||typeof angle!.drawElementsInstancedANGLE==='function');
   const templateData=indexed?block.vertices:block.data,templateVertices=templateData.length/FLOATS_PER_VERTEX;
   const indexBuffer=indexed?gl.createBuffer():null;if(indexed){gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,block.indices,gl.STATIC_DRAW);}
-  const drawTemplate=(t:Template,instances=0)=>{if(indexed){if(instances)angle.drawElementsInstancedANGLE(gl.TRIANGLES,t.count,gl.UNSIGNED_SHORT,t.start*2,instances);else gl.drawElements(gl.TRIANGLES,t.count,gl.UNSIGNED_SHORT,t.start*2);}else if(instances)angle.drawArraysInstancedANGLE(gl.TRIANGLES,t.start,t.count,instances);else gl.drawArrays(gl.TRIANGLES,t.start,t.count);drawCalls++;};
+  const drawTemplate=(t:Template,instances=0)=>{if(indexed){if(instances)angle!.drawElementsInstancedANGLE(gl.TRIANGLES,t.count,gl.UNSIGNED_SHORT,t.start*2,instances);else gl.drawElements(gl.TRIANGLES,t.count,gl.UNSIGNED_SHORT,t.start*2);}else if(instances)angle!.drawArraysInstancedANGLE(gl.TRIANGLES,t.start,t.count,instances);else gl.drawArrays(gl.TRIANGLES,t.start,t.count);drawCalls++;};
   let drawCalls=0,shadowReused=false,lastShadow:Float32Array|null=null,lastShadowKey='';
   const constant=(data?:Float32Array,o=0)=>{for(const {location,size,offset} of instanceAttributes){if(location<0)continue;gl.disableVertexAttribArray?.(location);const at=o+offset/4,v=data?[data[at],data[at+1],data[at+2],data[at+3]]:offset===16?[.5,.5,.5,0]:[0,0,0,0];if(size===4)gl.vertexAttrib4f?.(location,v[0],v[1],v[2],v[3]);else gl.vertexAttrib3f?.(location,v[0],v[1],v[2]);}};
   const drawGroup=(name:string,group:{start:number;count:number},data:Float32Array)=>{
     if(!group?.count)return;const t=templates[name];
-    if(instancing){gl.bindBuffer(gl.ARRAY_BUFFER,instanceBuffer);for(const {location,size,offset} of instanceAttributes){if(location<0)continue;gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,size,gl.FLOAT,false,INSTANCE_BYTES,group.start*INSTANCE_BYTES+offset);angle.vertexAttribDivisorANGLE(location,1);}drawTemplate(t,group.count);return;}
+    if(instancing){gl.bindBuffer(gl.ARRAY_BUFFER,instanceBuffer);for(const {location,size,offset} of instanceAttributes){if(location<0)continue;gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,size,gl.FLOAT,false,INSTANCE_BYTES,group.start*INSTANCE_BYTES+offset);angle!.vertexAttribDivisorANGLE(location,1);}drawTemplate(t,group.count);return;}
     for(let i=0;i<group.count;i++){constant(data,(group.start+i)*INSTANCE_FLOATS);drawTemplate(t);}
   };
-  const endInstances=()=>{if(instancing)for(const {location} of instanceAttributes)if(location>=0){angle.vertexAttribDivisorANGLE(location,0);gl.disableVertexAttribArray(location);}gl.bindBuffer(gl.ARRAY_BUFFER,buffer);};
+  const endInstances=()=>{if(instancing)for(const {location} of instanceAttributes)if(location>=0){angle!.vertexAttribDivisorANGLE(location,0);gl.disableVertexAttribArray(location);}gl.bindBuffer(gl.ARRAY_BUFFER,buffer);};
   const colorCache=new Map<string,number[]>(),colorOf=(hex:string)=>{let c=colorCache.get(hex);if(!c){c=rgb(hex);colorCache.set(hex,c);}return c;};
   // Firefox reports the GPU in RENDERER; Chromium needs the debug extension (asked only then, avoiding Firefox's deprecation warning).
   let renderer:string|null=null;const rendererName=()=>{if(renderer!==null)return renderer;try{renderer=String(gl.getParameter?.(gl.RENDERER)||'');if(!renderer||/^webkit webgl$/i.test(renderer)){const info=gl.getExtension?.('WEBGL_debug_renderer_info');if(info)renderer=String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)||renderer);}}catch{renderer='';}return renderer;};
   // Shadow map (needs framebuffers; quietly skipped where they are unavailable).
-  let shadow=null;
+  let shadow:ReturnType<typeof setupShadows>=null;
   const setupShadows=()=>{
     if(!full||typeof gl.createFramebuffer!=='function'||typeof gl.createTexture!=='function'||typeof gl.createRenderbuffer!=='function')return null;
     try{
@@ -357,11 +372,11 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
   const captionDefault=dragEnabled?'Drag a performer or prop to move it · Drag the stage to orbit · Wheel/pinch zoom':'Drag orbit · Right/middle drag pan · Wheel/pinch zoom · View controls above';
   const caption=document.createElement('p');caption.className='stage3d-caption';caption.textContent=captionDefault;host.append(caption);
   // Look controls (interactive views only; exports and displays follow the saved look).
-  let lookBar=null;
+  let lookBar:HTMLDivElement|null=null;
   if(interactive){
     lookBar=document.createElement('div');lookBar.className='stage3d-look';lookBar.setAttribute('role','group');lookBar.setAttribute('aria-label','3D lighting and set');
     lookBar.innerHTML='<button type="button" data-stage-look="rehearsal" aria-label="Rehearsal light">Rehearsal<span> light</span></button><button type="button" data-stage-look="show" aria-label="Show light">Show<span> light</span></button><button type="button" data-stage-set aria-label="Stage set: curtains, cyclorama and lighting rig" title="Curtains, cyclorama and lighting rig">Set</button>';
-    const syncLook=()=>{for(const button of lookBar.querySelectorAll('[data-stage-look]'))button.setAttribute('aria-pressed',String(button.dataset.stageLook===looks.look));lookBar.querySelector('[data-stage-set]').setAttribute('aria-pressed',String(looks.set));host.dataset.look=looks.look;};
+    const syncLook=()=>{for(const button of lookBar!.querySelectorAll<HTMLElement>('[data-stage-look]'))button.setAttribute('aria-pressed',String(button.dataset.stageLook===looks.look));lookBar!.querySelector('[data-stage-set]')!.setAttribute('aria-pressed',String(looks.set));host.dataset.look=looks.look;};
     lookBar.addEventListener('click',event=>{const button=(event.target as HTMLElement).closest?.('button') as HTMLElement|null;if(!button)return;event.stopPropagation();if(button.dataset.stageLook)looks=setStageLook({look:button.dataset.stageLook==='show'?'show':'rehearsal'});else if(button.hasAttribute('data-stage-set'))looks=setStageLook({set:!looks.set});syncLook();dirty=true;sceneKey='';requestDraw();},{signal});
     syncLook();host.append(lookBar);
   }else host.dataset.look=looks.look;
@@ -372,16 +387,16 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
     if(typeof gl.bufferSubData==='function'){if(total>capacity){capacity=Math.ceil(total*1.25);gl.bufferData(gl.ARRAY_BUFFER,capacity*4,gl.DYNAMIC_DRAW);gl.bufferSubData(gl.ARRAY_BUFFER,0,templateData);}gl.bufferSubData(gl.ARRAY_BUFFER,templateData.length*4,scene);}
     else{const all=new Float32Array(total);all.set(templateData);all.set(scene,templateData.length);gl.bufferData(gl.ARRAY_BUFFER,all,gl.DYNAMIC_DRAW);}
   }
-  const visibleFigures=()=>{const out=[];for(const p of currentPositions){if(p.visible===false)continue;const person=cast.get(p.performerId);if(!person)continue;const body:BodyKind=person.identity==='female'?'female':person.identity==='male'?'male':'neutral';out.push({p,person,body,color:colorOf(person.color)});}return out;};
-  const u3=(location,v)=>gl.uniform3f?.(location,v[0],v[1],v[2]),u4=(location,a,b,c,d)=>gl.uniform4f?.(location,a,b,c,d);
+  const visibleFigures=()=>{const out:Figure[]=[];for(const p of currentPositions){if(p.visible===false)continue;const person=cast.get(p.performerId);if(!person)continue;const body:BodyKind=person.identity==='female'?'female':person.identity==='male'?'male':'neutral';out.push({p,person,body,color:colorOf(person.color)});}return out;};
+  const u3=(location:WebGLUniformLocation|null,v:Vec)=>gl.uniform3f?.(location,v[0],v[1],v[2]),u4=(location:WebGLUniformLocation|null,a:number,b:number,c:number,d:number)=>gl.uniform4f?.(location,a,b,c,d);
   // Adaptive resolution for live views. Lighting cost grows with pixels, so the render scale
   // steps down when the GPU's own frame time (timer queries, where the browser offers them)
   // runs long and back up when there is headroom. Without timing, a pixel budget keeps
   // high-DPI screens from shading 4+ million pixels a frame. Exports keep their exact ratio.
-  const timerExtension=options.pixelRatio?null:gl.getExtension?.('EXT_disjoint_timer_query');
-  const PIXEL_BUDGET=2.4e6,timer=typeof timerExtension?.createQueryEXT==='function'&&typeof timerExtension?.getQueryObjectEXT==='function'?timerExtension:null,pendingTimers=[];
-  let quality=1,qualityMax=1,gpuMs=0,gpuSamples=0,lastScaleChange=-Infinity,activeTimer=null,learnedFor=0;
-  const liveRatio=rect=>{
+  const timerExtension=options.pixelRatio?null:gl.getExtension?.('EXT_disjoint_timer_query') as TimerQueryExtension|null|undefined;
+  const PIXEL_BUDGET=2.4e6,timer=typeof timerExtension?.createQueryEXT==='function'&&typeof timerExtension?.getQueryObjectEXT==='function'?timerExtension:null,pendingTimers:WebGLQuery[]=[];
+  let quality=1,qualityMax=1,gpuMs=0,gpuSamples=0,lastScaleChange=-Infinity,activeTimer:WebGLQuery|null=null,learnedFor=0;
+  const liveRatio=(rect:DOMRect)=>{
     const device=Math.min(window.devicePixelRatio||1,matchMedia('(pointer: coarse)').matches?1.5:2),area=Math.max(1,rect.width*rect.height)*device*device,start=Math.min(device,Math.sqrt(PIXEL_BUDGET/Math.max(1,rect.width*rect.height)));
     // A scale learned for one size says little about a very different one (resize, fullscreen, another display).
     if(!learnedFor||area>learnedFor*1.25||area<learnedFor*.8){learnedFor=area;quality=1;gpuSamples=0;}
@@ -389,15 +404,16 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
   };
   const readGpuTimers=()=>{
     if(!timer)return;let disjoint=false;try{disjoint=!!gl.getParameter(timer.GPU_DISJOINT_EXT);}catch{}
-    while(pendingTimers.length&&timer.getQueryObjectEXT(pendingTimers[0],timer.QUERY_RESULT_AVAILABLE_EXT)){const q=pendingTimers.shift(),ns=timer.getQueryObjectEXT(q,timer.QUERY_RESULT_EXT);timer.deleteQueryEXT(q);if(!disjoint&&ns>0){gpuMs=gpuSamples?gpuMs*.75+ns/1e6*.25:ns/1e6;gpuSamples++;}}
+    while(pendingTimers.length&&timer.getQueryObjectEXT(pendingTimers[0],timer.QUERY_RESULT_AVAILABLE_EXT)){const q=pendingTimers.shift()!,ns=timer.getQueryObjectEXT(q,timer.QUERY_RESULT_EXT);timer.deleteQueryEXT(q);if(!disjoint&&ns>0){gpuMs=gpuSamples?gpuMs*.75+ns/1e6*.25:ns/1e6;gpuSamples++;}}
     if(disjoint)for(const q of pendingTimers.splice(0))timer.deleteQueryEXT(q);
   };
   // Conservative on purpose: some platforms (Direct3D through ANGLE) also count the browser's
   // own compositing in these timings, so the scale only drops when a frame clearly misses
   // 60 fps, never below 75%, and only rises past the pixel budget with real headroom.
   const adaptResolution=()=>{if(!timer||gpuSamples<6||performance.now()-lastScaleChange<700)return;if(gpuMs>16&&quality>.75)quality=Math.max(.75,quality*.87);else if(gpuMs<6&&quality<qualityMax)quality=Math.min(qualityMax,quality*1.15);else return;lastScaleChange=performance.now();gpuSamples=0;};
-  const beginGpuTimer=()=>{if(!timer)return;if(activeTimer)endGpuTimer();if(pendingTimers.length>=4)return;activeTimer=timer.createQueryEXT();timer.beginQueryEXT(timer.TIME_ELAPSED_EXT,activeTimer);};
-  const endGpuTimer=()=>{if(!activeTimer)return;timer.endQueryEXT(timer.TIME_ELAPSED_EXT);pendingTimers.push(activeTimer);activeTimer=null;};
+  const beginGpuTimer=()=>{if(!timer)return;if(activeTimer)endGpuTimer();if(pendingTimers.length>=4)return;activeTimer=timer.createQueryEXT();timer.beginQueryEXT(timer.TIME_ELAPSED_EXT,activeTimer!);};
+  // A query is only active while the timer extension exists.
+  const endGpuTimer=()=>{if(!activeTimer)return;timer!.endQueryEXT(timer!.TIME_ELAPSED_EXT);pendingTimers.push(activeTimer);activeTimer=null;};
   function lightMatrixFor(){const w=current.stage.width,d=current.stage.depth,radius=Math.hypot(w,d)/2+2.5,centre=[0,.8,0],eye=centre.map((v,i)=>v+KEY_DIR[i]*40),z=norm(sub(eye,centre)),x=norm(cross([0,1,0],z)),y=cross(z,x);const view=new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dot(x,eye),-dot(y,eye),-dot(z,eye),1]),near=20,far=62;const ortho=new Float32Array([1/radius,0,0,0,0,1/radius,0,0,0,0,-2/(far-near),0,0,0,-(far+near)/(far-near),1]);return multiply(ortho,view);}
   function draw(){
     if(disposed||contextLost)return;
@@ -428,7 +444,7 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
     const figures=visibleFigures(),featured=new Set(current.sceneHighlights||[]),selection=options.selected?.()||new Set<string>();
     const instances=buildInstances(figures,{featured,selected:selection,warnings:new Set((current.sceneSafety||[]).flatMap(v=>v.ids)),dimOthers:looks.look==='show',beams:light.beam>0&&typeof gl.blendFunc==='function'}),groups=instances.groups;
     drawCalls=0;
-    if(instancing){gl.bindBuffer(gl.ARRAY_BUFFER,instanceBuffer);gl.bufferData(gl.ARRAY_BUFFER,instances.data,gl.STREAM_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);}
+    if(instancing){gl.bindBuffer(gl.ARRAY_BUFFER,instanceBuffer);gl.bufferData(gl.ARRAY_BUFFER,instances.data,gl.STREAM_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,buffer!);}
     beginGpuTimer();
     // 1. Shadow pass from the key light: performers and props. Camera-only frames reuse the last shadow map.
     shadowReused=false;
@@ -439,7 +455,7 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
         gl.bindFramebuffer(gl.FRAMEBUFFER,shadow.fbo);gl.viewport(0,0,shadow.size,shadow.size);gl.clearColor(1,1,1,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.useProgram(shadow.program);
         gl.uniformMatrix4fv(shadow.matrix,false,lightMatrix);
         constant();if(sceneCounts.casters){gl.drawArrays(gl.TRIANGLES,templateVertices,sceneCounts.casters);drawCalls++;}
-        for(const kind of ['female','male','neutral'])drawGroup(kind,groups[kind],instances.data);
+        for(const kind of ['female','male','neutral'] as const)drawGroup(kind,groups[kind],instances.data);
         endInstances();gl.bindFramebuffer(gl.FRAMEBUFFER,null);
         lastShadow=bodies.slice();lastShadowKey=key;
       }
@@ -461,7 +477,7 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
     gl.uniformMatrix4fv(U.matrix,false,matrix);
     bindMain();constant();
     if(sceneCounts.casters+sceneCounts.rest){gl.drawArrays(gl.TRIANGLES,templateVertices,sceneCounts.casters+sceneCounts.rest);drawCalls++;}
-    for(const name of ['female','male','neutral','marker','ring'])drawGroup(name,groups[name],instances.data);
+    for(const name of ['female','male','neutral','marker','ring'] as const)drawGroup(name,groups[name],instances.data);
     // 3. Visible beams over featured performers (Show light).
     if(groups.beam.count){
       gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);gl.depthMask?.(false);
@@ -492,18 +508,18 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
   // Registered before the camera controls so a hit never also orbits the camera.
   let drag:{target:StageTarget;pointerId:number;x:number;y:number;origin:{x:number;z:number};moved:boolean}|null=null;
   // Read the rectangle fresh: the page may have scrolled since the last frame.
-  const ndc=(clientX,clientY)=>{const r=host.getBoundingClientRect();return [((clientX-r.left)/r.width)*2-1,1-((clientY-r.top)/r.height)*2];};
-  const pick=(clientX,clientY):StageTarget|null=>{
+  const ndc=(clientX:number,clientY:number)=>{const r=host.getBoundingClientRect();return [((clientX-r.left)/r.width)*2-1,1-((clientY-r.top)/r.height)*2];};
+  const pick=(clientX:number,clientY:number):StageTarget|null=>{
     if(!lastMatrix||!lastRect)return null;
-    const r=host.getBoundingClientRect(),px=clientX-r.left,py=clientY-r.top,toScreen=q=>q?[(q[0]*.5+.5)*r.width,(-q[1]*.5+.5)*r.height,q[2]]:null;
-    let best=null,bestScore=Infinity;
+    const r=host.getBoundingClientRect(),px=clientX-r.left,py=clientY-r.top,toScreen=(q:Vec|null)=>q?[(q[0]*.5+.5)*r.width,(-q[1]*.5+.5)*r.height,q[2]]:null;
+    let best:StageTarget|null=null,bestScore=Infinity;
     for(const f of visibleFigures()){const feet=toScreen(projectPoint(lastMatrix,[f.p.x,.05,-f.p.z])),head=toScreen(projectPoint(lastMatrix,[f.p.x,bodyHeight(f.body)*.95,-f.p.z]));if(!feet||!head)continue;const vx=head[0]-feet[0],vy=head[1]-feet[1],len=vx*vx+vy*vy||1,t=Math.max(0,Math.min(1,((px-feet[0])*vx+(py-feet[1])*vy)/len)),dx=px-(feet[0]+vx*t),dy=py-(feet[1]+vy*t),dist=Math.hypot(dx,dy),reach=Math.max(16,Math.sqrt(len)*.22);if(dist<reach&&dist+feet[2]*5<bestScore){bestScore=dist+feet[2]*5;best={kind:'performer',id:f.p.performerId};}}
     if(best)return best;
     const [nx,ny]=ndc(clientX,clientY),hit=floorPointAt(lastMatrix,nx,ny,0);if(!hit)return null;
     for(const prop of current.props||[]){if(!prop.id||(current.production?.zones||[]).some(z=>z.id===prop.id))continue;const a=-(prop.rotation||0)*Math.PI/180,dx=hit.x-prop.x,dz=-hit.z-prop.z,lx=dx*Math.cos(a)-dz*Math.sin(a),lz=dx*Math.sin(a)+dz*Math.cos(a);if(Math.abs(lx)<=prop.width/2+.1&&Math.abs(lz)<=prop.depth/2+.1)return {kind:'prop',id:prop.id};}
     return null;
   };
-  const floorAt=(clientX,clientY)=>{if(!lastMatrix)return null;const [nx,ny]=ndc(clientX,clientY),hit=floorPointAt(lastMatrix,nx,ny,0);return hit?{x:hit.x,z:-hit.z}:null;};
+  const floorAt=(clientX:number,clientY:number)=>{if(!lastMatrix)return null;const [nx,ny]=ndc(clientX,clientY),hit=floorPointAt(lastMatrix,nx,ny,0);return hit?{x:hit.x,z:-hit.z}:null;};
   const endDrag=(commit:boolean)=>{const d=drag;if(!d)return;drag=null;try{if(canvas.hasPointerCapture?.(d.pointerId))canvas.releasePointerCapture(d.pointerId);}catch{}canvas.classList?.remove('stage-dragging');options.onDragEnd?.(d.target,commit&&d.moved);};
   if(dragEnabled){
     canvas.addEventListener('pointerdown',event=>{
@@ -512,7 +528,7 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
       const target=pick(event.clientX,event.clientY);if(!target)return;
       event.preventDefault();event.stopImmediatePropagation();canvas.focus({preventScroll:true});
       if(target.kind==='performer')options.onSelect?.(target.id,event.shiftKey||event.metaKey||event.ctrlKey);
-      if(!options.onDragStart(target))return;
+      if(!options.onDragStart!(target))return;
       const origin=floorAt(event.clientX,event.clientY);if(!origin){options.onDragEnd?.(target,false);return;}
       drag={target,pointerId:event.pointerId,x:event.clientX,y:event.clientY,origin,moved:false};try{canvas.setPointerCapture(event.pointerId);}catch{}canvas.classList?.add('stage-dragging');
     },{signal});
@@ -521,14 +537,14 @@ export function mountStage3D(host,project: Project,positions: Pose[],options:Sta
       if(!drag&&event.pointerType==='mouse'&&event.buttons===0&&navigation!=='pan')canvas.style.cursor=pick(event.clientX,event.clientY)?'grab':'';
     },{signal});
     canvas.addEventListener('pointerup',event=>{if(drag&&event.pointerId===drag.pointerId){event.stopImmediatePropagation();endDrag(true);}},{signal});
-    for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,(event:PointerEvent)=>{if(drag&&event.pointerId===drag.pointerId)endDrag(false);},{signal});
+    for(const type of ['pointercancel','lostpointercapture'] as const)canvas.addEventListener(type,(event:PointerEvent)=>{if(drag&&event.pointerId===drag.pointerId)endDrag(false);},{signal});
     canvas.addEventListener('keydown',event=>{if(event.key==='Escape'&&drag){event.preventDefault();event.stopImmediatePropagation();endDrag(false);}},{signal});
   }
   const metrics=()=>{const rect=host.getBoundingClientRect();return {width:rect.width,height:rect.height,distance:(fitDistance||Math.max(current.stage.width,current.stage.depth)*1.4)/camera.zoom};};
   const changed=()=>{options.onCameraChange?.(camera);requestDraw();};
   const reset=()=>{options.onManualPan?.();Object.assign(camera,{yaw:.15,pitch:.68,zoom:1,target:[0,.2,0]});changed();};
   const controls=interactive?bindCameraControls(canvas,{camera,metrics,changed,mode:()=>navigation,manualPan:()=>options.onManualPan?.(),following:()=>options.following?.()||false,reset,signal}):null;
-  const dock=interactive?mountNavigationDock(host,{kind:'spatial',getMode:()=>navigation,mode:value=>{navigation=value;host.dataset.navigation=value;options.onNavigationMode?.(value);},pan:controls.pan,orbit:controls.orbit,zoom:controls.zoom,fit:reset,focus:()=>options.onFocus?.(),signal}):null;
+  const dock=interactive?mountNavigationDock(host,{kind:'spatial',getMode:()=>navigation,mode:value=>{navigation=value;host.dataset.navigation=value;options.onNavigationMode?.(value);},pan:controls!.pan,orbit:controls!.orbit,zoom:controls!.zoom,fit:reset,focus:()=>options.onFocus?.(),signal}):null;
   canvas.addEventListener('webglcontextlost',event=>{if(!disposed){event.preventDefault();contextLost=true;fallback();}},{signal});
   const resize=observeSize(host,requestDraw);requestDraw();
   return {camera,get available(){return !disposed&&!contextLost;},get ready(){return floor.ready;},

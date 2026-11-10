@@ -1,10 +1,10 @@
 import type {ZipOptions} from './types.js';
 const table=Uint32Array.from({length:256},(_,n)=>{for(let i=0;i<8;i++)n=n&1?0xedb88320^(n>>>1):n>>>1;return n>>>0;});
-export function crc32(bytes){let crc=0xffffffff;for(const b of bytes)crc=table[(crc^b)&255]^(crc>>>8);return (crc^0xffffffff)>>>0;}
-const header=size=>{const bytes=new Uint8Array(size);return {bytes,view:new DataView(bytes.buffer)};};
-export async function imageZip(entries,{signal,onProgress=()=>{},maxBytes=120*1024*1024}:ZipOptions={}){
+export function crc32(bytes:Uint8Array){let crc=0xffffffff;for(const b of bytes)crc=table[(crc^b)&255]^(crc>>>8);return (crc^0xffffffff)>>>0;}
+const header=(size:number)=>{const bytes=new Uint8Array(size);return {bytes,view:new DataView(bytes.buffer)};};
+export async function imageZip(entries:{name:string;blob:Blob}[],{signal,onProgress=()=>{},maxBytes=120*1024*1024}:ZipOptions={}){
  if(!entries.length||entries.length>301)throw Error('Choose up to 301 files to download.');
- const names=new Set(),chunks=[],directory=[];let offset=0,total=0;
+ const names=new Set<string>(),chunks:Uint8Array<ArrayBuffer>[]=[],directory:Uint8Array<ArrayBuffer>[]=[];let offset=0,total=0;
  for(let i=0;i<entries.length;i++){
   if(signal?.aborted)throw Error('ZIP export cancelled.');const {name,blob}=entries[i];if(typeof name!=='string'||!name||/[\\/\u0000]/.test(name)||name==='.'||name==='..'||names.has(name.toLowerCase()))throw Error('Invalid or duplicate ZIP filename.');names.add(name.toLowerCase());
   total+=blob.size;if(total>maxBytes)throw Error('This batch is too large. Download fewer images or lower the image scale.');const filename=new TextEncoder().encode(name);if(filename.length>65535)throw Error('Filename is too long.');

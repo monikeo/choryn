@@ -6,7 +6,7 @@ Source: [CHORYN — Logo Identity System | Light + Dark](https://www.figma.com/d
 - Slogan: **From first count to final cue.**
 - Descriptor: **CHOREOGRAPHY · STAGE DESIGN · PERFORMANCE**.
 - Purple: **#7C3AED**. Lavender: **#B392FF**. White: **#FFFFFF**. Dark: **#0D0B12**.
-- Wordmark: Inter Bold, implemented as text following the Figma design context. Inter joins the existing optional Google Fonts request; system fonts remain the offline fallback.
+- Wordmark: Inter Bold, implemented as text following the Figma design context. Inter is self-hosted with the other studio fonts through next/font (downloaded at build time, cached for offline use), with a size-matched system fallback.
 
 ## Application slots
 
@@ -14,7 +14,7 @@ The desktop header pairs the mark with CHORYN and the slogan; tablet/phone heade
 
 The SVG favicon switches light/dark artwork with the browser color scheme. A 32px PNG favicon is the fallback. Install icons: 192px/512px; Apple touch: 180px; separate opaque 512px maskable icon. The original app-icon arrangement uses a 150px square, background #F1E8FF or #20162F, radius 32px, and an unchanged 98 × 47.04px mark at (26, 52.12). Maskable and Apple variants use an opaque square background so the operating system can apply its own mask.
 
-Regenerate derived icons with: node scripts/brand-icons.mjs <installed-sharp-package-directory>. This optional authoring dependency is not shipped as an application runtime dependency. SVGs are embedded unchanged, without redrawing paths. Brand images are local and included in the offline cache; temporary Figma asset URLs are never runtime sources.
+Regenerate derived icons with: node scripts/brand-icons.ts <installed-sharp-package-directory> (it reads and writes public/icons/). This optional authoring dependency is not shipped as an application runtime dependency. SVGs are embedded unchanged, without redrawing paths. Brand images are local and included in the offline cache; temporary Figma asset URLs are never runtime sources.
 
 ## SVG provenance
 

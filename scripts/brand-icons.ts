@@ -1,13 +1,23 @@
 // Optional asset-generation tool: pass the installed sharp package directory.
+//   node scripts/brand-icons.ts <path-to-sharp>
 // Keeps Figma's exported SVGs unchanged and embeds them in the app-icon layout.
+// Icons live in public/ (served by Next.js from the site root).
 import {readFile,writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
-const sharp=createRequire(import.meta.url)(process.argv[2]||'sharp');
-const root=new URL('../',import.meta.url),at=name=>new URL(name,root);
+
+type SharpImage={resize(width:number,height:number):SharpImage;png():SharpImage;toFile(path:string):Promise<unknown>;toBuffer():Promise<Buffer>};
+const sharp=createRequire(import.meta.url)(process.argv[2]||'sharp') as (input:Buffer)=>SharpImage;
+const publicDir=new URL('../public/',import.meta.url),at=(name:string)=>new URL(name,publicDir);
 const source=await Promise.all(['light','dark'].map(async theme=>`data:image/svg+xml;base64,${(await readFile(at(`icons/choryn-app-mark-${theme}.svg`))).toString('base64')}`));
-const icon=(theme,maskable=false)=>`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="150" height="150" rx="${maskable?0:32}" fill="${theme==='dark'?'#20162f':'#f1e8ff'}"/><image href="${source[theme==='dark'?1:0]}" x="26" y="52.12" width="98" height="47.04"/></svg>`;
-const variants=[...([96,128,192,256,512,1024].map(size=>[`icon-${size}.png`,size,'light',size===1024])),...([120,152,167,180].map(size=>[`apple-touch-icon-${size}.png`,size,'light',true])),['apple-touch-icon.png',180,'light',true],['icon-dark-192.png',192,'dark',false],...([192,512].map(size=>[`icon-maskable-${size}.png`,size,'light',true])),...([16,32,48].map(size=>[`favicon-${size}.png`,size,'light',false]))];
+const icon=(theme:'light'|'dark',maskable=false)=>`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="150" height="150" rx="${maskable?0:32}" fill="${theme==='dark'?'#20162f':'#f1e8ff'}"/><image href="${source[theme==='dark'?1:0]}" x="26" y="52.12" width="98" height="47.04"/></svg>`;
+const variants:[name:string,size:number,theme:'light'|'dark',maskable:boolean][]=[
+  ...[96,128,192,256,512,1024].map(size=>[`icon-${size}.png`,size,'light',size===1024] as [string,number,'light',boolean]),
+  ...[120,152,167,180].map(size=>[`apple-touch-icon-${size}.png`,size,'light',true] as [string,number,'light',boolean]),
+  ['apple-touch-icon.png',180,'light',true],['icon-dark-192.png',192,'dark',false],
+  ...[192,512].map(size=>[`icon-maskable-${size}.png`,size,'light',true] as [string,number,'light',boolean]),
+  ...[16,32,48].map(size=>[`favicon-${size}.png`,size,'light',false] as [string,number,'light',boolean])
+];
 for(const [name,size,theme,maskable] of variants)await sharp(Buffer.from(icon(theme,maskable))).resize(size,size).png().toFile(fileURLToPath(at('icons/'+name)));
 await writeFile(at('apple-touch-icon.png'),await readFile(at('icons/apple-touch-icon.png')));
 // ICO directory entries contain unchanged PNG payloads, preserving alpha.
@@ -17,4 +27,4 @@ buffers.forEach((buffer,i)=>{const pos=6+16*i;header[pos]=sizes[i]===256?0:sizes
 await writeFile(at('favicon.ico'),Buffer.concat([header,...buffers]));
 const favicon=`<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><style>.dark{display:none}@media(prefers-color-scheme:dark){.light{display:none}.dark{display:block}}</style><g class="light"><rect width="150" height="150" rx="32" fill="#f1e8ff"/><image href="${source[0]}" x="26" y="52.12" width="98" height="47.04"/></g><g class="dark"><rect width="150" height="150" rx="32" fill="#20162f"/><image href="${source[1]}" x="26" y="52.12" width="98" height="47.04"/></g></svg>`;
 await writeFile(at('favicon.svg'),favicon+'\n');
-console.log('Generated CHORYN PNG/ICO/SVG favicons, Apple touch, maskable and desktop icons from unchanged Figma SVGs.');
+console.log('Generated CHORYN PNG/ICO/SVG favicons, Apple touch, maskable and desktop icons in public/ from unchanged Figma SVGs.');

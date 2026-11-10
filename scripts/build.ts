@@ -9,17 +9,19 @@ import {stripTypeScriptTypes} from 'node:module';
 // The build relies only on its stable "strip" mode, so keep that one notice
 // out of the output (PowerShell reports any stderr line as a command error).
 const emitWarning=process.emitWarning;
-process.emitWarning=(warning,...rest)=>String(warning?.message??warning).includes('stripTypeScriptTypes')?undefined:emitWarning.call(process,warning,...rest);
+process.emitWarning=((warning:string|Error,...rest:unknown[])=>String(typeof warning==='string'?warning:warning.message).includes('stripTypeScriptTypes')?undefined:(emitWarning as (...args:unknown[])=>void).call(process,warning,...rest)) as typeof process.emitWarning;
 
 const root=fileURLToPath(new URL('../',import.meta.url)),dist=resolve(root,'dist');
-const walk=async dir=>(await Promise.all((await readdir(dir,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name)).map(e=>e.isDirectory()?walk(resolve(dir,e.name)):[resolve(dir,e.name)]))).flat();
+const walk=async(dir:string):Promise<string[]>=>(await Promise.all((await readdir(dir,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name)).map(e=>e.isDirectory()?walk(resolve(dir,e.name)):[resolve(dir,e.name)]))).flat();
 if(!dist.startsWith(resolve(root)+sep))throw Error('Invalid build output path.');
-const inputs=[...await walk(resolve(root,'src')),...await walk(resolve(root,'app')),...await walk(resolve(root,'public')),resolve(root,'package-lock.json'),resolve(root,'package.json'),resolve(root,'next.config.ts'),resolve(root,'tsconfig.json'),resolve(root,'tsconfig.worker.json'),resolve(root,'sw.ts'),fileURLToPath(import.meta.url)];
+// The build version is a hash of every input, so any source or config change gets a new offline cache.
+const configs=['package-lock.json','package.json','next.config.ts','tsconfig.json','tsconfig.worker.json','tsconfig.scripts.json','sw.ts'];
+const inputs=[...await walk(resolve(root,'src')),...await walk(resolve(root,'app')),...await walk(resolve(root,'public')),...configs.map(name=>resolve(root,name)),fileURLToPath(import.meta.url)];
 const hash=createHash('sha256');for(const file of inputs.sort()){hash.update(relative(root,file));hash.update(await readFile(file));}
 const version=hash.digest('hex').slice(0,16);
-const run=(args)=>{const r=spawnSync(process.execPath,args,{cwd:root,stdio:'inherit',env:{...process.env,NEXT_TELEMETRY_DISABLED:'1',CHORYN_BUILD:version}});if(r.status!==0)process.exit(r.status??1);};
-run(['node_modules/typescript/bin/tsc','--noEmit']);
-run(['node_modules/typescript/bin/tsc','-p','tsconfig.worker.json']);
+const run=(args:string[])=>{const r=spawnSync(process.execPath,args,{cwd:root,stdio:'inherit',env:{...process.env,NEXT_TELEMETRY_DISABLED:'1',CHORYN_BUILD:version}});if(r.status!==0)process.exit(r.status??1);};
+// Strict type checks: the app, the service worker and the tooling scripts.
+for(const project of ['tsconfig.json','tsconfig.worker.json','tsconfig.scripts.json'])run(['node_modules/typescript/bin/tsc','--noEmit','-p',project]);
 run(['node_modules/next/dist/bin/next','build','--webpack']);
 await rm(dist,{recursive:true,force:true});await cp(resolve(root,'out'),dist,{recursive:true});
 await mkdir(resolve(dist,'src'),{recursive:true});
@@ -28,8 +30,8 @@ const offline=resolve(dist,'offline.html');await writeFile(offline,(await readFi
 // Sites canonicalizes generated error-page URLs. Those pages are never needed
 // to launch the editor offline; precache the app routes and runtime assets.
 const files=await walk(dist),paths=['/','/index.html','/offline',...files.map(file=>'/'+relative(dist,file).split(sep).join('/'))].filter((path,index,list)=>list.indexOf(path)===index&&!/^\/(?:404|_not-found)(?:[/.]|$)/.test(path));
-const integrity={};for(const path of paths){const file=path==='/'?resolve(dist,'index.html'):path==='/offline'?offline:resolve(dist,'.'+path);integrity[path]=createHash('sha256').update(await readFile(file)).digest('hex');}
-const worker=stripTypeScriptTypes(await readFile(resolve(root,'sw.ts'),'utf8'),{mode:'strip',disableExperimentalWarning:true}).replaceAll('__BUILD_VERSION__',version).replace('__SHELL_PATHS__',JSON.stringify(paths)).replace('__SHELL_INTEGRITY__',JSON.stringify(integrity));
+const integrity:Record<string,string>={};for(const path of paths){const file=path==='/'?resolve(dist,'index.html'):path==='/offline'?offline:resolve(dist,'.'+path);integrity[path]=createHash('sha256').update(await readFile(file)).digest('hex');}
+const worker=stripTypeScriptTypes(await readFile(resolve(root,'sw.ts'),'utf8'),{mode:'strip'}).replaceAll('__BUILD_VERSION__',version).replace('__SHELL_PATHS__',JSON.stringify(paths)).replace('__SHELL_INTEGRITY__',JSON.stringify(integrity));
 await writeFile(resolve(dist,'sw.js'),worker);
 await mkdir(resolve(root,'.openai/local'),{recursive:true});await writeFile(resolve(root,'.openai/local/next-build.json'),JSON.stringify({version,output:'Next.js static export',files:files.length+1,offlineEntries:paths.length},null,2));
 console.log('CHORYN Next.js build '+version+' → dist/ · '+paths.length+' verified offline entries');
