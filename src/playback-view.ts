@@ -1,28 +1,31 @@
-import type {PlaybackUpdate} from './types.js';
+import type {AnalysisFrame,Ghost,PlaybackUpdate} from './types.js';
 import type {Project} from './types.js';
 import {renderAnalysis2D} from './analysis-view.js';
 import {beatAt,timecode} from './engine.js';
 import {formatCount} from './music-model.js';
 import {sampleAttachedProp,propShapeSVG} from './prop-motion.js';
-import {renderMarkers2D,renderGhosts2D} from './stage2d.js';
+import {renderMarkers2D,renderGhosts2D,type Stage2DState} from './stage2d.js';
 import {sampleAppearance,lightingSVG,safetySVG,safetyIssues} from './production-next-model.js';
 import {contrastText} from './colors.js';
 import {attendanceContext} from './ensemble-schema.js';
 
-const attr=(node,key,value)=>{if(node&&node.getAttribute(key)!==String(value))node.setAttribute(key,String(value));};
-const text=(node,value)=>{if(node&&node.textContent!==String(value))node.textContent=String(value);};
+const attr=(node:Element|null|undefined,key:string,value:unknown)=>{if(node&&node.getAttribute(key)!==String(value))node.setAttribute(key,String(value));};
+const text=(node:Node|null|undefined,value:unknown)=>{if(node&&node.textContent!==String(value))node.textContent=String(value);};
+interface MarkerNodes {node:SVGGraphicsElement; facing:SVGGraphicsElement|null; ring:Element|null}
 
 // Keep focused stage objects and performer nodes alive while the clock advances.
 export function createPlaybackView(root:Element){
- const find=selector=>root.querySelector(selector),layer=find('#performer-markers'),objects=find('#stage-objects'),ghostLayer=find('#rehearsal-ghosts'),analysisLayer=find('#stage-analysis');
- let markers=new Map(),props=new Map(),playingId=null,activeId=null,ghostsRef,analysisRef;
- const scan=()=>{markers=new Map(Array.from(layer?.querySelectorAll('[data-marker]')||[],(node:SVGGraphicsElement)=>[node.dataset.marker,{node,facing:node.querySelector<SVGGraphicsElement>('.marker-facing'),ring:node.querySelector<HTMLInputElement>('.selection-ring')} ]));};scan();
- for(const node of objects?.querySelectorAll('[data-stage-object]')||[])props.set(node.dataset.stageObject,{node,shape:node.firstElementChild});
- const clock=find('[data-clock-main]'),fraction=find('#transport-time small'),scrub=find('#fine-scrub'),count=find('#precise-count'),playhead=find('#playhead'),phrase=find('[data-beat-phrase]'),beat=find('[data-beat-number]');
- const clips=new Map(Array.from(root.querySelectorAll<HTMLElement>('.timeline-formation'),node=>[node.dataset.formation,node]));
- return {update(project: Project,time,{positions,geometryPositions=positions,geometryIssues,state,playing=false,active,focused,hud=true}:PlaybackUpdate={}){
+ const find=<T extends Element=HTMLElement>(selector:string)=>root.querySelector<T>(selector),layer=find('#performer-markers'),objects=find('#stage-objects'),ghostLayer=find('#rehearsal-ghosts'),analysisLayer=find('#stage-analysis');
+ let markers=new Map<string,MarkerNodes>(),props=new Map<string,{node:SVGElement;shape:Element}>(),playingId:string|null|undefined=null,activeId:string|null|undefined=null,ghostsRef:Ghost[]|undefined,analysisRef:AnalysisFrame|undefined;
+ // Rendered markers, stage objects and clips always carry their ids, and an object's first child is its shape.
+ const scan=()=>{markers=new Map(Array.from(layer?.querySelectorAll<SVGGraphicsElement>('[data-marker]')||[],(node):[string,MarkerNodes]=>[node.dataset.marker!,{node,facing:node.querySelector<SVGGraphicsElement>('.marker-facing'),ring:node.querySelector<HTMLInputElement>('.selection-ring')} ]));};scan();
+ for(const node of objects?.querySelectorAll<SVGElement>('[data-stage-object]')||[])props.set(node.dataset.stageObject!,{node,shape:node.firstElementChild!});
+ const clock=find('[data-clock-main]'),fraction=find('#transport-time small'),scrub=find<HTMLInputElement>('#fine-scrub'),count=find('#precise-count'),playhead=find('#playhead'),phrase=find('[data-beat-phrase]'),beat=find('[data-beat-number]');
+ const clips=new Map(Array.from(root.querySelectorAll<HTMLElement>('.timeline-formation'),(node):[string|null|undefined,HTMLElement]=>[node.dataset.formation,node]));
+ return {update(project: Project,time:number,{positions,geometryPositions=positions,geometryIssues,state,playing=false,active,focused,hud=true}:PlaybackUpdate={}){
   if(hud){
-  if(scrub&&scrub!==focused)scrub.value=time;
+  // Assign the number itself; the input stores it as its string value.
+  if(scrub&&scrub!==focused)(scrub as unknown as {value:number}).value=time;
   text(clock,timecode(time));text(fraction,`.${String(Math.floor(time%1*100)).padStart(2,'0')}`);
   text(count,time<(project.music?.beatOffset||0)?'Count-in':formatCount(time,project.bpm,project.music?.beatOffset||0));
   if(playhead)playhead.style.left=`${time/project.duration*100}%`;
@@ -41,7 +44,7 @@ export function createPlaybackView(root:Element){
   if(safetyLayer){const html=safetySVG(project,positions,time,issues);if(safetyLayer.innerHTML!==html)safetyLayer.innerHTML=html;}
   if(project.production?.appearances.length){const people=new Map(sampleAppearance(project,time).map(p=>[p.id,p]));for(const [id,{node}] of markers){const person=people.get(id);if(!person)continue;attr(node.querySelector('.marker-body'),'fill',person.color);attr(node.querySelector('.marker-facing path'),'fill',person.color);attr(node.querySelector('text'),'fill',contrastText(person.color));}}
   if(ghostLayer&&state.ghosts!==ghostsRef){ghostLayer.innerHTML=renderGhosts2D(project,state.ghosts||[],state);ghostsRef=state.ghosts;}
-  if(layer&&positions.some(p=>p.visible!==false&&!markers.has(p.performerId))){layer.innerHTML=renderMarkers2D(project,positions,state);scan();}
+  if(layer&&positions.some(p=>p.visible!==false&&!markers.has(p.performerId))){layer.innerHTML=renderMarkers2D(project,positions,state as Stage2DState);scan();}
   for(const p of positions){const item=markers.get(p.performerId);if(!item)continue;const {node,facing,ring}=item;const hidden=p.visible===false;
    if(node.style.display!==(hidden?'none':''))node.style.display=hidden?'none':'';
    if(hidden)continue;
@@ -51,7 +54,7 @@ export function createPlaybackView(root:Element){
   const attendance=attendanceContext(project,time);
   for(const prop of project.props||[]){if(!prop.keyframes?.length&&!prop.attachments?.length)continue;const item=props.get(prop.id);if(!item)continue;const p=sampleAttachedProp(prop,time,positions,project,attendance),shape=item.shape;
    attr(item.node,'transform',`translate(${(project.stage.width/2+p.x)*60} ${(project.stage.depth/2-p.z)*60})`);attr(shape,'transform',`rotate(${p.rotation})`);attr(shape,'fill',p.color);attr(shape,'stroke',p.color);
-   const tag={rectangle:'rect',ellipse:'ellipse',triangle:'path'}[p.shape];if(shape.firstElementChild?.tagName.toLowerCase()!==tag)shape.innerHTML=propShapeSVG(p);
+   const tag=({rectangle:'rect',ellipse:'ellipse',triangle:'path'} as Record<string,string>)[p.shape];if(shape.firstElementChild?.tagName.toLowerCase()!==tag)shape.innerHTML=propShapeSVG(p);
    const geometry=shape.firstElementChild,w=p.width*60,d=p.depth*60;
    if(p.shape==='ellipse'){attr(geometry,'rx',w/2);attr(geometry,'ry',d/2);}
    else if(p.shape==='triangle')attr(geometry,'d',`M0 ${-d/2}L${w/2} ${d/2}H${-w/2}Z`);

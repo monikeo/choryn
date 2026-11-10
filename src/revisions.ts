@@ -1,10 +1,10 @@
 import type {Revision} from './types.js';
 import type {Project} from './types.js';
 import {localId,cloneData} from './compat.js';
-let db;
-const recent=new Map();
+let db:IDBDatabase|undefined;
+const recent=new Map<string,string>();
 async function database(){if(db)return db;return new Promise<IDBDatabase>((resolve,reject)=>{const request=indexedDB.open('choryn-revisions',1);request.onupgradeneeded=()=>{const store=request.result.createObjectStore('snapshots',{keyPath:'id'});store.createIndex('projectId','projectId');};request.onerror=()=>reject(request.error);request.onsuccess=()=>{db=request.result;resolve(db);};});}
-export async function listRevisions(projectId){const db=await database();return new Promise<Revision[]>((resolve,reject)=>{const request=db.transaction('snapshots').objectStore('snapshots').index('projectId').getAll(projectId);request.onsuccess=()=>resolve(request.result.sort((a,b)=>b.createdAt-a.createdAt));request.onerror=()=>reject(request.error);});}
+export async function listRevisions(projectId:string){const db=await database();return new Promise<Revision[]>((resolve,reject)=>{const request=db.transaction('snapshots').objectStore('snapshots').index('projectId').getAll(projectId);request.onsuccess=()=>resolve(request.result.sort((a:Revision,b:Revision)=>b.createdAt-a.createdAt));request.onerror=()=>reject(request.error);});}
 export async function recordRevision(project: Project,label='Auto-saved editor snapshot'){
   const content=JSON.stringify({...project,updatedAt:0});if(recent.get(project.id)===content)return;
   const db=await database(),existing=await listRevisions(project.id);

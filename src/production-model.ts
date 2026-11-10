@@ -56,7 +56,7 @@ export function safeReference(value:unknown) {
   if (!value) return '';
   try { const u=new URL(value as string); return u.protocol==='https:' && !u.username && !u.password ? u.href.slice(0,2000) : ''; } catch { return ''; }
 }
-export function getRoute(project: Project,fromId:string,toId:string,performerId:string){return (project.routes||[]).find(r=>r.fromId===fromId&&r.toId===toId&&r.performerId===performerId);}
+export function getRoute(project: Project,fromId:string,toId:string|undefined,performerId:string){return (project.routes||[]).find(r=>r.fromId===fromId&&r.toId===toId&&r.performerId===performerId);}
 // Geometry and arc lengths share a weak entry: abandoned projects and drag
 // previews can be collected. Coordinates in the key catch in-place path edits.
 interface RouteGeometry {key:string; points:Point[]; cumulative:number[]; total:number}

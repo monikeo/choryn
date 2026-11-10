@@ -1,11 +1,11 @@
-import type {Pose} from './types.js';
+import type {Point,Pose,Stage} from './types.js';
 import {clamp} from './engine.js';
-export function boxSelection(positions:Pose[],start,end,initial=new Set<string>(),mode='replace'){
+export function boxSelection(positions:Pose[],start:Point,end:Point,initial=new Set<string>(),mode='replace'){
   const result=mode==='replace'?new Set<string>():new Set<string>(initial),minX=Math.min(start.x,end.x),maxX=Math.max(start.x,end.x),minZ=Math.min(start.z,end.z),maxZ=Math.max(start.z,end.z);
   for(const p of positions)if(p.visible!==false&&p.x>=minX&&p.x<=maxX&&p.z>=minZ&&p.z<=maxZ){if(mode==='subtract')result.delete(p.performerId);else result.add(p.performerId);}
   return result;
 }
-export function translateSelection(positions: import("./types.js").Pose[],ids,dx,dz,stage){
+export function translateSelection(positions:Pose[],ids:Set<string>,dx:number,dz:number,stage:Pick<Stage,'width'|'depth'>){
   const chosen=positions.filter(p=>ids.has(p.performerId));if(!chosen.length)return positions.map(p=>({...p}));
   dx=clamp(dx,Math.min(0,-stage.width/2+.2-Math.min(...chosen.map(p=>p.x))),Math.max(0,stage.width/2-.2-Math.max(...chosen.map(p=>p.x))));
   dz=clamp(dz,Math.min(0,-stage.depth/2+.2-Math.min(...chosen.map(p=>p.z))),Math.max(0,stage.depth/2-.2-Math.max(...chosen.map(p=>p.z))));

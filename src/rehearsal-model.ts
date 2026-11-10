@@ -22,7 +22,7 @@ export function ghostFrames(project: Project,time:number,aids:RehearsalAids={},s
 
  const maxFrames=Math.max(1,Math.floor(300/Math.max(1,aids.selectedOnly&&selected.size?selected.size:project.performers.length))),seen=new Set();return times.filter(f=>!seen.has(f.time)&&seen.add(f.time)).slice(0,maxFrames).map(f=>({...f,positions:samplePerformance(project,f.time).filter(p=>p.visible!==false&&(!aids.selectedOnly||!selected.size||selected.has(p.performerId)))}));
 }
-export function followView(project: Project,positions:Pose[],state:ViewSnapshot):ViewSnapshot{
+export function followView<S extends ViewSnapshot>(project: Project,positions:Pose[],state:S):S&Pick<ViewSnapshot,'directed'>{
  const follow=state.aids?.follow;if(!follow)return directedView(project,state.time||0,state);const ids=follow.startsWith('group:')?new Set(project.performers.filter(p=>p.group===follow.slice(6)).map(p=>p.id)):new Set([follow]),people=positions.filter(p=>p.visible!==false&&ids.has(p.performerId));if(!people.length)return state;
  const center={x:people.reduce((v,p)=>v+p.x,0)/people.length,z:people.reduce((v,p)=>v+p.z,0)/people.length},delta=viewVector(center.x*60,-center.z*60,state.rotation,state.mirror,state.flip),zoom=Math.max(.5,Math.min(3,Number(state.aids!.followZoom)||state.zoom||1));
  return {...state,zoom,pan:{x:-delta.x*zoom,y:-delta.y*zoom},camera:{...state.camera,zoom:Math.max(.5,Math.min(3,zoom)),target:[center.x,.2,-center.z]}};
