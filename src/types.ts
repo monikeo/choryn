@@ -59,7 +59,7 @@ export interface MediaOptions {media?:typeof import('./mediabunny.js'); environm
 export interface VideoInput {resolution?:number|string|null; fps?:number|string|null; quality?:string|null; start?:number|string|null; end?:number|string|null;aspect?:number; labels?:boolean; camera?:string; look?:string}
 export interface CacheStatus {ok?:boolean; complete?:boolean; cached?:number; total?:number; version?:string; error?:string}
 export interface Project {sceneLights?:ReturnType<typeof import('./production-next-model.js').sampleLights>; sceneSafety?:ReturnType<typeof import('./production-next-model.js').safetyIssues>; sceneHighlights?:string[]}
-export interface PlaybackUpdate {positions?:Pose[]; geometryPositions?:Pose[]; geometryIssues?:AnalysisIssue[]; state?:ViewSnapshot; playing?:boolean; active?:string; focused?:Element; hud?:boolean}
+export interface PlaybackUpdate {positions?:Pose[]; geometryPositions?:Pose[]; geometryIssues?:AnalysisIssue[]; state?:ViewSnapshot; playing?:boolean; active?:string; focused?:Element|null; hud?:boolean}
 export interface ImageCaptureOptions {format?:string; scale?:number; quality?:number; signal?:AbortSignal; start?:number}
 export interface ZipOptions {signal?:AbortSignal; onProgress?:(fraction:number)=>void; maxBytes?:number}
 /**
