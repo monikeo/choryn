@@ -22,7 +22,7 @@ export function timedItems(project: Project):TimedItem[]{
 export function assertTrackUnlocked(project: Project,kind:string|undefined,id?:string){const key=(kind&&track[kind])||kind;if(project.production?.layers?.[key as TrackName]?.locked)throw Error('Unlock the '+key+' track before editing.');if(kind==='formation'&&project.formations.find(f=>f.id===id)?.status==='approved')throw Error('Unlock the formation first.');}
 export function cleanLinks(project: Project){if(!project.production)return project;const existing=new Set(timedItems(project).map(v=>v.key));project.production.links=project.production.links.map(g=>({...g,items:g.items.filter(k=>existing.has(k))})).filter(g=>g.items.length>=2);return project;}
 export function assertRouteEdits(before: Project,after: Project){
- const shape=(r:Route)=>JSON.stringify([r.fromId,r.toId,r.performerId,r.duration,r.delay,r.easing,r.curve||'linear',r.timingCurve||null,r.waypoints?.map(p=>[p.x,p.z])||[]]);
+ const shape=(r:Route)=>JSON.stringify([r.fromId,r.toId,r.performerId,r.duration,r.delay,r.settle||0,r.easing,r.curve||'linear',r.timingCurve||null,r.waypoints?.map(p=>[p.x,p.z])||[]]);
  const routes=new Map((after.routes||[]).map(r=>[r.id,r]));
  for(const route of before.routes||[])if(route.locked){const next=routes.get(route.id);if(!next||shape(route)!==shape(next))throw Error('Unlock the affected custom route before changing or removing it.');}
  if(before.production?.layers.movement.locked&&JSON.stringify(before.routes)!==JSON.stringify(after.routes))throw Error('Unlock the movement track before changing its custom routes.');

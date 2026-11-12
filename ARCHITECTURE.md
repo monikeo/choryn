@@ -37,6 +37,17 @@ One DOM serves three layouts. `src/responsive.css` is imported last in `app/layo
 - **Touch and stylus** (`src/input-gestures.ts`): a two-finger tap undoes and a three-finger tap redoes. Palm rejection ignores touches while a stylus is drawing or hovering on the stage.
 - **Files in** (`src/file-drop.ts`): drop music or a `.choryn` backup anywhere. Installed Chromium apps open `.choryn` files from the OS through the manifest `file_handlers` and `launchQueue`. Both routes reuse the hidden file inputs and their validation.
 
+## Creative tools
+
+The creative tools write ordinary project data, so playback, analysis, exports, undo and validation treat their results like hand-made edits:
+
+- **Transition designer** (`src/transition-styles.ts`) turns a style and a canon order into routes: waypoints for the path, `delay` for a later start and the optional `settle` for an early arrival. The engine samples a route over `[next.time − window + delay, next.time − settle]`, so a canon gives every wave the same move length. A gap too long for the time available is shortened so no move is under 0.6 s.
+- **Variations** (`src/formation-variations.ts`) and the **Shapes palette** reuse `fitToStage` and the shortest-travel assignment. A drop converts the pointer through `#stage-transform`'s screen matrix, so rotated, mirrored and zoomed views place the shape where the finger lifts.
+- **Music structure** (`src/music-structure.ts`) derives 8-count phrases from the tempo and count 1. Song sections compare loudness phrase by phrase; snapping uses the timeline model, so locks and linked events behave as they do for a drag.
+- **Problems lane** (`src/problems-model.ts`) groups `evaluateTransition` issues per formation, kind and phase (holding or travelling). Results are cached per transition content, so an edit re-checks only the moves next to the changed formation. The lane updates shortly after edits settle and never during playback.
+- **Editing history** labels undo snapshots with `describeChange` and jumps several steps with `undo(redo, steps)`.
+- **Simple / Pro** sets `data-level` on the document; Simple hides `.pro-only` controls with CSS, so nothing is removed from the DOM or from keyboard commands. New users start in Simple; existing users keep Pro.
+
 ## TypeScript boundaries
 
 Everything authored for this project is TypeScript, apart from the regression tests:

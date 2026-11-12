@@ -30,9 +30,9 @@ export function validateExtras(source:Unchecked, base:ExtrasBase):Extras {
   });
   const routes = collection(source, 'routes', 10000, (r):Route => {
     const from=base.formations.find(f=>f.id===r.fromId),to=base.formations.find(f=>f.id===r.toId);
-    requireValue(from && to && from.time<to.time && performerIds.has(r.performerId) && finite(r.delay,0,59) && finite(r.duration,.1,60) && r.delay<r.duration && Array.isArray(r.waypoints) && r.waypoints.length<=12 && r.waypoints.every((p:Unchecked)=>finite(p.x,-100,100)&&finite(p.z,-100,100)), 'movement route');
+    requireValue(from && to && from.time<to.time && performerIds.has(r.performerId) && finite(r.delay,0,59) && finite(r.duration,.1,60) && r.delay<r.duration && (r.settle==null||finite(r.settle,0,59)&&r.delay+r.settle<r.duration) && Array.isArray(r.waypoints) && r.waypoints.length<=12 && r.waypoints.every((p:Unchecked)=>finite(p.x,-100,100)&&finite(p.z,-100,100)), 'movement route');
     requireValue(!r.timingCurve||Array.isArray(r.timingCurve)&&r.timingCurve.length===4&&r.timingCurve.every((n:unknown)=>finite(n,0,1))&&r.timingCurve[0]<=r.timingCurve[2]&&r.timingCurve[1]<=r.timingCurve[3],'motion timing curve');
-    return {id:r.id,fromId:r.fromId,toId:r.toId,performerId:r.performerId,delay:r.delay,duration:r.duration,easing:r.easing==='linear'?'linear':'smooth',...(r.timingCurve?{timingCurve:[...r.timingCurve]}:{}),...(r.curve==='smooth'||r.curve==='linear'?{curve:r.curve}:{}),locked:!!r.locked,waypoints:r.waypoints.map((p:Unchecked)=>({x:p.x,z:p.z}))};
+    return {id:r.id,fromId:r.fromId,toId:r.toId,performerId:r.performerId,delay:r.delay,duration:r.duration,easing:r.easing==='linear'?'linear':'smooth',...(r.timingCurve?{timingCurve:[...r.timingCurve]}:{}),...(r.curve==='smooth'||r.curve==='linear'?{curve:r.curve}:{}),locked:!!r.locked,waypoints:r.waypoints.map((p:Unchecked)=>({x:p.x,z:p.z})),...(r.settle?{settle:r.settle}:{})};
   });
   requireValue(new Set(routes.map(r=>`${r.fromId}:${r.toId}:${r.performerId}`)).size===routes.length,'duplicate route');
   const actions = collection(source,'actions',300,(a):Action=>{

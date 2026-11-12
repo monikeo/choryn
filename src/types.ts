@@ -15,7 +15,7 @@ export interface Formation {id:string; name:string; time:number; status:string; 
 export interface Cue {id:string; time:number; label:string}
 export interface Stage {width:number; depth:number; grid:number}
 export interface Music {mode:string; trimStart:number; trimEnd:number|null; start:number; beatOffset:number}
-export interface Route {id:string; fromId:string; toId:string; performerId:string; delay:number; duration:number; easing:string; timingCurve?:number[]; curve?:string; locked:boolean; waypoints:Point[]}
+export interface Route {id:string; fromId:string; toId:string; performerId:string; delay:number; duration:number; easing:string; timingCurve?:number[]; curve?:string; locked:boolean; waypoints:Point[]; /** Seconds the performer arrives (and holds) before the next formation starts; canon timing. */ settle?:number}
 export interface PropPose extends Point {width:number; depth:number; height:number; rotation:number; color:string; shape:string}
 export interface PropKeyframe extends PropPose {id:string; time:number; easing:string}
 export interface Attachment extends Point {id:string; time:number; performerId:string|null; rotate:boolean; rotation:number}

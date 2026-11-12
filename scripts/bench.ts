@@ -12,7 +12,7 @@ await stripSources(root,runtime);
 // The stripped modules are plain JavaScript loaded from a computed path, so they are typed loosely here.
 type Module=Record<string,any>;
 const load=(name:string):Promise<Module>=>import(pathToFileURL(resolve(runtime,'src',name)).href);
-const [engine,model,rehearsal,analysis,stage2d,stage3d,tools,beats]=await Promise.all(['engine.js','production-next-model.js','rehearsal-model.js','analysis-model.js','stage2d.js','stage3d.js','formation-tools.js','beat-detect.js'].map(load));
+const [engine,model,rehearsal,analysis,stage2d,stage3d,tools,beats,styles,variations,problems,structure]=await Promise.all(['engine.js','production-next-model.js','rehearsal-model.js','analysis-model.js','stage2d.js','stage3d.js','formation-tools.js','beat-detect.js','transition-styles.js','formation-variations.js','problems-model.js','music-structure.js'].map(load));
 
 type Result={label:string;median:number;p95:number;runs:number};
 function bench(label:string,fn:(i:number)=>unknown,{min=60,ms=400}={}):Result{
@@ -70,6 +70,12 @@ results.push(bench('spaceApart (fix spacing, 100 dancers packed tight)',()=>tool
 results.push(bench('planClearRoutes (collision-free, 100 dancers)',()=>tools.planClearRoutes(project,project.formations[1].id),{min:3,ms:400}));
 const rate=22050,song=new Float32Array(rate*180);for(let k=0;k*rate*.5<song.length;k++){const s=Math.round(k*rate*.5);for(let j=0;j<rate*.08&&s+j<song.length;j++)song[s+j]=Math.exp(-j/rate*25)*Math.sin(j*.05);}
 results.push(bench('detectTempo (3-minute song)',()=>beats.detectTempo(song,rate),{min:3,ms:400}));
+results.push(bench('detectSections (3-minute song, 8-count phrases)',()=>structure.detectSections(song,rate,{...project,duration:180,music:{...project.music,mode:'file'}}),{min:3,ms:400}));
+results.push(bench('designTransition (spiral canon, 100 dancers)',()=>styles.designTransition(project,project.formations[1].id,{style:'spiral-cw',order:'center-out',timing:'canon',spread:1}),{min:5,ms:400}));
+results.push(bench('formationVariations (100 dancers)',()=>variations.formationVariations(project,project.formations[2].id),{min:5,ms:400}));
+// A unique stage each run defeats every cache (opening a show); moving one formation re-checks only its two moves.
+results.push(bench('timelineProblems (whole show, first check)',i=>problems.timelineProblems({...project,stage:{...project.stage,grid:1+i*1e-6}}),{min:3,ms:600}));
+results.push(bench('timelineProblems (after moving one formation)',i=>{const f=project.formations[2],moved={...f,positions:f.positions.map((p:{x:number},k:number)=>k?p:{...p,x:p.x+(i+1)*1e-4})};return problems.timelineProblems({...project,formations:project.formations.map((v:object,k:number)=>k===2?moved:v)});},{min:5,ms:600}));
 
 const width=Math.max(...results.map(r=>r.label.length));
 console.log(`CHORYN CPU benchmark · ${project.performers.length} performers · ${project.formations.length} formations · Node ${process.version}\n`);

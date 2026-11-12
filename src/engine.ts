@@ -69,8 +69,8 @@ export function sampleAuthoredPerformance(project: Project, time:number):Pose[] 
     const route=routes.get(p.performerId);
     if(!route)return interpolatePosition(pathProject,p,next,t);
     const window=Math.min(to.time-from.time,route.duration);
-    const delay=Math.min(route.delay,Math.max(0,window-.001));
-    const progress=clamp((time-(to.time-window+delay))/Math.max(.001,window-delay),0,1);
+    const delay=Math.min(route.delay,Math.max(0,window-.001)),settle=Math.min(route.settle||0,Math.max(0,window-delay-.001));
+    const progress=clamp((time-(to.time-window+delay))/Math.max(.001,window-delay-settle),0,1);
     const amount=route.timingCurve?motionProgress(progress,route.timingCurve):route.easing==='linear'?progress:progress*progress*(3-2*progress);
     return interpolatePosition(pathProject,p,next,amount,route);
   });
