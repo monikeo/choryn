@@ -1,3 +1,34 @@
+# Creative workflow tools — 13 November 2026
+
+561 tests (11 new for the creative tools), the TypeScript checks and the Next.js production build pass. The benchmark tracks the new work at 100 dancers: transition design 0.7 ms, variations 1.6 ms, song sections for a 3-minute song 1.0 ms. The problems check takes 80 ms on first open and 42 ms after moving one formation; it runs once edits settle and never during playback.
+
+**Safari engine (WebKit 18.2, Playwright device profiles).** iPhone SE, iPhone 15 Pro, iPhone 15 Pro Max landscape, iPad Mini, and iPad Pro 11 in portrait and landscape all had:
+
+- no page errors and no sideways scrolling;
+- a touch-pointer drag from the Shapes palette onto the stage, with a 12-dot live preview and the shape placed;
+- the transition designer, history and My part fitting the screen.
+
+WebKit logs one console notice that it ignores the Chrome-only `interactive-widget` viewport key; this is expected. The first pass found two problems, both fixed:
+
+- the designer's sliders and selects overflowed the dialog on iPhone and iPad;
+- the Simple/Pro switch was not reachable on phones. It is now also in More and in Settings.
+
+These are engine and viewport emulations on Windows, not physical devices: real iOS Safari chrome, the on-screen keyboard, GPU and Pencil were not tested.
+
+**Accessibility.** axe-core 4.10 ran its WCAG 2.0/2.1/2.2 A and AA rules on 10 screens: the studio, shapes palette, transition designer, variations, music structure, history, problem dialog, settings, My part and More. Each screen was checked in light and dark themes, on a desktop and an iPhone viewport.
+
+The first run found two issues, both fixed:
+
+- 22 low-contrast nodes: translucent small timeline text, and the problem red at 4.47:1;
+- an `aria-label` on SVG groups that had no role.
+
+After the fixes, axe reported 0 violations. Manual checks:
+
+- Problem markers keep their button role.
+- The path-style picker is a radio group with arrow, Home and End keys.
+- Opening the Shapes palette focuses the first shape, and activating a shape places it in the middle.
+- Dialogs use the native modal focus trap.
+
 # CHORYN v0.19.3 timeline audit — 1 November 2026
 
 491 tests, both TypeScript checks and the Next.js production build pass. Build `6df872be3752e515` contains 70 output files and 65 offline entries. This release remains on Next.js/TypeScript and keeps the existing local-first storage keys and private audience.

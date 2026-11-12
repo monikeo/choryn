@@ -14,6 +14,14 @@ The application runs on **Next.js App Router and React**, with TypeScript applic
 - **Fix spacing** pushes dancers who are too close apart to the safety distance, moving as little as possible.
 - **Collision-free routes** bend or delay individual paths so dancers keep their distance while they travel, without anyone moving faster than 3 m/s.
 - **Detect tempo and count 1** from uploaded music, so the counts line up with the song.
+- **Drag a shape onto the stage** from the Shapes palette (mouse, touch or pen). A live preview shows where everyone will land, and each dancer takes the nearest spot. With two or more dancers selected, only they take the shape.
+- **Show me variations** offers mirrored, flipped, turned, tighter, wider and recast versions of a formation, side by side.
+- **Design transition** gives a move a style (explode, implode, spiral either way, peel-off, follow the leader) and **canon or ripple timing**: dancers start one after another left to right, front to back, from the centre out, by number or by group. In a canon everyone moves for the same time; in a cascade everyone lands together.
+- **Phrases & song sections** shades every other 8-count phrase on the timeline, snaps formation starts to count 1, and finds where the music gets louder or quieter so you can add a cue or a new formation at each section.
+- The **Problems lane** on the timeline marks crowding, off-stage dancers, props in the way and rushed moves, with a one-click fix (or "fix all") for most of them.
+- **Editing history** shows every undo step as a picture with a plain label ("Moved 3 performers in “Open diamond”"); pick any step to jump back or forward.
+- **Simple or Pro**: Simple shows the essentials and is the default for new users; Pro shows every tool. Switch in the header, Settings or the phone's More menu.
+- **My part** gives each dancer a cue sheet in stage words (where to stand, which way to face, who is beside them, how far to travel and in how many counts), plus print and a personal rehearsal pack.
 - Film the 3D stage with **cinematic cameras** (audience push-in, overhead, side wing, slow orbit, follow the highlighted dancers) in Rehearsal or Show light.
 - Edit the performance timeline with drag and drop, trim, split, duplicate, ripple edits and linked events.
 - Draw curved performer routes and adjust movement duration, departure delay and easing.
@@ -120,6 +128,10 @@ The tracked `.openai/hosting.json` belongs to the existing hosted CHORYN deploym
 | `src/stage2d.ts`, `src/stage3d.ts` | SVG and WebGL stage renderers |
 | `src/formation-tools.ts` | Shortest-travel spot assignment, fix spacing and the collision-free route planner |
 | `src/beat-detect.ts` | Tempo and first-downbeat detection for uploaded music (loaded on demand) |
+| `src/transition-styles.ts` | Transition designer: path styles and canon / cascade timing as ordinary routes |
+| `src/formation-variations.ts`, `src/music-structure.ts` | Formation variations; 8-count phrases, phrase snapping and song sections |
+| `src/problems-model.ts`, `src/history-model.ts`, `src/my-part.ts` | Problems lane checks and fixes, undo-step labels, a performer's cue sheet |
+| `src/creative-studio.ts`, `src/creative.css` | UI for the tools above, the Shapes palette and Simple / Pro |
 | `src/production-*.ts` | Stage, lighting, appearance, camera and production tools |
 | `src/view-video.ts`, `src/mp4-export.ts` | Matching-view capture, cinematic 3D cameras and MP4 export |
 | `src/image-exports.ts` | Image previews and batch downloads |
